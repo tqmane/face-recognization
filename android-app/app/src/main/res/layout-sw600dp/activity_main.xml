@@ -124,6 +124,28 @@
             android:textSize="15sp"
             android:textColor="@color/text_secondary" />
 
+        <!-- テストセット作成・管理ボタン -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestSet"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="24dp"
+            android:text="📦 テストセット作成・管理"
+            android:textSize="20sp"
+            android:textColor="@color/ios_blue"
+            app:cornerRadius="14dp"
+            app:strokeColor="@color/ios_blue"
+            app:strokeWidth="1.5dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="事前ダウンロードで高速テスト"
+            android:textSize="15sp"
+            android:textColor="@color/text_secondary" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
