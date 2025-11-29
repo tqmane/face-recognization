@@ -1,0 +1,77 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- iOS風テーマ -->
+    <style name="Theme.SimilarityQuiz" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/ios_blue</item>
+        <item name="colorPrimaryVariant">@color/primary_variant</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- iOS風ボタン -->
+    <style name="IOSButton" parent="Widget.Material3.Button">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="IOSButton.Primary">
+        <item name="backgroundTint">@color/ios_blue</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="IOSButton.Green">
+        <item name="backgroundTint">@color/ios_green</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="IOSButton.Red">
+        <item name="backgroundTint">@color/ios_red</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="IOSButton.Secondary" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="strokeColor">@color/ios_blue</item>
+        <item name="android:textColor">@color/ios_blue</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- iOS風カード -->
+    <style name="IOSCard">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="cardBackgroundColor">@color/white</item>
+    </style>
+
+    <!-- iOS風テキスト -->
+    <style name="IOSText.Title">
+        <item name="android:textSize">34sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="IOSText.Headline">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="IOSText.Body">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="IOSText.Caption">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+</resources>

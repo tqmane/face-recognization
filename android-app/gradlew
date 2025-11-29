@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Gradle wrapper script
+# This will download and run gradle
+
+GRADLE_VERSION="8.2"
+GRADLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+
+# Check if gradle wrapper jar exists
+if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+    echo "Downloading Gradle wrapper..."
+    mkdir -p gradle/wrapper
+    curl -L -o gradle/wrapper/gradle-wrapper.jar \
+        "https://github.com/gradle/gradle/raw/v${GRADLE_VERSION}/gradle/wrapper/gradle-wrapper.jar"
+fi
+
+# Run gradle
+java -jar gradle/wrapper/gradle-wrapper.jar "$@"

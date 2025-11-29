@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS風カラーパレット -->
+    <color name="primary">#007AFF</color>
+    <color name="primary_variant">#0051D4</color>
+    <color name="secondary">#5856D6</color>
+    <color name="background">#F2F2F7</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="card_background">#FFFFFF</color>
+    
+    <!-- テキストカラー -->
+    <color name="text_primary">#000000</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_tertiary">#C7C7CC</color>
+    
+    <!-- ボタンカラー（iOS風） -->
+    <color name="btn_same">#34C759</color>
+    <color name="btn_different">#FF3B30</color>
+    <color name="btn_same_pressed">#248A3D</color>
+    <color name="btn_different_pressed">#C93025</color>
+    
+    <!-- システムカラー -->
+    <color name="ios_blue">#007AFF</color>
+    <color name="ios_green">#34C759</color>
+    <color name="ios_red">#FF3B30</color>
+    <color name="ios_orange">#FF9500</color>
+    <color name="ios_yellow">#FFCC00</color>
+    <color name="ios_gray">#8E8E93</color>
+    <color name="ios_gray2">#AEAEB2</color>
+    <color name="ios_gray3">#C7C7CC</color>
+    <color name="ios_gray4">#D1D1D6</color>
+    <color name="ios_gray5">#E5E5EA</color>
+    <color name="ios_gray6">#F2F2F7</color>
+    
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- セパレーター -->
+    <color name="separator">#C6C6C8</color>
+</resources>

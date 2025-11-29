@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- タブレット用のサイズ -->
+    <dimen name="text_title">48sp</dimen>
+    <dimen name="text_large">28sp</dimen>
+    <dimen name="text_medium">22sp</dimen>
+    <dimen name="text_normal">18sp</dimen>
+    <dimen name="button_height">72dp</dimen>
+    <dimen name="padding_large">32dp</dimen>
+    <dimen name="padding_medium">24dp</dimen>
+</resources>
