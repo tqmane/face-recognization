@@ -73,14 +73,9 @@ class ResultActivity : AppCompatActivity() {
             finish()
         }
 
-        // もう一度ボタン（モードに応じたアクティビティへ）
+        // もう一度ボタン（オンラインモードのみ）
         binding.btnRetry.setOnClickListener {
-            val targetActivity = if (mode == "online") {
-                OnlineQuizActivity::class.java
-            } else {
-                QuizActivity::class.java
-            }
-            startActivity(android.content.Intent(this, targetActivity))
+            startActivity(android.content.Intent(this, OnlineQuizActivity::class.java))
             finish()
         }
     }

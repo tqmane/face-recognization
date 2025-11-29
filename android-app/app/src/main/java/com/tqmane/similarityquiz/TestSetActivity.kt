@@ -245,10 +245,11 @@ class TestSetActivity : AppCompatActivity() {
     }
 
     private fun startTestFromSet(testSet: TestSetManager.TestSetInfo, questionCount: Int) {
-        val intent = Intent(this, OfflineTestActivity::class.java)
+        val intent = Intent(this, OnlineQuizActivity::class.java)
         intent.putExtra("test_set_path", testSet.dirPath)
         intent.putExtra("test_set_name", testSet.genre.displayName)
         intent.putExtra("question_count", questionCount)
+        intent.putExtra("genre", testSet.genre.name)
         startActivity(intent)
     }
 
