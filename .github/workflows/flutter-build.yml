@@ -35,7 +35,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "linux" ]; then
-          flutter create --platforms=linux .
+          flutter create --project-name similarity_quiz --platforms=linux .
         fi
 
     - name: Get dependencies
@@ -81,7 +81,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if (!(Test-Path "windows")) {
-          flutter create --platforms=windows .
+          flutter create --project-name similarity_quiz --platforms=windows .
         }
 
     - name: Get dependencies
@@ -122,7 +122,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "macos" ]; then
-          flutter create --platforms=macos .
+          flutter create --project-name similarity_quiz --platforms=macos .
         fi
 
     - name: Get dependencies
@@ -170,7 +170,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "android" ]; then
-          flutter create --platforms=android .
+          flutter create --project-name similarity_quiz --platforms=android .
         fi
 
     - name: Get dependencies
