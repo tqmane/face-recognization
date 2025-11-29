@@ -46,7 +46,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "linux" ]; then
-          flutter create --project-name similarity_quiz --platforms=linux .
+          flutter create --project-name similarity_quiz --org com.tqmane --platforms=linux .
         fi
 
     - name: Clean and get dependencies
@@ -105,7 +105,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if (!(Test-Path "windows")) {
-          flutter create --project-name similarity_quiz --platforms=windows .
+          flutter create --project-name similarity_quiz --org com.tqmane --platforms=windows .
         }
 
     - name: Clean and get dependencies
@@ -159,7 +159,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "macos" ]; then
-          flutter create --project-name similarity_quiz --platforms=macos .
+          flutter create --project-name similarity_quiz --org com.tqmane --platforms=macos .
         fi
 
     - name: Clean and get dependencies
@@ -214,7 +214,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "ios" ]; then
-          flutter create --project-name similarity_quiz --platforms=ios .
+          flutter create --project-name similarity_quiz --org com.tqmane --platforms=ios .
         fi
 
     - name: Set iOS deployment target to 16.4
@@ -289,7 +289,7 @@ jobs:
       working-directory: flutter-app
       run: |
         if [ ! -d "android" ]; then
-          flutter create --project-name similarity_quiz --platforms=android .
+          flutter create --project-name similarity_quiz --org com.tqmane --platforms=android .
         fi
 
     - name: Update Kotlin version for compatibility
