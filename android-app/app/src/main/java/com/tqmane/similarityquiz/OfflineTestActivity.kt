@@ -3,10 +3,10 @@ package com.tqmane.similarityquiz
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.tqmane.similarityquiz.databinding.ActivityOnlineQuizBinding
-import java.io.File
 
 /**
  * 保存済みテストセットからのクイズ実行
@@ -72,8 +72,14 @@ class OfflineTestActivity : AppCompatActivity() {
         totalQuestions = questions.size
 
         // 読み込み画面を非表示にしてクイズ画面を表示
-        binding.loadingPanel.visibility = android.view.View.GONE
-        binding.quizPanel.visibility = android.view.View.VISIBLE
+        binding.loadingContainer.visibility = View.GONE
+        binding.ivQuizImage.visibility = View.VISIBLE
+        binding.buttonContainer.visibility = View.VISIBLE
+        binding.cancelContainer.visibility = View.GONE
+        
+        // ボタンを有効化
+        binding.btnSame.isEnabled = true
+        binding.btnDifferent.isEnabled = true
 
         // ボタン設定
         binding.btnSame.setOnClickListener { checkAnswer(true) }
@@ -90,8 +96,9 @@ class OfflineTestActivity : AppCompatActivity() {
         }
 
         val question = questions[currentQuestionIndex]
-        binding.tvQuestionNumber.text = "Q${currentQuestionIndex + 1} / $totalQuestions"
-        binding.tvDescription.text = question.description
+        binding.tvProgress.text = "問題 ${currentQuestionIndex + 1} / $totalQuestions"
+        binding.tvScore.text = "$score 点"
+        binding.tvGenre.text = "📁 $testSetName"
 
         // 画像読み込み
         val testSetInfo = TestSetManager.TestSetInfo(
@@ -107,7 +114,7 @@ class OfflineTestActivity : AppCompatActivity() {
         currentBitmap = testSetManager.loadQuestionImage(testSetInfo, question)
         
         if (currentBitmap != null) {
-            binding.ivQuiz.setImageBitmap(currentBitmap)
+            binding.ivQuizImage.setImageBitmap(currentBitmap)
         } else {
             // 画像読み込み失敗時はスキップ
             currentQuestionIndex++
@@ -150,7 +157,7 @@ class OfflineTestActivity : AppCompatActivity() {
         // 画像のクリア
         currentBitmap?.recycle()
         currentBitmap = null
-        binding.ivQuiz.setImageBitmap(null)
+        binding.ivQuizImage.setImageBitmap(null)
 
         // ベストスコア更新（テストセット用）
         val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
