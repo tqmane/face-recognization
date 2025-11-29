@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         // 履歴画面
-        binding.cardHistory.setOnClickListener {
+        binding.cardHistory?.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
 

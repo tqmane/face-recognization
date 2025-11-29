@@ -53,10 +53,6 @@ jobs:
       working-directory: flutter-app
       run: flutter pub get
 
-    - name: Generate launcher icons
-      working-directory: flutter-app
-      run: dart run flutter_launcher_icons
-
     - name: Run tests
       working-directory: flutter-app
       run: flutter test || echo "No tests found"
@@ -114,10 +110,6 @@ jobs:
       working-directory: flutter-app
       run: flutter pub get
 
-    - name: Generate launcher icons
-      working-directory: flutter-app
-      run: dart run flutter_launcher_icons
-
     - name: Build Windows
       working-directory: flutter-app
       run: flutter build windows --release
@@ -169,10 +161,6 @@ jobs:
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
-
-    - name: Generate launcher icons
-      working-directory: flutter-app
-      run: dart run flutter_launcher_icons
 
     - name: Build macOS
       working-directory: flutter-app
