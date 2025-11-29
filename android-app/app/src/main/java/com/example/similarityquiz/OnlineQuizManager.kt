@@ -2,107 +2,188 @@ package com.example.similarityquiz
 
 /**
  * オンラインクイズ用の問題管理
- * リアルタイムで画像を取得してクイズを生成
+ * ジャンル選択対応
  */
 class OnlineQuizManager {
 
     val scraper = ImageScraper()
 
-    // 動物ペアの定義（Pythonツールと同じ）
+    // ジャンル定義
+    enum class Genre(val displayName: String, val description: String) {
+        ALL("すべて", "全ジャンルからランダム"),
+        BIG_CATS("ネコ科大型", "チーター・ヒョウ・ジャガー・ライオン・トラ"),
+        DOGS("犬種", "柴犬・秋田犬・ハスキー・マラミュート"),
+        WILD_DOGS("犬と野生", "犬とオオカミ"),
+        RACCOONS("アライグマ系", "アライグマ・タヌキ"),
+        BIRDS("鳥類", "カラス・ワタリガラス"),
+        MARINE("海洋動物", "アシカ・アザラシ"),
+        REPTILES("爬虫類", "ワニ・クロコダイル"),
+        TWINS("双子・人物", "双子の有名人"),
+        CARS("車", "似ている車種"),
+        LOGOS("ロゴ", "似ているブランドロゴ")
+    }
+
     data class AnimalPair(
         val id: String,
         val nameJa: String,
         val query: String
     )
 
-    val animals = mapOf(
-        "cheetah" to AnimalPair("cheetah", "チーター", "cheetah face close up"),
-        "leopard" to AnimalPair("leopard", "ヒョウ", "leopard face close up"),
-        "jaguar" to AnimalPair("jaguar", "ジャガー", "jaguar face close up"),
-        "shiba" to AnimalPair("shiba", "柴犬", "shiba inu face"),
-        "akita" to AnimalPair("akita", "秋田犬", "akita dog face"),
-        "husky" to AnimalPair("husky", "ハスキー", "siberian husky face"),
-        "malamute" to AnimalPair("malamute", "マラミュート", "alaskan malamute face"),
-        "wolf" to AnimalPair("wolf", "オオカミ", "wolf face close up"),
-        "raccoon" to AnimalPair("raccoon", "アライグマ", "raccoon face close up"),
-        "tanuki" to AnimalPair("tanuki", "タヌキ", "tanuki face japanese raccoon dog"),
-        "crow" to AnimalPair("crow", "カラス", "crow bird close up"),
-        "raven" to AnimalPair("raven", "ワタリガラス", "raven bird close up"),
-        "sea_lion" to AnimalPair("sea_lion", "アシカ", "sea lion face"),
-        "seal" to AnimalPair("seal", "アザラシ", "seal face close up"),
-        "lion" to AnimalPair("lion", "ライオン", "lion face close up"),
-        "tiger" to AnimalPair("tiger", "トラ", "tiger face close up"),
-        "alligator" to AnimalPair("alligator", "ワニ", "alligator face"),
-        "crocodile" to AnimalPair("crocodile", "クロコダイル", "crocodile face"),
+    data class SimilarPair(
+        val id1: String,
+        val id2: String,
+        val genre: Genre
     )
 
-    // 似ているペア
-    val similarPairs = listOf(
-        Pair("cheetah", "leopard"),
-        Pair("jaguar", "leopard"),
-        Pair("shiba", "akita"),
-        Pair("husky", "malamute"),
-        Pair("wolf", "husky"),
-        Pair("raccoon", "tanuki"),
-        Pair("crow", "raven"),
-        Pair("sea_lion", "seal"),
-        Pair("lion", "tiger"),
-        Pair("alligator", "crocodile"),
+    // すべてのアイテム
+    private val items = mapOf(
+        // ネコ科
+        "cheetah" to AnimalPair("cheetah", "チーター", "cheetah face"),
+        "leopard" to AnimalPair("leopard", "ヒョウ", "leopard face"),
+        "jaguar" to AnimalPair("jaguar", "ジャガー", "jaguar animal face"),
+        "lion" to AnimalPair("lion", "ライオン", "lion face"),
+        "tiger" to AnimalPair("tiger", "トラ", "tiger face"),
+        
+        // 犬種
+        "shiba" to AnimalPair("shiba", "柴犬", "shiba inu dog"),
+        "akita" to AnimalPair("akita", "秋田犬", "akita dog"),
+        "husky" to AnimalPair("husky", "ハスキー", "husky dog"),
+        "malamute" to AnimalPair("malamute", "マラミュート", "malamute dog"),
+        "wolf" to AnimalPair("wolf", "オオカミ", "wolf animal"),
+        
+        // アライグマ系
+        "raccoon" to AnimalPair("raccoon", "アライグマ", "raccoon animal"),
+        "tanuki" to AnimalPair("tanuki", "タヌキ", "tanuki raccoon dog"),
+        
+        // 鳥
+        "crow" to AnimalPair("crow", "カラス", "crow bird"),
+        "raven" to AnimalPair("raven", "ワタリガラス", "raven bird"),
+        
+        // 海洋
+        "sea_lion" to AnimalPair("sea_lion", "アシカ", "sea lion"),
+        "seal" to AnimalPair("seal", "アザラシ", "seal animal"),
+        
+        // 爬虫類
+        "alligator" to AnimalPair("alligator", "ワニ", "alligator"),
+        "crocodile" to AnimalPair("crocodile", "クロコダイル", "crocodile"),
+        
+        // 双子・有名人
+        "olsen1" to AnimalPair("olsen1", "オルセン姉妹", "mary-kate olsen"),
+        "olsen2" to AnimalPair("olsen2", "オルセン姉妹", "ashley olsen"),
+        "sprouse1" to AnimalPair("sprouse1", "スプラウス兄弟", "cole sprouse"),
+        "sprouse2" to AnimalPair("sprouse2", "スプラウス兄弟", "dylan sprouse"),
+        
+        // 車
+        "gt86" to AnimalPair("gt86", "トヨタ86", "toyota 86 car"),
+        "brz" to AnimalPair("brz", "スバルBRZ", "subaru brz car"),
+        "miata" to AnimalPair("miata", "マツダロードスター", "mazda miata mx5"),
+        "s2000" to AnimalPair("s2000", "ホンダS2000", "honda s2000"),
+        "rx7" to AnimalPair("rx7", "マツダRX-7", "mazda rx7"),
+        "supra" to AnimalPair("supra", "トヨタスープラ", "toyota supra a80"),
+        
+        // ロゴ
+        "pepsi" to AnimalPair("pepsi", "ペプシ", "pepsi logo"),
+        "korean_air" to AnimalPair("korean_air", "大韓航空", "korean air logo"),
+        "carrefour" to AnimalPair("carrefour", "カルフール", "carrefour logo"),
+        "chanel" to AnimalPair("chanel", "シャネル", "chanel logo"),
+    )
+
+    // 似ているペア（ジャンル付き）
+    private val similarPairs = listOf(
+        // ネコ科
+        SimilarPair("cheetah", "leopard", Genre.BIG_CATS),
+        SimilarPair("jaguar", "leopard", Genre.BIG_CATS),
+        SimilarPair("lion", "tiger", Genre.BIG_CATS),
+        
+        // 犬種
+        SimilarPair("shiba", "akita", Genre.DOGS),
+        SimilarPair("husky", "malamute", Genre.DOGS),
+        
+        // 犬と野生
+        SimilarPair("wolf", "husky", Genre.WILD_DOGS),
+        SimilarPair("wolf", "malamute", Genre.WILD_DOGS),
+        
+        // アライグマ系
+        SimilarPair("raccoon", "tanuki", Genre.RACCOONS),
+        
+        // 鳥
+        SimilarPair("crow", "raven", Genre.BIRDS),
+        
+        // 海洋
+        SimilarPair("sea_lion", "seal", Genre.MARINE),
+        
+        // 爬虫類
+        SimilarPair("alligator", "crocodile", Genre.REPTILES),
+        
+        // 双子
+        SimilarPair("olsen1", "olsen2", Genre.TWINS),
+        SimilarPair("sprouse1", "sprouse2", Genre.TWINS),
+        
+        // 車
+        SimilarPair("gt86", "brz", Genre.CARS),
+        SimilarPair("miata", "s2000", Genre.CARS),
+        SimilarPair("rx7", "supra", Genre.CARS),
+        
+        // ロゴ
+        SimilarPair("pepsi", "korean_air", Genre.LOGOS),
     )
 
     /**
-     * ランダムな問題を生成
-     * @return Pair<問題情報, 正解（true=同じ, false=違う）>
+     * 利用可能なジャンル一覧を取得
      */
-    fun generateRandomQuestion(): QuestionConfig {
-        val isSame = kotlin.random.Random.nextBoolean()
-        
-        return if (isSame) {
-            // 同じもの同士
-            val animal = animals.values.random()
-            QuestionConfig(
-                query1 = animal.query,
-                query2 = animal.query,
-                isSame = true,
-                description = "${animal.nameJa} × ${animal.nameJa}"
-            )
+    fun getAvailableGenres(): List<Genre> = Genre.values().toList()
+
+    /**
+     * ジャンルに属するペアを取得
+     */
+    private fun getPairsForGenre(genre: Genre): List<SimilarPair> {
+        return if (genre == Genre.ALL) {
+            similarPairs
         } else {
-            // 違うもの同士（似ているペアから選択）
-            val pair = similarPairs.random()
-            val animal1 = animals[pair.first]!!
-            val animal2 = animals[pair.second]!!
-            QuestionConfig(
-                query1 = animal1.query,
-                query2 = animal2.query,
-                isSame = false,
-                description = "${animal1.nameJa} × ${animal2.nameJa}"
-            )
+            similarPairs.filter { it.genre == genre }
         }
     }
 
     /**
-     * 特定のペアから問題を生成
+     * ジャンルに属するアイテムを取得
      */
-    fun generateQuestionFromPair(pairIndex: Int, isSame: Boolean): QuestionConfig {
-        val pair = similarPairs[pairIndex]
-        val animal1 = animals[pair.first]!!
-        val animal2 = animals[pair.second]!!
+    private fun getItemsForGenre(genre: Genre): List<AnimalPair> {
+        val pairs = getPairsForGenre(genre)
+        val ids = pairs.flatMap { listOf(it.id1, it.id2) }.toSet()
+        return ids.mapNotNull { items[it] }
+    }
+
+    /**
+     * 指定ジャンルからランダムな問題を生成
+     */
+    fun generateRandomQuestion(genre: Genre = Genre.ALL): QuestionConfig {
+        val pairs = getPairsForGenre(genre)
+        val genreItems = getItemsForGenre(genre)
+        
+        if (pairs.isEmpty() || genreItems.isEmpty()) {
+            // フォールバック
+            return generateRandomQuestion(Genre.ALL)
+        }
+        
+        val isSame = kotlin.random.Random.nextBoolean()
         
         return if (isSame) {
-            // どちらかの動物で「同じもの」問題
-            val animal = if (kotlin.random.Random.nextBoolean()) animal1 else animal2
+            val item = genreItems.random()
             QuestionConfig(
-                query1 = animal.query,
-                query2 = animal.query,
+                query1 = item.query,
+                query2 = item.query,
                 isSame = true,
-                description = "${animal.nameJa} × ${animal.nameJa}"
+                description = "${item.nameJa} × ${item.nameJa}"
             )
         } else {
+            val pair = pairs.random()
+            val item1 = items[pair.id1]!!
+            val item2 = items[pair.id2]!!
             QuestionConfig(
-                query1 = animal1.query,
-                query2 = animal2.query,
+                query1 = item1.query,
+                query2 = item2.query,
                 isSame = false,
-                description = "${animal1.nameJa} × ${animal2.nameJa}"
+                description = "${item1.nameJa} × ${item2.nameJa}"
             )
         }
     }

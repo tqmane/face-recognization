@@ -28,18 +28,42 @@ class MainActivity : AppCompatActivity() {
         updateBestScores()
     }
 
+    private var selectedGenre: OnlineQuizManager.Genre = OnlineQuizManager.Genre.ALL
+
     private fun showQuestionCountDialog() {
-        val options = arrayOf("5問", "10問", "15問", "20問")
+        // まずジャンルを選択
+        showGenreDialog()
+    }
+
+    private fun showGenreDialog() {
+        val genres = OnlineQuizManager.Genre.values()
+        val options = genres.map { "${it.displayName}\n${it.description}" }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("ジャンルを選択")
+            .setItems(genres.map { it.displayName }.toTypedArray()) { _, which ->
+                selectedGenre = genres[which]
+                showCountDialog()
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+    private fun showCountDialog() {
+        val options = arrayOf("5問（お試し）", "10問", "15問", "20問")
         val counts = intArrayOf(5, 10, 15, 20)
 
         AlertDialog.Builder(this)
-            .setTitle("テストの問題数を選択")
+            .setTitle("問題数を選択")
             .setItems(options) { _, which ->
                 val intent = Intent(this, OnlineQuizActivity::class.java)
                 intent.putExtra("total_questions", counts[which])
+                intent.putExtra("genre", selectedGenre.name)
                 startActivity(intent)
             }
-            .setNegativeButton("キャンセル", null)
+            .setNegativeButton("戻る") { _, _ ->
+                showGenreDialog()
+            }
             .show()
     }
 

@@ -40,12 +40,22 @@ class OnlineQuizActivity : AppCompatActivity() {
         val description: String
     )
 
+    private var selectedGenre = OnlineQuizManager.Genre.ALL
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOnlineQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         totalQuestions = intent.getIntExtra("total_questions", 10)
+        
+        // ジャンルを取得
+        val genreName = intent.getStringExtra("genre")
+        selectedGenre = try {
+            OnlineQuizManager.Genre.valueOf(genreName ?: "ALL")
+        } catch (e: Exception) {
+            OnlineQuizManager.Genre.ALL
+        }
         
         setupButtons()
         prepareAllQuestions()
@@ -73,7 +83,7 @@ class OnlineQuizActivity : AppCompatActivity() {
         binding.tvFeedback.visibility = View.INVISIBLE
         binding.tvLoadingText.visibility = View.VISIBLE
         binding.tvProgress.text = "準備中..."
-        binding.tvScore.text = ""
+        binding.tvScore.text = "${selectedGenre.displayName}"
 
         lifecycleScope.launch {
             preparedQuestions.clear()
@@ -90,7 +100,8 @@ class OnlineQuizActivity : AppCompatActivity() {
                 }
 
                 try {
-                    val questionConfig = quizManager.generateRandomQuestion()
+                    // 選択したジャンルから問題を生成
+                    val questionConfig = quizManager.generateRandomQuestion(selectedGenre)
                     
                     val bitmap = if (questionConfig.isSame) {
                         quizManager.scraper.createSameImage(questionConfig.query1)
