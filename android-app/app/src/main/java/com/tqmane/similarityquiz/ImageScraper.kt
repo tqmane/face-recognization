@@ -20,6 +20,7 @@ class ImageScraper {
     companion object {
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         private const val BING_URL = "https://www.bing.com/images/search"
+        private const val JSOUP_TIMEOUT = 10000  // 10秒（Jsoup用）
         
         private const val TARGET_HEIGHT = 450
         private const val MAX_WIDTH = 550
@@ -84,7 +85,7 @@ class ImageScraper {
             
             val doc = Jsoup.connect(searchUrl)
                 .userAgent(USER_AGENT)
-                .timeout(CONNECT_TIMEOUT)
+                .timeout(JSOUP_TIMEOUT)
                 .get()
             
             val images = doc.select("a.iusc")
