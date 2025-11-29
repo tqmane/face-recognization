@@ -28,7 +28,12 @@ class ImageScraper {
 
     // スレッドセーフなキャッシュ
     private val urlCache = ConcurrentHashMap<String, MutableList<String>>()
+    
+    // 使用済みURL（クイズセッション全体で重複防止）
     private val usedUrls = ConcurrentHashMap.newKeySet<String>()
+    
+    // 現在の問題で選択中のURL（同一問題内での重複防止）
+    private val currentQuestionUrls = ConcurrentHashMap.newKeySet<String>()
     
     // プリフェッチ済み画像キャッシュ
     private val imageCache = ConcurrentHashMap<String, Bitmap>()
@@ -39,7 +44,7 @@ class ImageScraper {
     suspend fun searchImages(query: String, maxResults: Int = 30): List<String> = withContext(Dispatchers.IO) {
         // キャッシュから未使用のURLを取得
         urlCache[query]?.let { cached ->
-            val unused = cached.filter { it !in usedUrls }
+            val unused = cached.filter { it !in usedUrls && it !in currentQuestionUrls }
             if (unused.size >= maxResults) {
                 return@withContext unused.take(maxResults)
             }
@@ -65,7 +70,9 @@ class ImageScraper {
                     if (dataM.isNotEmpty()) {
                         val murlMatch = Regex("\"murl\":\"([^\"]+)\"").find(dataM)
                         murlMatch?.groupValues?.get(1)?.let { url ->
-                            if (url.startsWith("http") && isImageUrl(url) && url !in usedUrls) {
+                            // 使用済みURLと現在選択中のURLを除外
+                            if (url.startsWith("http") && isImageUrl(url) && 
+                                url !in usedUrls && url !in currentQuestionUrls) {
                                 imageUrls.add(url)
                             }
                         }
@@ -88,13 +95,16 @@ class ImageScraper {
             e.printStackTrace()
         }
         
-        imageUrls.filter { it !in usedUrls }.take(maxResults)
+        imageUrls.filter { it !in usedUrls && it !in currentQuestionUrls }.take(maxResults)
     }
 
     /**
      * URLから画像をダウンロード（高速版）
      */
     private suspend fun downloadImage(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+        // 既に使用済みならスキップ
+        if (imageUrl in usedUrls) return@withContext null
+        
         // キャッシュチェック
         imageCache[imageUrl]?.let { return@withContext it }
         
@@ -123,24 +133,28 @@ class ImageScraper {
     }
 
     /**
-     * 複数URLから並列で最速ダウンロード
+     * 複数URLから並列で最速ダウンロード（指定されたURLのみを使用）
      */
-    private suspend fun downloadRace(urls: List<String>): Pair<Bitmap?, String?> = withContext(Dispatchers.IO) {
+    private suspend fun downloadRace(urls: List<String>, markAsUsed: Boolean = true): Pair<Bitmap?, String?> = withContext(Dispatchers.IO) {
         if (urls.isEmpty()) return@withContext Pair(null, null)
         
-        val unusedUrls = urls.filter { it !in usedUrls }
-        if (unusedUrls.isEmpty()) return@withContext Pair(null, null)
+        // 使用済みURLを除外
+        val availableUrls = urls.filter { it !in usedUrls && it !in currentQuestionUrls }
+        if (availableUrls.isEmpty()) return@withContext Pair(null, null)
         
         // 最大5つを並列ダウンロード（競争）
         val result = CompletableDeferred<Pair<Bitmap?, String?>>()
         val jobs = mutableListOf<Job>()
         
-        unusedUrls.take(5).forEach { url ->
+        availableUrls.take(5).forEach { url ->
             val job = launch {
                 val bitmap = downloadImage(url)
                 if (bitmap != null && result.isActive) {
                     if (result.complete(Pair(bitmap, url))) {
-                        usedUrls.add(url)
+                        if (markAsUsed) {
+                            usedUrls.add(url)
+                        }
+                        currentQuestionUrls.add(url)
                     }
                 }
             }
@@ -162,6 +176,9 @@ class ImageScraper {
      * 2つの検索クエリから画像を取得して合成（超高速版）
      */
     suspend fun createComparisonImage(query1: String, query2: String): Bitmap? = withContext(Dispatchers.IO) {
+        // 現在の問題用のURL追跡をクリア
+        currentQuestionUrls.clear()
+        
         try {
             // 並列で検索開始
             val urls1Deferred = async { searchImages(query1) }
@@ -196,25 +213,43 @@ class ImageScraper {
      * 同じ検索クエリから2枚の異なる画像を取得して合成（超高速版）
      */
     suspend fun createSameImage(query: String): Bitmap? = withContext(Dispatchers.IO) {
+        // 現在の問題用のURL追跡をクリア
+        currentQuestionUrls.clear()
+        
         try {
-            val urls = searchImages(query)
+            // より多くのURLを取得
+            val urls = searchImages(query, maxResults = 40)
             
-            val unusedUrls = urls.filter { it !in usedUrls }
+            // 使用済みURLを除外
+            val unusedUrls = urls.filter { it !in usedUrls && it !in currentQuestionUrls }
             if (unusedUrls.size < 4) {
                 return@withContext null
             }
             
             val shuffled = unusedUrls.shuffled()
             
-            // 2セットを並列でダウンロード
-            val result1Deferred = async { downloadRace(shuffled.take(5)) }
-            val result2Deferred = async { downloadRace(shuffled.drop(5).take(5)) }
+            // 2セットを明確に分離（重複防止）
+            val halfSize = shuffled.size / 2
+            val firstSet = shuffled.take(halfSize)
+            val secondSet = shuffled.drop(halfSize)
             
-            val (bitmap1, url1) = result1Deferred.await()
-            val (bitmap2, url2) = result2Deferred.await()
+            if (firstSet.size < 2 || secondSet.size < 2) {
+                return@withContext null
+            }
+            
+            // 最初の画像を取得
+            val (bitmap1, url1) = downloadRace(firstSet.take(5), markAsUsed = true)
+            
+            if (bitmap1 == null || url1 == null) {
+                return@withContext null
+            }
+            
+            // 2番目の画像を取得（別のセットから、url1を除外）
+            val secondSetFiltered = secondSet.filter { it != url1 }
+            val (bitmap2, url2) = downloadRace(secondSetFiltered.take(5), markAsUsed = true)
             
             // 同じ画像だった場合は失敗
-            if (bitmap1 == null || bitmap2 == null || url1 == url2) {
+            if (bitmap2 == null || url2 == null || url1 == url2) {
                 return@withContext null
             }
             
@@ -265,11 +300,13 @@ class ImageScraper {
     fun clearCache() {
         urlCache.clear()
         usedUrls.clear()
+        currentQuestionUrls.clear()
         imageCache.values.forEach { it.recycle() }
         imageCache.clear()
     }
     
     fun clearUsedUrls() {
         usedUrls.clear()
+        currentQuestionUrls.clear()
     }
 }

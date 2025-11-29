@@ -10,18 +10,23 @@ class ImageScraper {
   static const int _maxWidth = 550;
   static const Duration _timeout = Duration(seconds: 5);
 
+  /// 使用済みURL（このクイズセッション全体で重複を防ぐ）
   final Set<String> _usedUrls = {};
+  
+  /// 現在の問題で選択中のURL（並列ダウンロード時の重複防止）
+  final Set<String> _currentQuestionUrls = {};
 
   /// 使用済みURLをクリア
   void clearUsedUrls() {
     _usedUrls.clear();
+    _currentQuestionUrls.clear();
   }
 
-  /// Bingから画像URLを取得
+  /// Bingから画像URLを取得（未使用のもののみ）
   Future<List<String>> _fetchImageUrls(String query, {int count = 10}) async {
     try {
       final searchUrl = Uri.parse(
-        'https://www.bing.com/images/search?q=${Uri.encodeComponent(query)}&form=HDRSC2&first=1',
+        'https://www.bing.com/images/search?q=${Uri.encodeComponent(query)}&form=HDRSC2&first=1&count=100',
       );
 
       final response = await http.get(
@@ -46,8 +51,10 @@ class ImageScraper {
           final match = RegExp(r'"murl":"([^"]+)"').firstMatch(m);
           if (match != null) {
             final url = match.group(1)!.replaceAll(r'\/', '/');
+            // 使用済みURLと現在選択中のURLを除外
             if (!_usedUrls.contains(url) && 
-                (url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.png'))) {
+                !_currentQuestionUrls.contains(url) &&
+                (url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.png') || url.endsWith('.webp'))) {
               urls.add(url);
               if (urls.length >= count) break;
             }
@@ -61,8 +68,13 @@ class ImageScraper {
     }
   }
 
-  /// 画像をダウンロード
+  /// 画像をダウンロード（成功したら使用済みに追加）
   Future<Uint8List?> _downloadImage(String url) async {
+    // 既に使用済みならスキップ
+    if (_usedUrls.contains(url)) {
+      return null;
+    }
+    
     try {
       final response = await http.get(
         Uri.parse(url),
@@ -83,7 +95,7 @@ class ImageScraper {
 
   /// クエリから画像を取得
   Future<Uint8List?> _fetchImage(String query) async {
-    final urls = await _fetchImageUrls(query, count: 5);
+    final urls = await _fetchImageUrls(query, count: 10);
     
     for (final url in urls) {
       final data = await _downloadImage(url);
@@ -121,29 +133,58 @@ class ImageScraper {
   /// 同じ画像を2枚並べた比較画像を作成
   /// 注意: 同じ種類の2つの異なる画像を並べる（全く同じ画像ではない）
   Future<Uint8List?> createSameImage(String query) async {
-    // 2つの異なる画像を取得
-    final urls = await _fetchImageUrls(query, count: 10);
-    if (urls.length < 2) return null;
+    // 現在の問題用のURL追跡をクリア
+    _currentQuestionUrls.clear();
+    
+    // より多くのURLを取得して選択肢を増やす
+    final urls = await _fetchImageUrls(query, count: 20);
+    
+    // 使用済みURLを除外
+    final availableUrls = urls.where((url) => !_usedUrls.contains(url)).toList();
+    if (availableUrls.length < 2) return null;
     
     // シャッフルして異なる2つを選ぶ
-    final shuffled = urls.toList()..shuffle();
+    final shuffled = availableUrls.toList()..shuffle();
+    
+    // 2つのURLセットを明確に分離（重複防止）
+    final firstSet = shuffled.take(shuffled.length ~/ 2).toList();
+    final secondSet = shuffled.skip(shuffled.length ~/ 2).toList();
+    
+    if (firstSet.isEmpty || secondSet.isEmpty) return null;
     
     Uint8List? image1;
     Uint8List? image2;
     String? url1;
+    String? url2;
     
-    for (final url in shuffled) {
+    // 最初の画像を取得
+    for (final url in firstSet) {
+      if (_usedUrls.contains(url)) continue;
+      _currentQuestionUrls.add(url);
       final data = await _downloadImage(url);
       if (data != null) {
         final processed = _processImage(data);
         if (processed != null) {
-          if (image1 == null) {
-            image1 = processed;
-            url1 = url;
-          } else if (url != url1) {
-            image2 = processed;
-            break;
-          }
+          image1 = processed;
+          url1 = url;
+          break;
+        }
+      }
+    }
+    
+    if (image1 == null) return null;
+    
+    // 2番目の画像を取得（別のセットから）
+    for (final url in secondSet) {
+      if (_usedUrls.contains(url) || url == url1) continue;
+      _currentQuestionUrls.add(url);
+      final data = await _downloadImage(url);
+      if (data != null) {
+        final processed = _processImage(data);
+        if (processed != null) {
+          image2 = processed;
+          url2 = url;
+          break;
         }
       }
     }
