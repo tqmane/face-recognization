@@ -1,4 +1,4 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -7,7 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import com.example.similarityquiz.databinding.ActivityQuizBinding
+import com.tqmane.similarityquiz.databinding.ActivityQuizBinding
 
 class QuizActivity : AppCompatActivity() {
 

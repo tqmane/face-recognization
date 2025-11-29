@@ -1,4 +1,4 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.content.Intent
 import android.graphics.Bitmap
@@ -8,7 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.example.similarityquiz.databinding.ActivityOnlineQuizBinding
+import com.tqmane.similarityquiz.databinding.ActivityOnlineQuizBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

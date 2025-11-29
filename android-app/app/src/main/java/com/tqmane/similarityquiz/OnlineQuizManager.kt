@@ -1,4 +1,4 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 /**
  * オンラインクイズ用の問題管理

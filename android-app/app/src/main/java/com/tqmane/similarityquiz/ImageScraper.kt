@@ -1,4 +1,4 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

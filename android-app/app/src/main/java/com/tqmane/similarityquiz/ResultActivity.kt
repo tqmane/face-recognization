@@ -1,4 +1,4 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,7 +8,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.similarityquiz.databinding.ActivityResultBinding
+import com.tqmane.similarityquiz.databinding.ActivityResultBinding
 
 class ResultActivity : AppCompatActivity() {
 

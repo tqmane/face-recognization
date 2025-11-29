@@ -1,11 +1,11 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.similarityquiz.databinding.ActivityOnlineQuizBinding
+import com.tqmane.similarityquiz.databinding.ActivityOnlineQuizBinding
 import java.io.File
 
 /**

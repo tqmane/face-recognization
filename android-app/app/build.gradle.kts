@@ -4,20 +4,30 @@ plugins {
 }
 
 android {
-    namespace = "com.example.similarityquiz"
+    namespace = "com.tqmane.similarityquiz"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.similarityquiz"
+        applicationId = "com.tqmane.similarityquiz"
         minSdk = 33  // Android 13以上
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.8.0"
+        versionCode = 10
+        versionName = "1.9.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_FILE") ?: "keystore.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

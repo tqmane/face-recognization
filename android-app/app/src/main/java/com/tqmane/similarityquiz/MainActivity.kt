@@ -1,10 +1,10 @@
-package com.example.similarityquiz
+package com.tqmane.similarityquiz
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.example.similarityquiz.databinding.ActivityMainBinding
+import com.tqmane.similarityquiz.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
