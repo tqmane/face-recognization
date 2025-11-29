@@ -49,9 +49,11 @@ jobs:
           flutter create --project-name similarity_quiz --platforms=linux .
         fi
 
-    - name: Get dependencies
+    - name: Clean and get dependencies
       working-directory: flutter-app
-      run: flutter pub get
+      run: |
+        flutter clean
+        flutter pub get
 
     - name: Run tests
       working-directory: flutter-app
@@ -106,9 +108,11 @@ jobs:
           flutter create --project-name similarity_quiz --platforms=windows .
         }
 
-    - name: Get dependencies
+    - name: Clean and get dependencies
       working-directory: flutter-app
-      run: flutter pub get
+      run: |
+        flutter clean
+        flutter pub get
 
     - name: Build Windows
       working-directory: flutter-app
@@ -158,9 +162,11 @@ jobs:
           flutter create --project-name similarity_quiz --platforms=macos .
         fi
 
-    - name: Get dependencies
+    - name: Clean and get dependencies
       working-directory: flutter-app
-      run: flutter pub get
+      run: |
+        flutter clean
+        flutter pub get
 
     - name: Build macOS
       working-directory: flutter-app
@@ -219,9 +225,11 @@ jobs:
         # project.pbxprojのIPHONEOS_DEPLOYMENT_TARGETを更新
         sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 16.4;/g' Runner.xcodeproj/project.pbxproj
 
-    - name: Get dependencies
+    - name: Clean and get dependencies
       working-directory: flutter-app
-      run: flutter pub get
+      run: |
+        flutter clean
+        flutter pub get
 
     - name: Install CocoaPods dependencies
       working-directory: flutter-app/ios
