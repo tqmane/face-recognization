@@ -2,8 +2,8 @@ package com.tqmane.similarityquiz
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.tqmane.similarityquiz.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         val genres = OnlineQuizManager.Genre.values()
         val options = genres.map { "${it.displayName}\n${it.description}" }.toTypedArray()
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("ジャンルを選択")
             .setItems(genres.map { it.displayName }.toTypedArray()) { _, which ->
                 selectedGenre = genres[which]
@@ -58,10 +58,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCountDialog() {
-        val options = arrayOf("5問（お試し）", "10問", "15問", "20問")
-        val counts = intArrayOf(5, 10, 15, 20)
+        val options = arrayOf("5問（お試し）", "10問", "20問", "50問")
+        val counts = intArrayOf(5, 10, 20, 50)
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("問題数を選択")
             .setItems(options) { _, which ->
                 val intent = Intent(this, OnlineQuizActivity::class.java)

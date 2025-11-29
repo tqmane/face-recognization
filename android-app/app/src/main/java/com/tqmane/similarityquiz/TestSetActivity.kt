@@ -7,8 +7,8 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.lifecycle.lifecycleScope
 import com.tqmane.similarityquiz.databinding.ActivityTestSetBinding
 import kotlinx.coroutines.Job
@@ -130,7 +130,7 @@ class TestSetActivity : AppCompatActivity() {
     private fun showGenreSelectionDialog() {
         val genres = OnlineQuizManager.Genre.values()
         
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("ダウンロードするジャンル")
             .setItems(genres.map { it.displayName }.toTypedArray()) { _, which ->
                 showQuestionCountSelectionDialog(genres[which])
@@ -143,7 +143,7 @@ class TestSetActivity : AppCompatActivity() {
         val options = arrayOf("50問", "100問", "200問", "300問")
         val counts = intArrayOf(50, 100, 200, 300)
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("ダウンロードする問題数")
             .setItems(options) { _, which ->
                 startDownload(genre, counts[which])
@@ -235,7 +235,7 @@ class TestSetActivity : AppCompatActivity() {
         if (maxQuestions >= 100) { options.add("100問"); counts.add(100) }
         options.add("全問（${maxQuestions}問）"); counts.add(maxQuestions)
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("問題数を選択")
             .setItems(options.toTypedArray()) { _, which ->
                 startTestFromSet(testSet, counts[which])
@@ -254,7 +254,7 @@ class TestSetActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete(testSet: TestSetManager.TestSetInfo) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("削除確認")
             .setMessage("「${testSet.genre.displayName}」(${testSet.questionCount}問)を削除しますか？")
             .setPositiveButton("削除") { _, _ ->

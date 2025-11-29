@@ -232,6 +232,51 @@ class TestSetManager(private val context: Context) {
             BitmapFactory.decodeFile(imageFile.absolutePath)
         } else null
     }
+    
+    /**
+     * テストセットから画像付き問題を読み込む（指定数まで）
+     */
+    data class LoadedQuestion(
+        val bitmap: Bitmap,
+        val isSame: Boolean,
+        val description: String
+    )
+    
+    fun loadQuestionsFromTestSet(dirPath: String, maxCount: Int): List<LoadedQuestion> {
+        val questionsFile = File(dirPath, "questions.txt")
+        if (!questionsFile.exists()) return emptyList()
+        
+        val result = mutableListOf<LoadedQuestion>()
+        
+        try {
+            val lines = questionsFile.readLines().shuffled() // シャッフルして多様性を確保
+            
+            for (line in lines) {
+                if (result.size >= maxCount) break
+                
+                val parts = line.split("|")
+                if (parts.size >= 4) {
+                    val imagePath = parts[3]
+                    val imageFile = File(dirPath, imagePath)
+                    
+                    if (imageFile.exists()) {
+                        val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+                        if (bitmap != null) {
+                            result.add(LoadedQuestion(
+                                bitmap = bitmap,
+                                isSame = parts[1].toBoolean(),
+                                description = parts[2]
+                            ))
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // エラー時は空リストを返す
+        }
+        
+        return result
+    }
 
     /**
      * テストセットを削除

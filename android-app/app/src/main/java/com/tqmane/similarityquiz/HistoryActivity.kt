@@ -5,8 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayout
@@ -48,7 +48,7 @@ class HistoryActivity : AppCompatActivity() {
 
         // 削除ボタン
         binding.btnClear.setOnClickListener {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("履歴を削除")
                 .setMessage("全ての履歴を削除しますか？")
                 .setPositiveButton("削除") { _, _ ->
@@ -148,7 +148,7 @@ class HistoryActivity : AppCompatActivity() {
             "$mark 問題${result.questionNumber}\n${result.description}\n正解: $correct / 回答: $answer"
         }.toTypedArray()
 
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("${history.genre} - 詳細")
             .setItems(items, null)
             .setPositiveButton("閉じる", null)

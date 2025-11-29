@@ -9,6 +9,29 @@
         <item name="android:navigationBarColor">@color/background</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+        <!-- 丸いダイアログをデフォルトに -->
+        <item name="alertDialogTheme">@style/RoundedAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/RoundedMaterialAlertDialog</item>
+    </style>
+    
+    <!-- 丸いAlertDialog（ダーク） -->
+    <style name="RoundedAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="shapeAppearanceOverlay">@style/RoundedDialogShape</item>
+        <item name="android:background">@color/card_background</item>
+    </style>
+    
+    <style name="RoundedMaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="shapeAppearanceOverlay">@style/RoundedDialogShape</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/DialogBodyText</item>
+    </style>
+    
+    <style name="RoundedDialogShape" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+    
+    <style name="DialogBodyText" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:textColor">@color/text_secondary</item>
     </style>
 
     <!-- iOS風ボタン（ダーク） -->

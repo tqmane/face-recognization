@@ -6,8 +6,8 @@ import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.lifecycle.lifecycleScope
 import com.tqmane.similarityquiz.databinding.ActivityOnlineQuizBinding
 import kotlinx.coroutines.Job
@@ -45,6 +45,9 @@ class OnlineQuizActivity : AppCompatActivity() {
     private var downloadJob: Job? = null
     private var isCancelled = false
     
+    // テストセットモード用
+    private var testSetPath: String? = null
+    
     // 回答者名
     private var responderName = ""
 
@@ -60,7 +63,10 @@ class OnlineQuizActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         historyManager = HistoryManager.getInstance(this)
-        totalQuestions = intent.getIntExtra("total_questions", 10)
+        
+        // 問題数を取得（両方のキーに対応）
+        totalQuestions = intent.getIntExtra("question_count", 
+            intent.getIntExtra("total_questions", 10))
         
         // ジャンルを取得
         val genreName = intent.getStringExtra("genre")
@@ -70,9 +76,17 @@ class OnlineQuizActivity : AppCompatActivity() {
             OnlineQuizManager.Genre.ALL
         }
         
+        // テストセットパスを取得（あればテストセットモード）
+        testSetPath = intent.getStringExtra("test_set_path")
+        
         setupButtons()
         showLoadingUI()
-        prepareAllQuestions()
+        
+        if (testSetPath != null) {
+            prepareQuestionsFromTestSet()
+        } else {
+            prepareAllQuestions()
+        }
     }
 
     private fun setupButtons() {
@@ -128,7 +142,7 @@ class OnlineQuizActivity : AppCompatActivity() {
      * キャンセル確認ダイアログ
      */
     private fun showCancelConfirmDialog() {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("キャンセルしますか？")
             .setMessage("ダウンロード中の画像はすべて破棄されます。\n本当にキャンセルしますか？")
             .setPositiveButton("キャンセルする") { _, _ ->
@@ -235,6 +249,57 @@ class OnlineQuizActivity : AppCompatActivity() {
     }
     
     /**
+     * テストセットから画像を読み込む
+     */
+    private fun prepareQuestionsFromTestSet() {
+        val path = testSetPath ?: return
+        val testSetManager = TestSetManager(this)
+        
+        downloadJob = lifecycleScope.launch {
+            preparedQuestions.clear()
+            
+            runOnUiThread {
+                binding.tvLoadingText.text = "テストセットから読み込み中..."
+                binding.tvLoadingSubtext.text = "保存された画像を準備しています"
+            }
+            
+            val questions = testSetManager.loadQuestionsFromTestSet(path, totalQuestions)
+            
+            for ((index, question) in questions.withIndex()) {
+                if (isCancelled) break
+                preparedQuestions.add(PreparedQuestion(
+                    bitmap = question.bitmap,
+                    isSame = question.isSame,
+                    description = question.description
+                ))
+                
+                val progress = ((index + 1) * 100) / questions.size
+                runOnUiThread {
+                    binding.progressBar.progress = progress
+                    binding.tvProgressPercent.text = "$progress%"
+                    binding.tvLoadingSubtext.text = "${index + 1} / ${questions.size} 問を読み込みました"
+                }
+            }
+            
+            runOnUiThread {
+                if (isCancelled) return@runOnUiThread
+                
+                if (preparedQuestions.size >= 3) {
+                    totalQuestions = preparedQuestions.size
+                    showNameInputDialog()
+                } else {
+                    Toast.makeText(
+                        this@OnlineQuizActivity,
+                        "テストセットの読み込みに失敗しました。",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    finish()
+                }
+            }
+        }
+    }
+    
+    /**
      * 名前入力ダイアログを表示
      */
     private fun showNameInputDialog() {
@@ -243,7 +308,7 @@ class OnlineQuizActivity : AppCompatActivity() {
             setPadding(48, 32, 48, 32)
         }
         
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("回答者の名前")
             .setMessage("任意入力（スキップ可）")
             .setView(editText)
