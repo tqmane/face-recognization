@@ -83,9 +83,6 @@ class ResultActivity : AppCompatActivity() {
             finish()
         }
     }
-            finish()
-        }
-    }
 
     private fun formatTime(millis: Long): String {
         val seconds = millis / 1000
