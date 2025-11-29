@@ -5,9 +5,11 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.similarityquiz.databinding.ActivityOnlineQuizBinding
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
@@ -33,14 +35,16 @@ class OnlineQuizActivity : AppCompatActivity() {
     private var timer: Timer? = null
     
     private val results = mutableListOf<QuizResult>()
+    
+    private var selectedGenre = OnlineQuizManager.Genre.ALL
+    private var downloadJob: Job? = null
+    private var isCancelled = false
 
     data class PreparedQuestion(
         val bitmap: Bitmap,
         val isSame: Boolean,
         val description: String
     )
-
-    private var selectedGenre = OnlineQuizManager.Genre.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +62,7 @@ class OnlineQuizActivity : AppCompatActivity() {
         }
         
         setupButtons()
+        showLoadingUI()
         prepareAllQuestions()
     }
 
@@ -69,38 +74,102 @@ class OnlineQuizActivity : AppCompatActivity() {
         binding.btnDifferent.setOnClickListener {
             checkAnswer(false)
         }
+
+        binding.btnCancel.setOnClickListener {
+            showCancelConfirmDialog()
+        }
+    }
+
+    /**
+     * ローディング画面を表示
+     */
+    private fun showLoadingUI() {
+        binding.loadingContainer.visibility = View.VISIBLE
+        binding.ivQuizImage.visibility = View.INVISIBLE
+        binding.tvFeedback.visibility = View.INVISIBLE
+        
+        // クイズボタンを非表示、キャンセルボタンを表示
+        binding.buttonContainer.visibility = View.GONE
+        binding.cancelContainer.visibility = View.VISIBLE
+        
+        // ヘッダー更新
+        binding.tvGenre.text = "🌐 ${selectedGenre.displayName}"
+        binding.tvProgress.text = "準備中..."
+        binding.tvScore.text = ""
+        binding.tvTimer.text = "--:--"
+        
+        // プログレスバー初期化
+        binding.progressBar.progress = 0
+        binding.tvProgressPercent.text = "0%"
+    }
+
+    /**
+     * クイズ画面を表示
+     */
+    private fun showQuizUI() {
+        binding.loadingContainer.visibility = View.GONE
+        binding.ivQuizImage.visibility = View.VISIBLE
+        
+        // クイズボタンを表示、キャンセルボタンを非表示
+        binding.buttonContainer.visibility = View.VISIBLE
+        binding.cancelContainer.visibility = View.GONE
+    }
+
+    /**
+     * キャンセル確認ダイアログ
+     */
+    private fun showCancelConfirmDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("キャンセルしますか？")
+            .setMessage("ダウンロード中の画像はすべて破棄されます。\n本当にキャンセルしますか？")
+            .setPositiveButton("キャンセルする") { _, _ ->
+                cancelDownload()
+            }
+            .setNegativeButton("続ける", null)
+            .show()
+    }
+
+    /**
+     * ダウンロードをキャンセル
+     */
+    private fun cancelDownload() {
+        isCancelled = true
+        downloadJob?.cancel()
+        quizManager.scraper.clearCache()
+        
+        // 準備済み画像をクリア
+        preparedQuestions.forEach { it.bitmap.recycle() }
+        preparedQuestions.clear()
+        
+        Toast.makeText(this, "キャンセルしました", Toast.LENGTH_SHORT).show()
+        finish()
     }
 
     /**
      * 全問題の画像を事前にダウンロード
      */
     private fun prepareAllQuestions() {
-        // ローディング表示
-        binding.progressLoading.visibility = View.VISIBLE
-        binding.ivQuizImage.visibility = View.INVISIBLE
-        binding.btnSame.isEnabled = false
-        binding.btnDifferent.isEnabled = false
-        binding.tvFeedback.visibility = View.INVISIBLE
-        binding.tvLoadingText.visibility = View.VISIBLE
-        binding.tvProgress.text = "準備中..."
-        binding.tvScore.text = "${selectedGenre.displayName}"
-
-        lifecycleScope.launch {
+        downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
             var successCount = 0
             var attemptCount = 0
-            val maxAttempts = totalQuestions * 3 // 失敗を考慮して多めに試行
+            val maxAttempts = totalQuestions * 3
 
-            while (successCount < totalQuestions && attemptCount < maxAttempts) {
+            while (successCount < totalQuestions && attemptCount < maxAttempts && !isCancelled) {
                 attemptCount++
                 
                 // 進捗を更新
+                val progress = (successCount * 100) / totalQuestions
                 runOnUiThread {
-                    binding.tvLoadingText.text = "画像を準備中... ($successCount / $totalQuestions)"
+                    if (!isCancelled) {
+                        binding.tvLoadingText.text = "画像を準備中..."
+                        binding.tvLoadingSubtext.text = "$successCount / $totalQuestions 問を取得しました"
+                        binding.progressBar.progress = progress
+                        binding.tvProgressPercent.text = "$progress%"
+                    }
                 }
 
                 try {
-                    // 選択したジャンルから問題を生成
                     val questionConfig = quizManager.generateRandomQuestion(selectedGenre)
                     
                     val bitmap = if (questionConfig.isSame) {
@@ -109,7 +178,7 @@ class OnlineQuizActivity : AppCompatActivity() {
                         quizManager.scraper.createComparisonImage(questionConfig.query1, questionConfig.query2)
                     }
 
-                    if (bitmap != null) {
+                    if (bitmap != null && !isCancelled) {
                         preparedQuestions.add(
                             PreparedQuestion(
                                 bitmap = bitmap,
@@ -125,14 +194,15 @@ class OnlineQuizActivity : AppCompatActivity() {
             }
 
             runOnUiThread {
+                if (isCancelled) return@runOnUiThread
+                
                 if (preparedQuestions.size >= 3) {
-                    // 最低3問あればテスト開始
                     totalQuestions = preparedQuestions.size
                     startQuiz()
                 } else {
                     Toast.makeText(
                         this@OnlineQuizActivity,
-                        "画像の取得に失敗しました。ネットワークを確認してください。",
+                        "画像の取得に失敗しました。\nネットワークを確認してください。",
                         Toast.LENGTH_LONG
                     ).show()
                     finish()
@@ -152,11 +222,10 @@ class OnlineQuizActivity : AppCompatActivity() {
         // 問題をシャッフル
         preparedQuestions.shuffle()
         
-        // ローディング非表示
-        binding.progressLoading.visibility = View.GONE
-        binding.tvLoadingText.visibility = View.GONE
+        // クイズUIに切り替え
+        showQuizUI()
         
-        // タイマー開始（ここからが本当の計測開始）
+        // タイマー開始
         startTime = System.currentTimeMillis()
         timer = fixedRateTimer(period = 100) {
             runOnUiThread {
@@ -195,10 +264,10 @@ class OnlineQuizActivity : AppCompatActivity() {
 
         if (isCorrect) {
             score += 10
-            binding.tvFeedback.text = "正解！"
+            binding.tvFeedback.text = "🎉 正解！"
             binding.tvFeedback.setTextColor(getColor(R.color.ios_green))
         } else {
-            binding.tvFeedback.text = "不正解"
+            binding.tvFeedback.text = "❌ 不正解"
             binding.tvFeedback.setTextColor(getColor(R.color.ios_red))
         }
 
@@ -222,10 +291,10 @@ class OnlineQuizActivity : AppCompatActivity() {
 
         currentQuestionIndex++
 
-        // 1秒後に次の問題へ
+        // 0.8秒後に次の問題へ（テンポアップ）
         binding.root.postDelayed({
             showQuestion()
-        }, 1000)
+        }, 800)
     }
 
     private fun finishQuiz() {
@@ -250,6 +319,7 @@ class OnlineQuizActivity : AppCompatActivity() {
             putExtra("total_time", totalTime)
             putExtra("results", ArrayList(results))
             putExtra("mode", "online")
+            putExtra("genre", selectedGenre.displayName)
         }
         startActivity(intent)
         finish()
@@ -262,8 +332,17 @@ class OnlineQuizActivity : AppCompatActivity() {
         return String.format("%d:%02d", minutes, secs)
     }
 
+    override fun onBackPressed() {
+        if (downloadJob?.isActive == true) {
+            showCancelConfirmDialog()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
+        downloadJob?.cancel()
     }
 }
