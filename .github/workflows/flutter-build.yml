@@ -173,6 +173,18 @@ jobs:
           flutter create --project-name similarity_quiz --platforms=android .
         fi
 
+    - name: Update Kotlin version for compatibility
+      working-directory: flutter-app/android
+      run: |
+        # Update Kotlin version in settings.gradle
+        if [ -f "settings.gradle" ]; then
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' settings.gradle
+        fi
+        # Update Kotlin version in build.gradle if ext.kotlin_version exists
+        if [ -f "build.gradle" ]; then
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' build.gradle
+        fi
+
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
