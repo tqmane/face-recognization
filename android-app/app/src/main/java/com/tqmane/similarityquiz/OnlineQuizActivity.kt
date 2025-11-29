@@ -164,20 +164,16 @@ class OnlineQuizActivity : AppCompatActivity() {
         downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
             
-            // 問題設定を事前に生成
-            val questionConfigs = (0 until totalQuestions * 2).map {
+            // 問題設定を事前に生成（余裕を持って3倍用意）
+            val questionConfigs = (0 until totalQuestions * 3).map {
                 quizManager.generateRandomQuestion(selectedGenre)
             }
             
             var successCount = 0
-            var index = 0
+            var configIndex = 0
             
-            // 20問ずつ並列でダウンロード（各問題にインデックス付きで混ざらない）
-            while (successCount < totalQuestions && index < questionConfigs.size && !isCancelled) {
-                val batchSize = minOf(20, totalQuestions - successCount)
-                val batch = questionConfigs.drop(index).take(batchSize * 2)
-                index += batch.size
-                
+            // 順番に処理（並列で5問ずつダウンロード）
+            while (successCount < totalQuestions && configIndex < questionConfigs.size && !isCancelled) {
                 // 進捗を更新
                 val progress = (successCount * 100) / totalQuestions
                 runOnUiThread {
@@ -189,8 +185,13 @@ class OnlineQuizActivity : AppCompatActivity() {
                     }
                 }
 
-                // 並列ダウンロード（インデックス付きで混ざらないように管理）
-                val results = batch.mapIndexed { batchIndex, config ->
+                // 次の5つのconfigを取得
+                val batchSize = minOf(5, questionConfigs.size - configIndex)
+                val batch = questionConfigs.subList(configIndex, configIndex + batchSize)
+                configIndex += batchSize
+
+                // 並列ダウンロード
+                val results = batch.map { config ->
                     async {
                         try {
                             val bitmap = if (config.isSame) {
@@ -207,7 +208,7 @@ class OnlineQuizActivity : AppCompatActivity() {
                     }
                 }.awaitAll().filterNotNull()
                 
-                // 必要な分だけ追加
+                // 成功した分だけ追加
                 for (result in results) {
                     if (successCount >= totalQuestions || isCancelled) break
                     preparedQuestions.add(result)
