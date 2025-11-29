@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,7 @@ import kotlin.concurrent.fixedRateTimer
 class OnlineQuizActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityOnlineQuizBinding
+    private lateinit var historyManager: HistoryManager
     private val quizManager = OnlineQuizManager()
     
     // 事前に準備した問題リスト
@@ -37,10 +39,14 @@ class OnlineQuizActivity : AppCompatActivity() {
     private var timer: Timer? = null
     
     private val results = mutableListOf<QuizResult>()
+    private val questionResultsForHistory = mutableListOf<QuestionResultData>()
     
     private var selectedGenre = OnlineQuizManager.Genre.ALL
     private var downloadJob: Job? = null
     private var isCancelled = false
+    
+    // 回答者名
+    private var responderName = ""
 
     data class PreparedQuestion(
         val bitmap: Bitmap,
@@ -53,6 +59,7 @@ class OnlineQuizActivity : AppCompatActivity() {
         binding = ActivityOnlineQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        historyManager = HistoryManager.getInstance(this)
         totalQuestions = intent.getIntExtra("total_questions", 10)
         
         // ジャンルを取得
@@ -213,7 +220,7 @@ class OnlineQuizActivity : AppCompatActivity() {
                 
                 if (preparedQuestions.size >= 3) {
                     totalQuestions = preparedQuestions.size
-                    startQuiz()
+                    showNameInputDialog()
                 } else {
                     Toast.makeText(
                         this@OnlineQuizActivity,
@@ -225,6 +232,31 @@ class OnlineQuizActivity : AppCompatActivity() {
             }
         }
     }
+    
+    /**
+     * 名前入力ダイアログを表示
+     */
+    private fun showNameInputDialog() {
+        val editText = EditText(this).apply {
+            hint = "例：山田太郎"
+            setPadding(48, 32, 48, 32)
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("回答者の名前")
+            .setMessage("任意入力（スキップ可）")
+            .setView(editText)
+            .setPositiveButton("開始") { _, _ ->
+                responderName = editText.text.toString().trim()
+                startQuiz()
+            }
+            .setNeutralButton("スキップ") { _, _ ->
+                responderName = ""
+                startQuiz()
+            }
+            .setCancelable(false)
+            .show()
+    }
 
     /**
      * テスト開始（画像準備完了後）
@@ -233,6 +265,7 @@ class OnlineQuizActivity : AppCompatActivity() {
         score = 0
         currentQuestionIndex = 0
         results.clear()
+        questionResultsForHistory.clear()
         
         // 問題をシャッフル
         preparedQuestions.shuffle()
@@ -300,6 +333,17 @@ class OnlineQuizActivity : AppCompatActivity() {
                 responseTimeMs = responseTime
             )
         )
+        
+        // 履歴用の結果も記録
+        questionResultsForHistory.add(
+            QuestionResultData(
+                questionNumber = currentQuestionIndex + 1,
+                description = question.description,
+                isCorrect = isCorrect,
+                wasSame = question.isSame,
+                answeredSame = userAnsweredSame
+            )
+        )
 
         binding.btnSame.isEnabled = false
         binding.btnDifferent.isEnabled = false
@@ -326,6 +370,19 @@ class OnlineQuizActivity : AppCompatActivity() {
                 .putLong("best_time_online", totalTime)
                 .apply()
         }
+        
+        // 履歴に保存
+        val history = QuizHistoryData(
+            id = System.currentTimeMillis().toString(),
+            genre = selectedGenre.displayName,
+            responderName = responderName,
+            score = score / 10,  // 10点刻みなので正解数に変換
+            total = totalQuestions,
+            timeMillis = totalTime,
+            timestamp = System.currentTimeMillis(),
+            questionResults = questionResultsForHistory.toList()
+        )
+        historyManager.saveHistory(history)
 
         // 画像メモリを解放
         cleanupImages()
@@ -338,6 +395,7 @@ class OnlineQuizActivity : AppCompatActivity() {
             putExtra("results", ArrayList(results))
             putExtra("mode", "online")
             putExtra("genre", selectedGenre.displayName)
+            putExtra("responder_name", responderName)
         }
         startActivity(intent)
         finish()

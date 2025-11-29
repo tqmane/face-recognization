@@ -9,11 +9,14 @@ import com.tqmane.similarityquiz.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var historyManager: HistoryManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        historyManager = HistoryManager.getInstance(this)
 
         // オフラインモード（端末内の画像）
         binding.btnStart.setOnClickListener {
@@ -29,8 +32,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnTestSet.setOnClickListener {
             startActivity(Intent(this, TestSetActivity::class.java))
         }
+        
+        // 履歴画面
+        binding.cardHistory.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
 
-        updateBestScores()
+        updateStats()
     }
 
     private var selectedGenre: OnlineQuizManager.Genre = OnlineQuizManager.Genre.ALL
@@ -74,35 +82,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        updateBestScores()
+        updateStats()
     }
 
-    private fun updateBestScores() {
-        val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
+    private fun updateStats() {
+        val stats = historyManager.getOverallStats()
         
-        // オフラインモードのベストスコア
-        val bestScore = prefs.getInt("best_score", 0)
-        val bestTime = prefs.getLong("best_time", 0L)
-        
-        // オンラインモードのベストスコア
-        val bestScoreOnline = prefs.getInt("best_score_online", 0)
-        val bestTimeOnline = prefs.getLong("best_time_online", 0L)
-
-        val sb = StringBuilder()
-        
-        if (bestScore > 0) {
-            sb.append("オフライン: $bestScore 点 (${formatTime(bestTime)})")
-        }
-        
-        if (bestScoreOnline > 0) {
-            if (sb.isNotEmpty()) sb.append("\n")
-            sb.append("オンライン: $bestScoreOnline 点 (${formatTime(bestTimeOnline)})")
-        }
-        
-        if (sb.isEmpty()) {
-            binding.tvBestScore.text = "まだ記録がありません"
-        } else {
+        if (stats.totalTests > 0) {
+            val sb = StringBuilder()
+            sb.append("平均正答率: ${String.format("%.1f", stats.averageAccuracy)}%\n")
+            sb.append("テスト回数: ${stats.totalTests}回")
             binding.tvBestScore.text = sb.toString()
+        } else {
+            binding.tvBestScore.text = "まだ記録がありません"
         }
     }
 

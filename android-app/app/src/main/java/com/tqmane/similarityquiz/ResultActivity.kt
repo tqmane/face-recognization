@@ -24,6 +24,7 @@ class ResultActivity : AppCompatActivity() {
         val totalQuestions = intent.getIntExtra("total_questions", 0)
         val totalTime = intent.getLongExtra("total_time", 0L)
         val mode = intent.getStringExtra("mode") ?: "offline"
+        val responderName = intent.getStringExtra("responder_name") ?: ""
         
         // Android 13以降対応のSerializable取得
         val results: ArrayList<QuizResult> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

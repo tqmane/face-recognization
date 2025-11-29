@@ -70,11 +70,15 @@
 
             <!-- ベストスコアカード -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/cardHistory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/white">
+                app:cardBackgroundColor="@color/white"
+                android:foreground="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -82,14 +86,29 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="ベストスコア"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.05" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="📊 テスト結果"
+                            android:textSize="13sp"
+                            android:textColor="@color/text_secondary"
+                            android:textAllCaps="true"
+                            android:letterSpacing="0.05" />
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_more"
+                            app:tint="@color/text_tertiary" />
+
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvBestScore"

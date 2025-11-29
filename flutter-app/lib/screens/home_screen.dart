@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'quiz_screen.dart';
 import 'test_set_screen.dart';
+import 'history_screen.dart';
 import '../services/quiz_manager.dart';
+import '../services/history_manager.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,22 +13,34 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int? bestScore;
-  int? bestTime;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadBestScores();
+    _loadData();
   }
 
-  Future<void> _loadBestScores() async {
-    // TODO: SharedPreferencesから読み込み
+  Future<void> _loadData() async {
+    await HistoryManager.instance.loadHistories();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    final stats = HistoryManager.instance.getOverallStats();
     
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -72,29 +86,78 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 48),
                   
-                  // ベストスコアカード
+                  // 統計カード
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ベストスコア',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.6),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                        ).then((_) => setState(() {}));
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '📊 テスト結果',
+                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            bestScore != null 
-                              ? '$bestScore 点 (${_formatTime(bestTime ?? 0)})'
-                              : 'まだ記録がありません',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            if (stats.totalTests > 0) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '平均正答率',
+                                          style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                        ),
+                                        Text(
+                                          '${stats.averageAccuracy.toStringAsFixed(1)}%',
+                                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'テスト回数',
+                                          style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                        ),
+                                        Text(
+                                          '${stats.totalTests}回',
+                                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ] else
+                              Text(
+                                'まだ記録がありません',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -193,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         questionCount: option.$2,
                       ),
                     ),
-                  );
+                  ).then((_) => setState(() {}));
                 },
               ),
           ],

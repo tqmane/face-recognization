@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+import '../services/history_manager.dart';
 
 class ResultScreen extends StatelessWidget {
   final int score;
   final int total;
   final int timeMillis;
+  final String genre;
+  final String responderName;
+  final List<QuestionResult> questionResults;
 
   const ResultScreen({
     super.key,
     required this.score,
     required this.total,
     required this.timeMillis,
+    required this.genre,
+    required this.responderName,
+    required this.questionResults,
   });
 
   @override
@@ -41,94 +48,134 @@ class ResultScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('結果'),
+        automaticallyImplyLeading: false,
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 80),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    grade,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: gradeColor,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  
-                  // スコアカード
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                '$score',
-                                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              Text(
-                                ' / $total 問正解',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          LinearProgressIndicator(
-                            value: score / total,
-                            minHeight: 8,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _StatItem(
-                                icon: Icons.percent,
-                                label: '正解率',
-                                value: '$percentage%',
-                              ),
-                              _StatItem(
-                                icon: Icons.timer,
-                                label: 'タイム',
-                                value: _formatTime(timeMillis),
-                              ),
-                            ],
-                          ),
-                        ],
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                // 結果サマリー
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        emoji,
+                        style: const TextStyle(fontSize: 64),
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        grade,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: gradeColor,
+                        ),
+                      ),
+                      if (responderName.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          responderName,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // スコアカード
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '$score',
+                              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            Text(
+                              ' / $total 問正解',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        LinearProgressIndicator(
+                          value: score / total,
+                          minHeight: 8,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _StatItem(
+                              icon: Icons.percent,
+                              label: '正解率',
+                              value: '$percentage%',
+                            ),
+                            _StatItem(
+                              icon: Icons.timer,
+                              label: 'タイム',
+                              value: _formatTime(timeMillis),
+                            ),
+                            _StatItem(
+                              icon: Icons.category,
+                              label: 'ジャンル',
+                              value: genre,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  
-                  // ボタン
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text('ホームに戻る', style: TextStyle(fontSize: 17)),
-                    ),
+                ),
+                const SizedBox(height: 24),
+                
+                // 問題ごとの結果
+                Text(
+                  '問題ごとの結果',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                ...questionResults.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final result = entry.value;
+                  return _QuestionResultItem(
+                    index: index + 1,
+                    result: result,
+                  );
+                }),
+                const SizedBox(height: 32),
+                
+                // ボタン
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('ホームに戻る', style: TextStyle(fontSize: 17)),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -162,7 +209,7 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 4),
         Text(
           label,
@@ -177,6 +224,75 @@ class _StatItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _QuestionResultItem extends StatelessWidget {
+  final int index;
+  final QuestionResult result;
+
+  const _QuestionResultItem({
+    required this.index,
+    required this.result,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isCorrect = result.isCorrect;
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isCorrect 
+          ? Colors.green.withOpacity(0.1) 
+          : Colors.red.withOpacity(0.1),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isCorrect ? Colors.green : Colors.red,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Center(
+            child: isCorrect
+                ? const Icon(Icons.check, color: Colors.white)
+                : const Icon(Icons.close, color: Colors.white),
+          ),
+        ),
+        title: Text(
+          '問題 $index',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          result.description,
+          style: TextStyle(
+            color: colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '正解: ${result.wasSame ? "同じ" : "違う"}',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+            Text(
+              '回答: ${result.answeredSame ? "同じ" : "違う"}',
+              style: TextStyle(
+                fontSize: 12,
+                color: isCorrect ? Colors.green : Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

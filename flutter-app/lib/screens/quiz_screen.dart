@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/image_scraper.dart';
+import '../services/history_manager.dart';
 import 'result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -27,10 +28,17 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _isCancelled = false;
   int _loadProgress = 0;
   
+  // 名前入力
+  bool _showNameInput = false;
+  String _responderName = '';
+  
   int _currentIndex = 0;
   int _score = 0;
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
+  
+  // 問題ごとの結果を記録
+  final List<QuestionResult> _questionResults = [];
   
   // タイマー用のValueNotifierで画像の再描画を防ぐ
   final ValueNotifier<String> _timerNotifier = ValueNotifier('0:00');
@@ -92,12 +100,15 @@ class _QuizScreenState extends State<QuizScreen> {
     if (!_isCancelled && mounted) {
       setState(() {
         _isLoading = false;
+        _showNameInput = true;
       });
-      _startQuiz();
     }
   }
 
   void _startQuiz() {
+    setState(() {
+      _showNameInput = false;
+    });
     _stopwatch.start();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
@@ -112,10 +123,20 @@ class _QuizScreenState extends State<QuizScreen> {
   void _answer(bool isSame) {
     if (_currentIndex >= _questions.length) return;
 
-    final correct = _questions[_currentIndex].isSame == isSame;
+    final question = _questions[_currentIndex];
+    final correct = question.isSame == isSame;
     if (correct) {
       _score++;
     }
+    
+    // 結果を記録
+    _questionResults.add(QuestionResult(
+      questionNumber: _currentIndex + 1,
+      description: question.description,
+      isCorrect: correct,
+      wasSame: question.isSame,
+      answeredSame: isSame,
+    ));
 
     setState(() {
       _currentIndex++;
@@ -129,6 +150,19 @@ class _QuizScreenState extends State<QuizScreen> {
   void _finishQuiz() {
     _stopwatch.stop();
     _timer?.cancel();
+    
+    // 履歴に保存
+    final history = QuizHistory(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      genre: widget.genre.displayName,
+      responderName: _responderName,
+      score: _score,
+      total: _questions.length,
+      timeMillis: _stopwatch.elapsedMilliseconds,
+      timestamp: DateTime.now(),
+      questionResults: _questionResults,
+    );
+    HistoryManager.instance.saveHistory(history);
 
     Navigator.pushReplacement(
       context,
@@ -137,6 +171,9 @@ class _QuizScreenState extends State<QuizScreen> {
           score: _score,
           total: _questions.length,
           timeMillis: _stopwatch.elapsedMilliseconds,
+          genre: widget.genre.displayName,
+          responderName: _responderName,
+          questionResults: _questionResults,
         ),
       ),
     );
@@ -146,6 +183,10 @@ class _QuizScreenState extends State<QuizScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return _buildLoadingScreen();
+    }
+    
+    if (_showNameInput) {
+      return _buildNameInputScreen();
     }
 
     if (_questions.isEmpty) {
@@ -158,6 +199,76 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     return _buildQuizScreen();
+  }
+  
+  Widget _buildNameInputScreen() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person, size: 64),
+                  const SizedBox(height: 24),
+                  Text(
+                    '回答者の名前',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '任意入力（スキップ可）',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    onChanged: (value) => _responderName = value,
+                    decoration: const InputDecoration(
+                      labelText: '名前',
+                      hintText: '例：山田太郎',
+                      border: OutlineInputBorder(),
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _startQuiz(),
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            _responderName = '';
+                            _startQuiz();
+                          },
+                          child: const Text('スキップ'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _startQuiz,
+                          child: const Text('開始'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildLoadingScreen() {

@@ -37,4 +37,5 @@
     
     <!-- セパレーター -->
     <color name="separator">#C6C6C8</color>
+    <color name="divider">#E5E5EA</color>
 </resources>

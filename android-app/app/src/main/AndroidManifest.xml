@@ -31,6 +31,7 @@
         <activity android:name=".ResultActivity" />
         <activity android:name=".TestSetActivity" />
         <activity android:name=".OfflineTestActivity" />
+        <activity android:name=".HistoryActivity" />
 
     </application>
 
