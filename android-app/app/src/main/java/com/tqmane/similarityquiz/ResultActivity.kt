@@ -1,5 +1,6 @@
 package com.tqmane.similarityquiz
 
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -22,9 +23,19 @@ class ResultActivity : AppCompatActivity() {
         val score = intent.getIntExtra("score", 0)
         val totalQuestions = intent.getIntExtra("total_questions", 0)
         val totalTime = intent.getLongExtra("total_time", 0L)
+        val mode = intent.getStringExtra("mode") ?: "offline"
         
-        @Suppress("DEPRECATION")
-        val results = intent.getSerializableExtra("results") as? ArrayList<QuizResult> ?: arrayListOf()
+        // Android 13以降対応のSerializable取得
+        val results: ArrayList<QuizResult> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getSerializableExtra("results", ArrayList::class.java)?.let { list ->
+                ArrayList(list.filterIsInstance<QuizResult>())
+            } ?: arrayListOf()
+        } else {
+            @Suppress("DEPRECATION")
+            (intent.getSerializableExtra("results") as? ArrayList<*>)?.let { list ->
+                ArrayList(list.filterIsInstance<QuizResult>())
+            } ?: arrayListOf()
+        }
 
         // スコア表示
         binding.tvFinalScore.text = "$score"
@@ -43,7 +54,8 @@ class ResultActivity : AppCompatActivity() {
 
         // ベストスコアかどうか
         val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
-        val bestScore = prefs.getInt("best_score", 0)
+        val bestScoreKey = if (mode == "online") "best_score_online" else "best_score"
+        val bestScore = prefs.getInt(bestScoreKey, 0)
         if (score >= bestScore && score > 0) {
             binding.tvNewRecord.visibility = View.VISIBLE
             binding.tvNewRecord.text = "🎉 新記録！"
@@ -60,9 +72,17 @@ class ResultActivity : AppCompatActivity() {
             finish()
         }
 
-        // もう一度ボタン
+        // もう一度ボタン（モードに応じたアクティビティへ）
         binding.btnRetry.setOnClickListener {
-            startActivity(android.content.Intent(this, QuizActivity::class.java))
+            val targetActivity = if (mode == "online") {
+                OnlineQuizActivity::class.java
+            } else {
+                QuizActivity::class.java
+            }
+            startActivity(android.content.Intent(this, targetActivity))
+            finish()
+        }
+    }
             finish()
         }
     }
