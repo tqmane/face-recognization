@@ -94,16 +94,35 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- スタートボタン -->
+        <!-- オフラインボタン -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStart"
             style="@style/IOSButton.Primary"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:layout_marginTop="32dp"
-            android:text="スタート"
+            android:text="オフラインモード"
             android:textSize="20sp"
             app:cornerRadius="14dp" />
+
+        <!-- オンラインボタン -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOnline"
+            style="@style/IOSButton.Secondary"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="16dp"
+            android:text="オンラインモード"
+            android:textSize="20sp"
+            app:cornerRadius="14dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="オンライン: ネットから画像を取得"
+            android:textSize="15sp"
+            android:textColor="@color/text_secondary" />
 
     </LinearLayout>
 

@@ -69,15 +69,3 @@ data class QuizQuestion(
     val imagePath: String,  // assets内のパス
     val isSame: Boolean     // true: 同じもの, false: 違うもの
 )
-
-/**
- * クイズの結果データ
- */
-data class QuizResult(
-    val questionNumber: Int,
-    val imagePath: String,
-    val isSame: Boolean,
-    val userAnswer: Boolean,
-    val isCorrect: Boolean,
-    val responseTimeMs: Long
-) : java.io.Serializable
