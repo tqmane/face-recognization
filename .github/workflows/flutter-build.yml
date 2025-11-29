@@ -223,10 +223,6 @@ jobs:
       working-directory: flutter-app
       run: flutter pub get
 
-    - name: Generate launcher icons
-      working-directory: flutter-app
-      run: dart run flutter_launcher_icons
-
     - name: Install CocoaPods dependencies
       working-directory: flutter-app/ios
       run: pod install

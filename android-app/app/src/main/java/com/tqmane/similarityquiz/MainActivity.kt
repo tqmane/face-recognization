@@ -18,11 +18,6 @@ class MainActivity : AppCompatActivity() {
 
         historyManager = HistoryManager.getInstance(this)
 
-        // オフラインモード（端末内の画像）
-        binding.btnStart.setOnClickListener {
-            startActivity(Intent(this, QuizActivity::class.java))
-        }
-
         // オンラインモード（問題数選択ダイアログ表示）
         binding.btnOnline.setOnClickListener {
             showQuestionCountDialog()

@@ -130,27 +130,13 @@
                 android:layout_height="0dp"
                 android:layout_weight="1" />
 
-            <!-- スタートボタン（オフライン） -->
+            <!-- オンラインボタン -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnStart"
+                android:id="@+id/btnOnline"
                 style="@style/IOSButton.Primary"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginTop="24dp"
-                android:text="オフラインモード"
-                android:textSize="17sp"
-                app:cornerRadius="14dp"
-                app:icon="@android:drawable/ic_menu_gallery"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp" />
-
-            <!-- オンラインボタン -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOnline"
-                style="@style/IOSButton.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="12dp"
                 android:text="オンラインモード"
                 android:textSize="17sp"
                 app:cornerRadius="14dp"
@@ -162,7 +148,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="オンライン: ネットから画像を取得"
+                android:text="ネットから画像を取得してクイズ"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
 
