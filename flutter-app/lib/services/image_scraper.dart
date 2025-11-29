@@ -10,6 +10,21 @@ class ImageScraper {
   static const int _maxWidth = 550;
   static const Duration _timeout = Duration(seconds: 5);
 
+  // 除外キーワード（AI画像、イラスト、特定人物）
+  static const List<String> _excludeKeywords = [
+    'AI', 'generated', 'イラスト', 'illustration', 'drawing',
+    'art', 'アート', '漫画', 'manga', 'anime', 'アニメ',
+    'deviantart', 'pixiv', 'artstation', 'midjourney', 'dalle',
+    'stable diffusion', 'wallpaper', '壁紙',
+  ];
+
+  // 除外ドメイン
+  static const List<String> _excludeDomains = [
+    'deviantart.com', 'pixiv.net', 'artstation.com',
+    'pinterest.com', 'wallpaper', 'reddit.com/r/art',
+    'behance.net', 'dribbble.com',
+  ];
+
   /// 使用済みURL（このクイズセッション全体で重複を防ぐ）
   final Set<String> _usedUrls = {};
   
@@ -25,8 +40,12 @@ class ImageScraper {
   /// Bingから画像URLを取得（未使用のもののみ）
   Future<List<String>> _fetchImageUrls(String query, {int count = 10}) async {
     try {
+      // 写真フィルタと除外キーワードを追加
+      final excludeTerms = _excludeKeywords.map((k) => '-$k').join(' ');
+      final enhancedQuery = '$query $excludeTerms';
+      // qft=+filterui:photo-photo で写真のみにフィルタ
       final searchUrl = Uri.parse(
-        'https://www.bing.com/images/search?q=${Uri.encodeComponent(query)}&form=HDRSC2&first=1&count=100',
+        'https://www.bing.com/images/search?q=${Uri.encodeComponent(enhancedQuery)}&form=HDRSC2&first=1&count=100&qft=+filterui:photo-photo',
       );
 
       final response = await http.get(
@@ -51,9 +70,14 @@ class ImageScraper {
           final match = RegExp(r'"murl":"([^"]+)"').firstMatch(m);
           if (match != null) {
             final url = match.group(1)!.replaceAll(r'\/', '/');
+            // 除外ドメインをチェック
+            final isExcludedDomain = _excludeDomains.any(
+              (domain) => url.toLowerCase().contains(domain)
+            );
             // 使用済みURLと現在選択中のURLを除外
             if (!_usedUrls.contains(url) && 
                 !_currentQuestionUrls.contains(url) &&
+                !isExcludedDomain &&
                 (url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.png') || url.endsWith('.webp'))) {
               urls.add(url);
               if (urls.length >= count) break;

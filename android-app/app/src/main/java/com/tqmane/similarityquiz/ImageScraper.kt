@@ -24,6 +24,21 @@ class ImageScraper {
         
         private const val TARGET_HEIGHT = 450
         private const val MAX_WIDTH = 550
+        
+        // 除外キーワード（AI画像、イラスト、特定人物）
+        private val EXCLUDE_KEYWORDS = listOf(
+            "AI", "generated", "イラスト", "illustration", "drawing",
+            "art", "アート", "漫画", "manga", "anime", "アニメ",
+            "deviantart", "pixiv", "artstation", "midjourney", "dalle",
+            "stable diffusion", "wallpaper", "壁紙"
+        )
+        
+        // 除外ドメイン
+        private val EXCLUDE_DOMAINS = listOf(
+            "deviantart.com", "pixiv.net", "artstation.com",
+            "pinterest.com", "wallpaper", "reddit.com/r/art",
+            "behance.net", "dribbble.com"
+        )
     }
 
     // スレッドセーフなキャッシュ
@@ -53,7 +68,11 @@ class ImageScraper {
         val imageUrls = mutableListOf<String>()
         
         try {
-            val searchUrl = "$BING_URL?q=${query.replace(" ", "+")}&form=HDRSC2&first=1&count=100"
+            // 写真フィルタと除外キーワードを追加
+            val excludeTerms = EXCLUDE_KEYWORDS.joinToString(" ") { "-$it" }
+            val enhancedQuery = "$query $excludeTerms"
+            // qft=+filterui:photo-photo で写真のみにフィルタ
+            val searchUrl = "$BING_URL?q=${enhancedQuery.replace(" ", "+")}&form=HDRSC2&first=1&count=100&qft=+filterui:photo-photo"
             
             val doc = Jsoup.connect(searchUrl)
                 .userAgent(USER_AGENT)
@@ -71,8 +90,13 @@ class ImageScraper {
                         val murlMatch = Regex("\"murl\":\"([^\"]+)\"").find(dataM)
                         murlMatch?.groupValues?.get(1)?.let { url ->
                             // 使用済みURLと現在選択中のURLを除外
+                            // 除外ドメインをチェック
+                            val isExcludedDomain = EXCLUDE_DOMAINS.any { domain -> 
+                                url.lowercase().contains(domain) 
+                            }
                             if (url.startsWith("http") && isImageUrl(url) && 
-                                url !in usedUrls && url !in currentQuestionUrls) {
+                                url !in usedUrls && url !in currentQuestionUrls &&
+                                !isExcludedDomain) {
                                 imageUrls.add(url)
                             }
                         }
