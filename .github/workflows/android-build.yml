@@ -3,12 +3,8 @@ name: Android Build
 on:
   push:
     branches: [ main, master ]
-    paths:
-      - 'android-app/**'
   pull_request:
     branches: [ main, master ]
-    paths:
-      - 'android-app/**'
   workflow_dispatch:
 
 jobs:
@@ -24,28 +20,21 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Grant execute permission for gradlew
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Generate Gradle Wrapper
       working-directory: android-app
-      run: chmod +x gradlew
+      run: |
+        gradle wrapper --gradle-version 8.2
 
     - name: Build Debug APK
       working-directory: android-app
       run: ./gradlew assembleDebug
-
-    - name: Build Release APK
-      working-directory: android-app
-      run: ./gradlew assembleRelease
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: debug-apk
         path: android-app/app/build/outputs/apk/debug/*.apk
-
-    - name: Upload Release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-apk
-        path: android-app/app/build/outputs/apk/release/*.apk
