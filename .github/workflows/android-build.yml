@@ -65,8 +65,8 @@ jobs:
       working-directory: android-app
       run: gradle assembleRelease
 
-    # apksignerで署名 (.keystore形式)
-    - name: Sign APK with apksigner
+    # apksignerで署名 (.keystore形式) - v4署名有効
+    - name: Sign APK with apksigner (v4)
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -83,17 +83,18 @@ jobs:
         # zipalignで最適化
         ${ANDROID_HOME}/build-tools/34.0.0/zipalign -v -p 4 "$UNSIGNED_APK" "${UNSIGNED_APK%.apk}-aligned.apk"
         
-        # apksignerで署名
+        # apksignerでv4署名（v1, v2, v3, v4全て有効）
         ${ANDROID_HOME}/build-tools/34.0.0/apksigner sign \
           --ks release.keystore \
           --ks-key-alias "$KEY_ALIAS" \
           --ks-pass pass:"$KEYSTORE_PASSWORD" \
           --key-pass pass:"$KEY_PASSWORD" \
+          --v4-signing-enabled true \
           --out "$SIGNED_APK" \
           "${UNSIGNED_APK%.apk}-aligned.apk"
         
-        # 署名を検証
-        ${ANDROID_HOME}/build-tools/34.0.0/apksigner verify --verbose "$SIGNED_APK"
+        # 署名を検証（v4も確認）
+        ${ANDROID_HOME}/build-tools/34.0.0/apksigner verify --verbose --print-certs "$SIGNED_APK"
         
         # クリーンアップ
         rm -f release.keystore
