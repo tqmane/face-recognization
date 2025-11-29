@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/test_set_manager.dart';
-import 'offline_quiz_screen.dart';
+import 'quiz_screen.dart';
 
 class TestSetScreen extends StatefulWidget {
   const TestSetScreen({super.key});
@@ -295,11 +295,16 @@ class _TestSetScreenState extends State<TestSetScreen> {
               title: Text(option.$1),
               onTap: () {
                 Navigator.pop(context);
+                // テストセットのジャンル名からGenreを特定
+                final genre = Genre.values.firstWhere(
+                  (g) => g.displayName == testSet.genreName,
+                  orElse: () => Genre.all,
+                );
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => OfflineQuizScreen(
-                      testSet: testSet,
+                    builder: (context) => QuizScreen(
+                      genre: genre,
                       questionCount: option.$2,
                     ),
                   ),

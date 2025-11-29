@@ -23,7 +23,6 @@ class ResultActivity : AppCompatActivity() {
         val score = intent.getIntExtra("score", 0)
         val totalQuestions = intent.getIntExtra("total_questions", 0)
         val totalTime = intent.getLongExtra("total_time", 0L)
-        val mode = intent.getStringExtra("mode") ?: "offline"
         val responderName = intent.getStringExtra("responder_name") ?: ""
         
         // Android 13以降対応のSerializable取得
