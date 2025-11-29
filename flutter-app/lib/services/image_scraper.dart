@@ -9,7 +9,7 @@ import 'package:image/image.dart' as img;
 class ImageScraper {
   static const int _targetHeight = 450;
   static const int _maxWidth = 550;
-  static const Duration _timeout = Duration(seconds: 5);
+  static const Duration _timeout = Duration(seconds: 10);  // タイムアウトを10秒に
 
   // 除外キーワード（最小限に縮小）
   static const List<String> _excludeKeywords = [
@@ -44,12 +44,9 @@ class ImageScraper {
     try {
       // ランダムなオフセットで多様な結果を取得
       final randomOffset = _randomOffsets[_random.nextInt(_randomOffsets.length)];
-      // 写真フィルタと除外キーワードを追加
-      final excludeTerms = _excludeKeywords.map((k) => '-$k').join(' ');
-      final enhancedQuery = '$query $excludeTerms';
-      // qft=+filterui:photo-photo で写真のみにフィルタ
+      // 写真フィルタのみ使用（除外キーワードはドメインチェックで対応）
       final searchUrl = Uri.parse(
-        'https://www.bing.com/images/search?q=${Uri.encodeComponent(enhancedQuery)}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo',
+        'https://www.bing.com/images/search?q=${Uri.encodeComponent(query)}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo',
       );
 
       final response = await http.get(
@@ -61,7 +58,10 @@ class ImageScraper {
         },
       ).timeout(_timeout);
 
-      if (response.statusCode != 200) return [];
+      if (response.statusCode != 200) {
+        print('Bing search failed: ${response.statusCode}');
+        return [];
+      }
 
       final document = html_parser.parse(response.body);
       final urls = <String>[];
@@ -79,10 +79,17 @@ class ImageScraper {
               (domain) => url.toLowerCase().contains(domain)
             );
             // 使用済みURLと現在選択中のURLを除外
+            // 拡張子チェックを緩和（URLにクエリパラメータが含まれる場合も対応）
+            final lowerUrl = url.toLowerCase();
+            final isImageUrl = lowerUrl.contains('.jpg') || 
+                               lowerUrl.contains('.jpeg') || 
+                               lowerUrl.contains('.png') || 
+                               lowerUrl.contains('.webp') ||
+                               lowerUrl.contains('image');
             if (!_usedUrls.contains(url) && 
                 !_currentQuestionUrls.contains(url) &&
                 !isExcludedDomain &&
-                (url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.png') || url.endsWith('.webp'))) {
+                isImageUrl) {
               urls.add(url);
               if (urls.length >= count) break;
             }
@@ -92,6 +99,7 @@ class ImageScraper {
 
       return urls;
     } catch (e) {
+      print('Error fetching image URLs: $e');
       return [];
     }
   }
@@ -108,15 +116,18 @@ class ImageScraper {
         Uri.parse(url),
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/*',
         },
       ).timeout(_timeout);
 
       if (response.statusCode == 200 && response.bodyBytes.length > 1000) {
         _usedUrls.add(url);
         return response.bodyBytes;
+      } else {
+        print('Download failed: status=${response.statusCode}, size=${response.bodyBytes.length}');
       }
     } catch (e) {
-      // 無視
+      print('Download error: $e');
     }
     return null;
   }
