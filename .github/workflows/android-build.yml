@@ -28,6 +28,15 @@ jobs:
       with:
         gradle-version: '8.2'
 
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: android-app
+      run: python generate_icons.py
+
     # デバッグビルド
     - name: Build Debug APK
       working-directory: android-app
@@ -59,6 +68,15 @@ jobs:
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.2'
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: android-app
+      run: python generate_icons.py
 
     # 未署名リリースAPKをビルド
     - name: Build Unsigned Release APK
