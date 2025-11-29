@@ -283,8 +283,9 @@ class ImageScraper {
         canvas.drawBitmap(scaled1, 0f, 0f, null)
         canvas.drawBitmap(scaled2, (scaled1.width + gap).toFloat(), 0f, null)
         
-        if (scaled1 != img1) img1.recycle()
-        if (scaled2 != img2) img2.recycle()
+        // スケーリングで新しいBitmapが作成された場合のみrecycle
+        if (scaled1 !== img1) scaled1.recycle()
+        if (scaled2 !== img2) scaled2.recycle()
         
         return combined
     }
