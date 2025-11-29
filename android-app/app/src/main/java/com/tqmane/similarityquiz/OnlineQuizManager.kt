@@ -18,7 +18,7 @@ class OnlineQuizManager {
         BIRDS("鳥類", "カラス・ワタリガラス"),
         MARINE("海洋動物", "アシカ・アザラシ"),
         REPTILES("爬虫類", "ワニ・クロコダイル"),
-        TWINS("双子・人物", "双子の有名人"),
+        SIMILAR_PEOPLE("似ている人", "似ている一般人・芸能人"),
         CARS("車", "似ている車種"),
         LOGOS("ロゴ", "似ているブランドロゴ")
     }
@@ -67,11 +67,11 @@ class OnlineQuizManager {
         "alligator" to AnimalPair("alligator", "ワニ", "alligator"),
         "crocodile" to AnimalPair("crocodile", "クロコダイル", "crocodile"),
         
-        // 双子・有名人
-        "olsen1" to AnimalPair("olsen1", "オルセン姉妹", "mary-kate olsen"),
-        "olsen2" to AnimalPair("olsen2", "オルセン姉妹", "ashley olsen"),
-        "sprouse1" to AnimalPair("sprouse1", "スプラウス兄弟", "cole sprouse"),
-        "sprouse2" to AnimalPair("sprouse2", "スプラウス兄弟", "dylan sprouse"),
+        // 双子・有名人 → 似ている人物（多様な人々を検索）
+        "similar_person1" to AnimalPair("similar_person1", "似ている人物A", "look alike people different persons"),
+        "similar_person2" to AnimalPair("similar_person2", "似ている人物B", "doppelganger strangers look alike"),
+        "similar_person3" to AnimalPair("similar_person3", "似ている人物C", "unrelated look alike people"),
+        "similar_person4" to AnimalPair("similar_person4", "似ている人物D", "strangers who look alike"),
         
         // 車
         "gt86" to AnimalPair("gt86", "トヨタ86", "toyota 86 car"),
@@ -115,9 +115,11 @@ class OnlineQuizManager {
         // 爬虫類
         SimilarPair("alligator", "crocodile", Genre.REPTILES),
         
-        // 双子
-        SimilarPair("olsen1", "olsen2", Genre.TWINS),
-        SimilarPair("sprouse1", "sprouse2", Genre.TWINS),
+        // 似ている人物
+        SimilarPair("similar_person1", "similar_person2", Genre.SIMILAR_PEOPLE),
+        SimilarPair("similar_person3", "similar_person4", Genre.SIMILAR_PEOPLE),
+        SimilarPair("similar_person1", "similar_person3", Genre.SIMILAR_PEOPLE),
+        SimilarPair("similar_person2", "similar_person4", Genre.SIMILAR_PEOPLE),
         
         // 車
         SimilarPair("gt86", "brz", Genre.CARS),

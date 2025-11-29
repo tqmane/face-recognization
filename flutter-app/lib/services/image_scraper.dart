@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
@@ -10,20 +11,21 @@ class ImageScraper {
   static const int _maxWidth = 550;
   static const Duration _timeout = Duration(seconds: 5);
 
-  // 除外キーワード（AI画像、イラスト、特定人物）
+  // 除外キーワード（最小限に縮小）
   static const List<String> _excludeKeywords = [
-    'AI', 'generated', 'イラスト', 'illustration', 'drawing',
-    'art', 'アート', '漫画', 'manga', 'anime', 'アニメ',
-    'deviantart', 'pixiv', 'artstation', 'midjourney', 'dalle',
-    'stable diffusion', 'wallpaper', '壁紙',
+    'AI generated', 'イラスト', 'illustration', 'drawing',
+    'anime', 'アニメ', 'manga', '漫画',
   ];
 
-  // 除外ドメイン
+  // 除外ドメイン（イラスト系のみ）
   static const List<String> _excludeDomains = [
     'deviantart.com', 'pixiv.net', 'artstation.com',
-    'pinterest.com', 'wallpaper', 'reddit.com/r/art',
-    'behance.net', 'dribbble.com',
   ];
+  
+  // ランダムオフセットの範囲（多様性向上）
+  static const List<int> _randomOffsets = [1, 35, 70, 105, 140];
+
+  final Random _random = Random();
 
   /// 使用済みURL（このクイズセッション全体で重複を防ぐ）
   final Set<String> _usedUrls = {};
@@ -40,12 +42,14 @@ class ImageScraper {
   /// Bingから画像URLを取得（未使用のもののみ）
   Future<List<String>> _fetchImageUrls(String query, {int count = 10}) async {
     try {
+      // ランダムなオフセットで多様な結果を取得
+      final randomOffset = _randomOffsets[_random.nextInt(_randomOffsets.length)];
       // 写真フィルタと除外キーワードを追加
       final excludeTerms = _excludeKeywords.map((k) => '-$k').join(' ');
       final enhancedQuery = '$query $excludeTerms';
       // qft=+filterui:photo-photo で写真のみにフィルタ
       final searchUrl = Uri.parse(
-        'https://www.bing.com/images/search?q=${Uri.encodeComponent(enhancedQuery)}&form=HDRSC2&first=1&count=100&qft=+filterui:photo-photo',
+        'https://www.bing.com/images/search?q=${Uri.encodeComponent(enhancedQuery)}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo',
       );
 
       final response = await http.get(

@@ -10,7 +10,7 @@ enum Genre {
   birds('鳥類', 'カラス・ワタリガラス'),
   marine('海洋動物', 'アシカ・アザラシ'),
   reptiles('爬虫類', 'ワニ・クロコダイル'),
-  twins('双子・人物', '双子の有名人'),
+  similarPeople('似ている人', '似ている一般人・芸能人'),
   cars('車', '似ている車種'),
   logos('ロゴ', '似ているブランドロゴ');
 
@@ -86,11 +86,11 @@ class QuizManager {
     'alligator': const AnimalPair('alligator', 'ワニ', 'alligator'),
     'crocodile': const AnimalPair('crocodile', 'クロコダイル', 'crocodile'),
     
-    // 双子
-    'olsen1': const AnimalPair('olsen1', 'オルセン姉妹', 'mary-kate olsen'),
-    'olsen2': const AnimalPair('olsen2', 'オルセン姉妹', 'ashley olsen'),
-    'sprouse1': const AnimalPair('sprouse1', 'スプラウス兄弟', 'cole sprouse'),
-    'sprouse2': const AnimalPair('sprouse2', 'スプラウス兄弟', 'dylan sprouse'),
+    // 似ている人物（多様な人々を検索）
+    'similar_person1': const AnimalPair('similar_person1', '似ている人物A', 'look alike people different persons'),
+    'similar_person2': const AnimalPair('similar_person2', '似ている人物B', 'doppelganger strangers look alike'),
+    'similar_person3': const AnimalPair('similar_person3', '似ている人物C', 'unrelated look alike people'),
+    'similar_person4': const AnimalPair('similar_person4', '似ている人物D', 'strangers who look alike'),
     
     // 車
     'gt86': const AnimalPair('gt86', 'トヨタ86', 'toyota 86 car'),
@@ -129,9 +129,11 @@ class QuizManager {
     // 爬虫類
     const SimilarPair('alligator', 'crocodile', Genre.reptiles),
     
-    // 双子
-    const SimilarPair('olsen1', 'olsen2', Genre.twins),
-    const SimilarPair('sprouse1', 'sprouse2', Genre.twins),
+    // 似ている人物
+    const SimilarPair('similar_person1', 'similar_person2', Genre.similarPeople),
+    const SimilarPair('similar_person3', 'similar_person4', Genre.similarPeople),
+    const SimilarPair('similar_person1', 'similar_person3', Genre.similarPeople),
+    const SimilarPair('similar_person2', 'similar_person4', Genre.similarPeople),
     
     // 車
     const SimilarPair('gt86', 'brz', Genre.cars),
