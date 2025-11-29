@@ -119,11 +119,37 @@ class ImageScraper {
   }
 
   /// 同じ画像を2枚並べた比較画像を作成
+  /// 注意: 同じ種類の2つの異なる画像を並べる（全く同じ画像ではない）
   Future<Uint8List?> createSameImage(String query) async {
-    final imageData = await _fetchImage(query);
-    if (imageData == null) return null;
+    // 2つの異なる画像を取得
+    final urls = await _fetchImageUrls(query, count: 10);
+    if (urls.length < 2) return null;
+    
+    // シャッフルして異なる2つを選ぶ
+    final shuffled = urls.toList()..shuffle();
+    
+    Uint8List? image1;
+    Uint8List? image2;
+    String? url1;
+    
+    for (final url in shuffled) {
+      final data = await _downloadImage(url);
+      if (data != null) {
+        final processed = _processImage(data);
+        if (processed != null) {
+          if (image1 == null) {
+            image1 = processed;
+            url1 = url;
+          } else if (url != url1) {
+            image2 = processed;
+            break;
+          }
+        }
+      }
+    }
 
-    return _createComparisonFromData(imageData, imageData);
+    if (image1 == null || image2 == null) return null;
+    return _createComparisonFromData(image1, image2);
   }
 
   /// 異なる2つの画像を並べた比較画像を作成

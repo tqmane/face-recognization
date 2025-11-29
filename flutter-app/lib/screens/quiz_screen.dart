@@ -31,7 +31,9 @@ class _QuizScreenState extends State<QuizScreen> {
   int _score = 0;
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
-  String _timerText = '0:00';
+  
+  // タイマー用のValueNotifierで画像の再描画を防ぐ
+  final ValueNotifier<String> _timerNotifier = ValueNotifier('0:00');
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _timerNotifier.dispose();
     _isCancelled = true;
     super.dispose();
   }
@@ -98,12 +101,10 @@ class _QuizScreenState extends State<QuizScreen> {
     _stopwatch.start();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
-        setState(() {
-          final seconds = _stopwatch.elapsed.inSeconds;
-          final minutes = seconds ~/ 60;
-          final secs = seconds % 60;
-          _timerText = '$minutes:${secs.toString().padLeft(2, '0')}';
-        });
+        final seconds = _stopwatch.elapsed.inSeconds;
+        final minutes = seconds ~/ 60;
+        final secs = seconds % 60;
+        _timerNotifier.value = '$minutes:${secs.toString().padLeft(2, '0')}';
       }
     });
   }
@@ -220,11 +221,14 @@ class _QuizScreenState extends State<QuizScreen> {
                     backgroundColor: colorScheme.primaryContainer,
                   ),
                   const Spacer(),
-                  Text(
-                    _timerText,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
+                  ValueListenableBuilder<String>(
+                    valueListenable: _timerNotifier,
+                    builder: (context, timerText, _) => Text(
+                      timerText,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],

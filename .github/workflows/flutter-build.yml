@@ -17,6 +17,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: flutter-app
+      run: |
+        pip install Pillow
+        python generate_icons.py
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -41,6 +52,10 @@ jobs:
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
+
+    - name: Generate launcher icons
+      working-directory: flutter-app
+      run: dart run flutter_launcher_icons
 
     - name: Run tests
       working-directory: flutter-app
@@ -68,6 +83,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: flutter-app
+      run: |
+        pip install Pillow
+        python generate_icons.py
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -87,6 +113,10 @@ jobs:
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
+
+    - name: Generate launcher icons
+      working-directory: flutter-app
+      run: dart run flutter_launcher_icons
 
     - name: Build Windows
       working-directory: flutter-app
@@ -109,6 +139,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: flutter-app
+      run: |
+        pip install Pillow
+        python generate_icons.py
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -128,6 +169,10 @@ jobs:
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
+
+    - name: Generate launcher icons
+      working-directory: flutter-app
+      run: dart run flutter_launcher_icons
 
     - name: Build macOS
       working-directory: flutter-app
@@ -150,6 +195,17 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: flutter-app
+      run: |
+        pip install Pillow
+        python generate_icons.py
 
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
@@ -179,6 +235,10 @@ jobs:
       working-directory: flutter-app
       run: flutter pub get
 
+    - name: Generate launcher icons
+      working-directory: flutter-app
+      run: dart run flutter_launcher_icons
+
     - name: Install CocoaPods dependencies
       working-directory: flutter-app/ios
       run: pod install
@@ -206,6 +266,17 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Generate app icons
+      working-directory: flutter-app
+      run: |
+        pip install Pillow
+        python generate_icons.py
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -244,6 +315,10 @@ jobs:
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
+
+    - name: Generate launcher icons
+      working-directory: flutter-app
+      run: dart run flutter_launcher_icons
 
     - name: Build APK
       working-directory: flutter-app
