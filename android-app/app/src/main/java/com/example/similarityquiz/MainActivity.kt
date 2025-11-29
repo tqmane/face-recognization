@@ -25,6 +25,11 @@ class MainActivity : AppCompatActivity() {
             showQuestionCountDialog()
         }
 
+        // テストセット管理
+        binding.btnTestSet.setOnClickListener {
+            startActivity(Intent(this, TestSetActivity::class.java))
+        }
+
         updateBestScores()
     }
 

@@ -26,6 +26,8 @@
         <activity android:name=".QuizActivity" />
         <activity android:name=".OnlineQuizActivity" />
         <activity android:name=".ResultActivity" />
+        <activity android:name=".TestSetActivity" />
+        <activity android:name=".OfflineTestActivity" />
 
     </application>
 

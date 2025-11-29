@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- テストセット管理画面 -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ios_gray6">
+
+    <!-- 通常表示パネル -->
+    <LinearLayout
+        android:id="@+id/normalPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- ヘッダー -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:background="@color/white">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBack"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="← 戻る"
+                android:textColor="@color/ios_blue" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="テストセット"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <!-- スペーサー -->
+            <View
+                android:layout_width="48dp"
+                android:layout_height="1dp" />
+
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- 説明カード -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="@color/ios_blue"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📦 テストセットとは？"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/white" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="事前に画像をダウンロードして保存しておくことで、ネット接続なしで素早くテストできます。一度作成すれば何度でも使えます。"
+                            android:textSize="14sp"
+                            android:textColor="@color/white"
+                            android:alpha="0.9" />
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- 新規作成ボタン -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateNew"
+                    style="@style/IOSButton.Primary"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:text="＋ 新しいテストセットを作成"
+                    android:textSize="17sp"
+                    app:cornerRadius="14dp" />
+
+                <!-- ストレージ情報 -->
+                <TextView
+                    android:id="@+id/tvStorageInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="16dp"
+                    android:layout_gravity="end"
+                    android:text="使用容量: 0 MB"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary" />
+
+                <!-- セクションタイトル -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="保存済みテストセット"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.05" />
+
+                <!-- セットがない場合 -->
+                <TextView
+                    android:id="@+id/tvNoSets"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="テストセットがありません\n上のボタンから作成してください"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:padding="32dp"
+                    android:visibility="visible" />
+
+                <!-- テストセット一覧 -->
+                <LinearLayout
+                    android:id="@+id/testSetList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </ScrollView>
+
+    </LinearLayout>
+
+    <!-- ダウンロード中パネル -->
+    <LinearLayout
+        android:id="@+id/downloadingPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@color/ios_gray6"
+        android:padding="32dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ProgressBar
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:indeterminate="false"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:id="@+id/progressBar"
+            android:max="100"
+            android:progress="0" />
+
+        <TextView
+            android:id="@+id/tvProgressPercent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="0%"
+            android:textSize="48sp"
+            android:textStyle="bold"
+            android:textColor="@color/ios_blue" />
+
+        <TextView
+            android:id="@+id/tvDownloadStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="ダウンロード中..."
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/tvDownloadProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="0 / 200"
+            android:textSize="17sp"
+            android:textColor="@color/text_secondary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancel"
+            style="@style/IOSButton.Secondary"
+            android:layout_width="200dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="32dp"
+            android:text="キャンセル"
+            android:textSize="17sp"
+            app:cornerRadius="12dp" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

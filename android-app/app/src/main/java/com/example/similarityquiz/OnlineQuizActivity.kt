@@ -165,9 +165,9 @@ class OnlineQuizActivity : AppCompatActivity() {
             var successCount = 0
             var index = 0
             
-            // 3問ずつ並列でダウンロード
+            // 20問ずつ並列でダウンロード（各問題にインデックス付きで混ざらない）
             while (successCount < totalQuestions && index < questionConfigs.size && !isCancelled) {
-                val batchSize = minOf(3, totalQuestions - successCount)
+                val batchSize = minOf(20, totalQuestions - successCount)
                 val batch = questionConfigs.drop(index).take(batchSize * 2)
                 index += batch.size
                 
@@ -182,8 +182,8 @@ class OnlineQuizActivity : AppCompatActivity() {
                     }
                 }
 
-                // 並列ダウンロード
-                val results = batch.map { config ->
+                // 並列ダウンロード（インデックス付きで混ざらないように管理）
+                val results = batch.mapIndexed { batchIndex, config ->
                     async {
                         try {
                             val bitmap = if (config.isSame) {

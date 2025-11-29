@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.similarityquiz"
         minSdk = 33  // Android 13以上
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.7.0"
+        versionCode = 9
+        versionName = "1.8.0"
     }
 
     buildTypes {
