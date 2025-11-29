@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ios_gray6">
+    android:background="@color/background">
 
     <!-- 通常表示パネル -->
     <LinearLayout
@@ -20,7 +20,7 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:padding="16dp"
-            android:background="@color/white">
+            android:background="@color/surface">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBack"
@@ -78,7 +78,7 @@
                             android:text="📦 テストセットとは？"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="@color/white" />
+                            android:textColor="@color/card_background" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -86,7 +86,7 @@
                             android:layout_marginTop="8dp"
                             android:text="事前に画像をダウンロードして保存しておくことで、ネット接続なしで素早くテストできます。一度作成すれば何度でも使えます。"
                             android:textSize="14sp"
-                            android:textColor="@color/white"
+                            android:textColor="@color/card_background"
                             android:alpha="0.9" />
 
                     </LinearLayout>
@@ -160,7 +160,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:background="@color/ios_gray6"
+        android:background="@color/background"
         android:padding="32dp"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"

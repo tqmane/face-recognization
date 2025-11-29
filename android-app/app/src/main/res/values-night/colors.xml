@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ダークモード用カラーパレット -->
+    
+    <!-- プライマリカラー -->
+    <color name="primary">#0A84FF</color>
+    <color name="primary_variant">#409CFF</color>
+    <color name="secondary">#5E5CE6</color>
+    
+    <!-- 背景・サーフェス -->
+    <color name="background">#000000</color>
+    <color name="surface">#1C1C1E</color>
+    <color name="card_background">#2C2C2E</color>
+    <color name="elevated_background">#2C2C2E</color>
+    
+    <!-- テキストカラー -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#98989F</color>
+    <color name="text_tertiary">#636366</color>
+    
+    <!-- ボタンカラー -->
+    <color name="btn_same">#30D158</color>
+    <color name="btn_different">#FF453A</color>
+    <color name="btn_same_pressed">#28B24C</color>
+    <color name="btn_different_pressed">#D93830</color>
+    
+    <!-- システムカラー（ダークモード） -->
+    <color name="ios_blue">#0A84FF</color>
+    <color name="ios_green">#30D158</color>
+    <color name="ios_red">#FF453A</color>
+    <color name="ios_orange">#FF9F0A</color>
+    <color name="ios_yellow">#FFD60A</color>
+    <color name="ios_teal">#64D2FF</color>
+    <color name="ios_indigo">#5E5CE6</color>
+    
+    <!-- グレースケール（ダーク） -->
+    <color name="ios_gray">#98989F</color>
+    <color name="ios_gray2">#636366</color>
+    <color name="ios_gray3">#48484A</color>
+    <color name="ios_gray4">#3A3A3C</color>
+    <color name="ios_gray5">#2C2C2E</color>
+    <color name="ios_gray6">#1C1C1E</color>
+    
+    <!-- セパレーター -->
+    <color name="separator">#38383A</color>
+    <color name="divider">#38383A</color>
+    
+    <!-- ステータスカラー -->
+    <color name="success">#30D158</color>
+    <color name="warning">#FF9F0A</color>
+    <color name="error">#FF453A</color>
+    <color name="info">#0A84FF</color>
+</resources>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/history_manager.dart';
+import '../utils/app_colors.dart';
 
 class ResultScreen extends StatelessWidget {
   final int score;
@@ -30,19 +31,19 @@ class ResultScreen extends StatelessWidget {
     
     if (percentage >= 90) {
       grade = '素晴らしい！';
-      gradeColor = Colors.amber;
+      gradeColor = AppColors.warning;
       emoji = '🏆';
     } else if (percentage >= 70) {
       grade = 'よくできました！';
-      gradeColor = Colors.green;
+      gradeColor = context.successColor;
       emoji = '😊';
     } else if (percentage >= 50) {
       grade = 'まずまず';
-      gradeColor = Colors.blue;
+      gradeColor = context.primaryColor;
       emoji = '🤔';
     } else {
       grade = 'もう一度挑戦！';
-      gradeColor = Colors.orange;
+      gradeColor = context.warningColor;
       emoji = '💪';
     }
 
@@ -241,18 +242,20 @@ class _QuestionResultItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCorrect = result.isCorrect;
+    final successColor = context.successColor;
+    final errorColor = context.errorColor;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: isCorrect 
-          ? Colors.green.withOpacity(0.1) 
-          : Colors.red.withOpacity(0.1),
+          ? successColor.withOpacity(0.1) 
+          : errorColor.withOpacity(0.1),
       child: ListTile(
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: isCorrect ? Colors.green : Colors.red,
+            color: isCorrect ? successColor : errorColor,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Center(
@@ -286,7 +289,7 @@ class _QuestionResultItem extends StatelessWidget {
               '回答: ${result.answeredSame ? "同じ" : "違う"}',
               style: TextStyle(
                 fontSize: 12,
-                color: isCorrect ? Colors.green : Colors.red,
+                color: isCorrect ? successColor : errorColor,
                 fontWeight: FontWeight.bold,
               ),
             ),

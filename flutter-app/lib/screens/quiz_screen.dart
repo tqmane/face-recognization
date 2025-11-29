@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/image_scraper.dart';
 import '../services/history_manager.dart';
+import '../utils/app_colors.dart';
 import 'result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -392,7 +393,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       child: FilledButton(
                         onPressed: () => _answer(true),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: context.successColor,
                         ),
                         child: const Text(
                           '✓ 同じ',
@@ -408,7 +409,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       child: FilledButton(
                         onPressed: () => _answer(false),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: context.errorColor,
                         ),
                         child: const Text(
                           '✗ 違う',
