@@ -54,8 +54,7 @@ class ResultActivity : AppCompatActivity() {
 
         // ベストスコアかどうか
         val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
-        val bestScoreKey = if (mode == "online") "best_score_online" else "best_score"
-        val bestScore = prefs.getInt(bestScoreKey, 0)
+        val bestScore = prefs.getInt("best_score_online", 0)
         if (score >= bestScore && score > 0) {
             binding.tvNewRecord.visibility = View.VISIBLE
             binding.tvNewRecord.text = "🎉 新記録！"
