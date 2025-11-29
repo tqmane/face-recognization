@@ -343,6 +343,56 @@ jobs:
           sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' build.gradle
         fi
 
+    - name: Setup signing
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -d > flutter-app/android/app/release.keystore
+          cat > flutter-app/android/key.properties << EOF
+        storePassword=$KEYSTORE_PASSWORD
+        keyPassword=$KEY_PASSWORD
+        keyAlias=$KEY_ALIAS
+        storeFile=release.keystore
+        EOF
+        fi
+
+    - name: Configure signing in build.gradle
+      working-directory: flutter-app/android/app
+      run: |
+        if [ -f "../key.properties" ]; then
+          # build.gradleに署名設定を追加
+          cat > signing_config.gradle << 'SIGNING'
+        def keystoreProperties = new Properties()
+        def keystorePropertiesFile = rootProject.file('key.properties')
+        if (keystorePropertiesFile.exists()) {
+            keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+        }
+
+        android {
+            signingConfigs {
+                release {
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                    storeFile file(keystoreProperties['storeFile'])
+                    storePassword keystoreProperties['storePassword']
+                }
+            }
+            buildTypes {
+                release {
+                    signingConfig signingConfigs.release
+                }
+            }
+        }
+        SIGNING
+          # build.gradleの最後に追加
+          echo "" >> build.gradle
+          echo "apply from: 'signing_config.gradle'" >> build.gradle
+        fi
+
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
@@ -351,11 +401,19 @@ jobs:
       working-directory: flutter-app
       run: flutter build apk --release
 
+    - name: Rename signed APK
+      run: |
+        if [ -f "flutter-app/android/key.properties" ]; then
+          mv flutter-app/build/app/outputs/flutter-apk/app-release.apk flutter-app/build/app/outputs/flutter-apk/similarity_quiz-signed.apk
+        else
+          mv flutter-app/build/app/outputs/flutter-apk/app-release.apk flutter-app/build/app/outputs/flutter-apk/similarity_quiz-unsigned.apk
+        fi
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: android-apk
-        path: flutter-app/build/app/outputs/flutter-apk/app-release.apk
+        path: flutter-app/build/app/outputs/flutter-apk/similarity_quiz-*.apk
 
   # リリースジョブ
   release:

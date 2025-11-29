@@ -117,22 +117,22 @@ class ImageScraper {
     return null;
   }
 
-  /// クエリから画像を取得
-  Future<Uint8List?> _fetchImage(String query) async {
+  /// クエリから画像を取得（img.Imageオブジェクトとして返す）
+  Future<img.Image?> _fetchImageAsObject(String query) async {
     final urls = await _fetchImageUrls(query, count: 10);
     
     for (final url in urls) {
       final data = await _downloadImage(url);
       if (data != null) {
-        return _processImage(data);
+        return _processImageAsObject(data);
       }
     }
     
     return null;
   }
 
-  /// 画像をリサイズ・処理
-  Uint8List? _processImage(Uint8List data) {
+  /// 画像をリサイズ・処理（img.Imageオブジェクトとして返す）
+  img.Image? _processImageAsObject(Uint8List data) {
     try {
       final image = img.decodeImage(data);
       if (image == null) return null;
@@ -147,11 +147,17 @@ class ImageScraper {
         newHeight = (image.height * (_maxWidth / image.width)).round();
       }
 
-      final resized = img.copyResize(image, width: newWidth, height: newHeight);
-      return Uint8List.fromList(img.encodePng(resized));
+      return img.copyResize(image, width: newWidth, height: newHeight);
     } catch (e) {
       return null;
     }
+  }
+
+  /// 画像をリサイズ・処理（後方互換性のため）
+  Uint8List? _processImage(Uint8List data) {
+    final image = _processImageAsObject(data);
+    if (image == null) return null;
+    return Uint8List.fromList(img.encodePng(image));
   }
 
   /// 同じ画像を2枚並べた比較画像を作成
@@ -176,10 +182,9 @@ class ImageScraper {
     
     if (firstSet.isEmpty || secondSet.isEmpty) return null;
     
-    Uint8List? image1;
-    Uint8List? image2;
+    img.Image? image1;
+    img.Image? image2;
     String? url1;
-    String? url2;
     
     // 最初の画像を取得
     for (final url in firstSet) {
@@ -187,7 +192,7 @@ class ImageScraper {
       _currentQuestionUrls.add(url);
       final data = await _downloadImage(url);
       if (data != null) {
-        final processed = _processImage(data);
+        final processed = _processImageAsObject(data);
         if (processed != null) {
           image1 = processed;
           url1 = url;
@@ -204,37 +209,31 @@ class ImageScraper {
       _currentQuestionUrls.add(url);
       final data = await _downloadImage(url);
       if (data != null) {
-        final processed = _processImage(data);
+        final processed = _processImageAsObject(data);
         if (processed != null) {
           image2 = processed;
-          url2 = url;
           break;
         }
       }
     }
 
     if (image1 == null || image2 == null) return null;
-    return _createComparisonFromData(image1, image2);
+    return _createComparisonFromImages(image1, image2);
   }
 
   /// 異なる2つの画像を並べた比較画像を作成
   Future<Uint8List?> createComparisonImage(String query1, String query2) async {
-    final image1 = await _fetchImage(query1);
-    final image2 = await _fetchImage(query2);
+    final image1 = await _fetchImageAsObject(query1);
+    final image2 = await _fetchImageAsObject(query2);
 
     if (image1 == null || image2 == null) return null;
 
-    return _createComparisonFromData(image1, image2);
+    return _createComparisonFromImages(image1, image2);
   }
 
-  /// 2つの画像データから比較画像を作成
-  Uint8List? _createComparisonFromData(Uint8List data1, Uint8List data2) {
+  /// 2つのimg.Imageオブジェクトから比較画像を作成（最適化版）
+  Uint8List? _createComparisonFromImages(img.Image img1, img.Image img2) {
     try {
-      final img1 = img.decodeImage(data1);
-      final img2 = img.decodeImage(data2);
-
-      if (img1 == null || img2 == null) return null;
-
       const gap = 20;
       final totalWidth = img1.width + img2.width + gap;
       final maxHeight = img1.height > img2.height ? img1.height : img2.height;
