@@ -65,11 +65,11 @@ jobs:
       working-directory: android-app
       run: gradle assembleRelease
 
-    # apksignerで署名
+    # apksignerで署名 (.keystore形式)
     - name: Sign APK with apksigner
       env:
-        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
@@ -77,17 +77,17 @@ jobs:
         UNSIGNED_APK=$(find android-app/app/build/outputs/apk/release -name "*.apk" | head -1)
         SIGNED_APK="android-app/app/build/outputs/apk/release/app-release-signed.apk"
         
-        # キーストアをデコード
-        echo "$SIGNING_KEY" | base64 -d > keystore.p12
+        # キーストアをデコード (.keystore)
+        echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
         
         # zipalignで最適化
         ${ANDROID_HOME}/build-tools/34.0.0/zipalign -v -p 4 "$UNSIGNED_APK" "${UNSIGNED_APK%.apk}-aligned.apk"
         
         # apksignerで署名
         ${ANDROID_HOME}/build-tools/34.0.0/apksigner sign \
-          --ks keystore.p12 \
+          --ks release.keystore \
           --ks-key-alias "$KEY_ALIAS" \
-          --ks-pass pass:"$KEY_STORE_PASSWORD" \
+          --ks-pass pass:"$KEYSTORE_PASSWORD" \
           --key-pass pass:"$KEY_PASSWORD" \
           --out "$SIGNED_APK" \
           "${UNSIGNED_APK%.apk}-aligned.apk"
@@ -96,7 +96,7 @@ jobs:
         ${ANDROID_HOME}/build-tools/34.0.0/apksigner verify --verbose "$SIGNED_APK"
         
         # クリーンアップ
-        rm -f keystore.p12
+        rm -f release.keystore
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
