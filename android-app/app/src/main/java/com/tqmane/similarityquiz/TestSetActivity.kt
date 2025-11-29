@@ -1,10 +1,12 @@
 package com.tqmane.similarityquiz
 
+import android.Manifest
 import android.content.Intent
-import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -24,9 +26,22 @@ class TestSetActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTestSetBinding
     private lateinit var testSetManager: TestSetManager
+    private lateinit var notificationHelper: DownloadNotificationHelper
 
     private var downloadJob: Job? = null
     private var isCancelled = false
+    
+    // 現在ダウンロード中のジャンル名
+    private var currentGenreName: String = ""
+
+    // 通知権限リクエスト
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(this, "通知が有効になりました", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +49,10 @@ class TestSetActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         testSetManager = TestSetManager(this)
+        notificationHelper = DownloadNotificationHelper(this)
+
+        // 通知権限を確認（Android 13以上）
+        requestNotificationPermissionIfNeeded()
 
         binding.btnCreateNew.setOnClickListener {
             showGenreSelectionDialog()
@@ -48,6 +67,17 @@ class TestSetActivity : AppCompatActivity() {
         }
 
         refreshTestSetList()
+    }
+
+    /**
+     * 通知権限をリクエスト（Android 13以上）
+     */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!notificationHelper.hasNotificationPermission()) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     private fun refreshTestSetList() {
@@ -126,6 +156,7 @@ class TestSetActivity : AppCompatActivity() {
 
     private fun startDownload(genre: OnlineQuizManager.Genre, totalQuestions: Int) {
         isCancelled = false
+        currentGenreName = genre.displayName
         
         // UI更新
         binding.downloadingPanel.visibility = View.VISIBLE
@@ -134,6 +165,9 @@ class TestSetActivity : AppCompatActivity() {
         binding.tvDownloadProgress.text = "0 / $totalQuestions"
         binding.progressBar.progress = 0
         binding.tvProgressPercent.text = "0%"
+
+        // 通知を表示
+        notificationHelper.showDownloadStarted(genre.displayName, totalQuestions)
 
         downloadJob = lifecycleScope.launch {
             val successCount = testSetManager.createTestSet(
@@ -148,6 +182,8 @@ class TestSetActivity : AppCompatActivity() {
                             binding.progressBar.progress = progress
                             binding.tvProgressPercent.text = "$progress%"
                         }
+                        // 通知も更新
+                        notificationHelper.updateProgress(genre.displayName, current, total)
                     }
                 }
             )
@@ -157,8 +193,10 @@ class TestSetActivity : AppCompatActivity() {
                 binding.normalPanel.visibility = View.VISIBLE
 
                 if (isCancelled) {
+                    notificationHelper.showDownloadCancelled()
                     Toast.makeText(this@TestSetActivity, "キャンセルしました", Toast.LENGTH_SHORT).show()
                 } else if (successCount > 0) {
+                    notificationHelper.showDownloadComplete(genre.displayName, successCount)
                     Toast.makeText(
                         this@TestSetActivity,
                         "${genre.displayName}の${successCount}問を保存しました",
@@ -166,6 +204,7 @@ class TestSetActivity : AppCompatActivity() {
                     ).show()
                     refreshTestSetList()
                 } else {
+                    notificationHelper.showDownloadFailed(genre.displayName)
                     Toast.makeText(
                         this@TestSetActivity,
                         "ダウンロードに失敗しました",
@@ -179,6 +218,7 @@ class TestSetActivity : AppCompatActivity() {
     private fun cancelDownload() {
         isCancelled = true
         downloadJob?.cancel()
+        notificationHelper.showDownloadCancelled()
         binding.downloadingPanel.visibility = View.GONE
         binding.normalPanel.visibility = View.VISIBLE
     }

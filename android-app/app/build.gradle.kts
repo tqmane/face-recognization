@@ -11,8 +11,8 @@ android {
         applicationId = "com.tqmane.similarityquiz"
         minSdk = 33  // Android 13以上
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.9.0"
+        versionCode = 11
+        versionName = "2.0.0"
     }
 
     signingConfigs {
