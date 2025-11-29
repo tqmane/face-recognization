@@ -149,6 +149,9 @@ class OnlineQuizActivity : AppCompatActivity() {
      * 全問題の画像を事前にダウンロード
      */
     private fun prepareAllQuestions() {
+        // 新しいテスト開始時に使用済みURLをクリア
+        quizManager.scraper.clearUsedUrls()
+        
         downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
             var successCount = 0
