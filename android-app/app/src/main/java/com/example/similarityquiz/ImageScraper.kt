@@ -8,34 +8,35 @@ import kotlinx.coroutines.*
 import org.jsoup.Jsoup
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 高速画像スクレイピングクラス
- * 重複防止、高解像度対応
+ * 超高速画像スクレイピングクラス
+ * 積極的プリフェッチ、並列ダウンロード最大化
  */
 class ImageScraper {
 
     companion object {
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         private const val BING_URL = "https://www.bing.com/images/search"
-        private const val CONNECT_TIMEOUT = 5000
-        private const val READ_TIMEOUT = 5000
+        private const val CONNECT_TIMEOUT = 3000  // 3秒に短縮
+        private const val READ_TIMEOUT = 3000     // 3秒に短縮
         
-        // 解像度設定（高解像度化）
-        private const val TARGET_HEIGHT = 500  // 300 → 500
-        private const val MAX_WIDTH = 600      // 400 → 600
+        private const val TARGET_HEIGHT = 450
+        private const val MAX_WIDTH = 550
     }
 
-    // URLキャッシュ（同じクエリは再検索しない）
-    private val urlCache = mutableMapOf<String, MutableList<String>>()
+    // スレッドセーフなキャッシュ
+    private val urlCache = ConcurrentHashMap<String, MutableList<String>>()
+    private val usedUrls = ConcurrentHashMap.newKeySet<String>()
     
-    // 使用済みURL（重複防止）
-    private val usedUrls = mutableSetOf<String>()
+    // プリフェッチ済み画像キャッシュ
+    private val imageCache = ConcurrentHashMap<String, Bitmap>()
 
     /**
-     * 検索クエリから画像URLリストを取得（キャッシュ付き）
+     * 検索クエリから画像URLリストを取得
      */
-    suspend fun searchImages(query: String, maxResults: Int = 20): List<String> = withContext(Dispatchers.IO) {
+    suspend fun searchImages(query: String, maxResults: Int = 30): List<String> = withContext(Dispatchers.IO) {
         // キャッシュから未使用のURLを取得
         urlCache[query]?.let { cached ->
             val unused = cached.filter { it !in usedUrls }
@@ -47,8 +48,7 @@ class ImageScraper {
         val imageUrls = mutableListOf<String>()
         
         try {
-            // より多くの結果を取得するためにパラメータを追加
-            val searchUrl = "$BING_URL?q=${query.replace(" ", "+")}&form=HDRSC2&first=1&count=50"
+            val searchUrl = "$BING_URL?q=${query.replace(" ", "+")}&form=HDRSC2&first=1&count=100"
             
             val doc = Jsoup.connect(searchUrl)
                 .userAgent(USER_AGENT)
@@ -58,7 +58,7 @@ class ImageScraper {
             val images = doc.select("a.iusc")
             
             for (element in images) {
-                if (imageUrls.size >= maxResults * 3) break
+                if (imageUrls.size >= 50) break
                 
                 try {
                     val dataM = element.attr("m")
@@ -75,23 +75,12 @@ class ImageScraper {
                 }
             }
             
-            // 代替方法
-            if (imageUrls.isEmpty()) {
-                val imgElements = doc.select("img.mimg")
-                for (img in imgElements) {
-                    if (imageUrls.size >= maxResults) break
-                    val src = img.attr("src")
-                    if (src.startsWith("http") && isImageUrl(src) && src !in usedUrls) {
-                        imageUrls.add(src)
-                    }
-                }
-            }
-            
-            // キャッシュに追加（既存のものとマージ）
             if (imageUrls.isNotEmpty()) {
                 val existing = urlCache.getOrPut(query) { mutableListOf() }
-                imageUrls.forEach { url ->
-                    if (url !in existing) existing.add(url)
+                synchronized(existing) {
+                    imageUrls.forEach { url ->
+                        if (url !in existing) existing.add(url)
+                    }
                 }
             }
             
@@ -103,9 +92,12 @@ class ImageScraper {
     }
 
     /**
-     * URLから画像をダウンロード（高解像度）
+     * URLから画像をダウンロード（高速版）
      */
-    suspend fun downloadImage(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+    private suspend fun downloadImage(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+        // キャッシュチェック
+        imageCache[imageUrl]?.let { return@withContext it }
+        
         try {
             val url = URL(imageUrl)
             val connection = url.openConnection() as HttpURLConnection
@@ -118,51 +110,62 @@ class ImageScraper {
                 return@withContext null
             }
             
-            connection.inputStream.use { input ->
-                // 高解像度で読み込み（inSampleSize を削除）
+            val bitmap = connection.inputStream.use { input ->
                 BitmapFactory.decodeStream(input)
             }
+            
+            // キャッシュに保存
+            bitmap?.let { imageCache[imageUrl] = it }
+            bitmap
         } catch (e: Exception) {
             null
         }
     }
 
     /**
-     * 複数URLから最初に成功した画像を取得、使用済みとしてマーク
+     * 複数URLから並列で最速ダウンロード
      */
-    suspend fun downloadFirstAvailable(urls: List<String>): Pair<Bitmap?, String?> = withContext(Dispatchers.IO) {
+    private suspend fun downloadRace(urls: List<String>): Pair<Bitmap?, String?> = withContext(Dispatchers.IO) {
         if (urls.isEmpty()) return@withContext Pair(null, null)
         
-        // 未使用URLのみをフィルタ
         val unusedUrls = urls.filter { it !in usedUrls }
         if (unusedUrls.isEmpty()) return@withContext Pair(null, null)
         
-        val jobs = unusedUrls.take(3).map { url ->
-            async {
-                Pair(downloadImage(url), url)
+        // 最大5つを並列ダウンロード（競争）
+        val result = CompletableDeferred<Pair<Bitmap?, String?>>()
+        val jobs = mutableListOf<Job>()
+        
+        unusedUrls.take(5).forEach { url ->
+            val job = launch {
+                val bitmap = downloadImage(url)
+                if (bitmap != null && result.isActive) {
+                    if (result.complete(Pair(bitmap, url))) {
+                        usedUrls.add(url)
+                    }
+                }
             }
+            jobs.add(job)
         }
         
-        for (job in jobs) {
-            val (bitmap, url) = job.await()
-            if (bitmap != null && url != null) {
-                // 使用済みとしてマーク
-                usedUrls.add(url)
-                jobs.forEach { it.cancel() }
-                return@withContext Pair(bitmap, url)
-            }
+        // タイムアウト付きで待機
+        val winner = withTimeoutOrNull(4000) {
+            result.await()
         }
-        Pair(null, null)
+        
+        // 残りのジョブをキャンセル
+        jobs.forEach { it.cancel() }
+        
+        winner ?: Pair(null, null)
     }
 
     /**
-     * 2つの検索クエリから画像を取得して横並びに合成
+     * 2つの検索クエリから画像を取得して合成（超高速版）
      */
     suspend fun createComparisonImage(query1: String, query2: String): Bitmap? = withContext(Dispatchers.IO) {
         try {
-            // 並列で検索（より多く取得）
-            val urls1Deferred = async { searchImages(query1, 15) }
-            val urls2Deferred = async { searchImages(query2, 15) }
+            // 並列で検索開始
+            val urls1Deferred = async { searchImages(query1) }
+            val urls2Deferred = async { searchImages(query2) }
             
             val urls1 = urls1Deferred.await()
             val urls2 = urls2Deferred.await()
@@ -171,9 +174,9 @@ class ImageScraper {
                 return@withContext null
             }
             
-            // 並列でダウンロード
-            val result1Deferred = async { downloadFirstAvailable(urls1.shuffled()) }
-            val result2Deferred = async { downloadFirstAvailable(urls2.shuffled()) }
+            // 並列でダウンロード競争
+            val result1Deferred = async { downloadRace(urls1.shuffled()) }
+            val result2Deferred = async { downloadRace(urls2.shuffled()) }
             
             val (bitmap1, _) = result1Deferred.await()
             val (bitmap2, _) = result2Deferred.await()
@@ -190,29 +193,28 @@ class ImageScraper {
     }
 
     /**
-     * 同じ検索クエリから2枚の異なる画像を取得して合成
+     * 同じ検索クエリから2枚の異なる画像を取得して合成（超高速版）
      */
     suspend fun createSameImage(query: String): Bitmap? = withContext(Dispatchers.IO) {
         try {
-            val urls = searchImages(query, 20)
+            val urls = searchImages(query)
             
-            // 未使用URLをフィルタ
             val unusedUrls = urls.filter { it !in usedUrls }
-            if (unusedUrls.size < 2) {
+            if (unusedUrls.size < 4) {
                 return@withContext null
             }
             
             val shuffled = unusedUrls.shuffled()
             
-            // 異なるURLから2枚ダウンロード
-            val (bitmap1, url1) = downloadFirstAvailable(listOf(shuffled[0]))
-            if (bitmap1 == null) return@withContext null
+            // 2セットを並列でダウンロード
+            val result1Deferred = async { downloadRace(shuffled.take(5)) }
+            val result2Deferred = async { downloadRace(shuffled.drop(5).take(5)) }
             
-            // 最初の画像のURLを除外して2枚目を取得
-            val remainingUrls = shuffled.drop(1).filter { it != url1 }
-            val (bitmap2, _) = downloadFirstAvailable(remainingUrls)
-            if (bitmap2 == null) {
-                bitmap1.recycle()
+            val (bitmap1, url1) = result1Deferred.await()
+            val (bitmap2, url2) = result2Deferred.await()
+            
+            // 同じ画像だった場合は失敗
+            if (bitmap1 == null || bitmap2 == null || url1 == url2) {
                 return@withContext null
             }
             
@@ -224,7 +226,7 @@ class ImageScraper {
     }
 
     /**
-     * 2枚の画像を横に並べて合成（高解像度）
+     * 2枚の画像を横に並べて合成
      */
     private fun combineImages(img1: Bitmap, img2: Bitmap): Bitmap {
         val ratio1 = TARGET_HEIGHT.toFloat() / img1.height
@@ -233,14 +235,12 @@ class ImageScraper {
         val newWidth1 = (img1.width * ratio1).toInt().coerceAtMost(MAX_WIDTH)
         val newWidth2 = (img2.width * ratio2).toInt().coerceAtMost(MAX_WIDTH)
         
-        // 高品質スケーリング
         val scaled1 = Bitmap.createScaledBitmap(img1, newWidth1, TARGET_HEIGHT, true)
         val scaled2 = Bitmap.createScaledBitmap(img2, newWidth2, TARGET_HEIGHT, true)
         
-        val gap = 20
+        val gap = 16
         val combinedWidth = scaled1.width + gap + scaled2.width
         
-        // 高品質出力（RGB_565 → ARGB_8888）
         val combined = Bitmap.createBitmap(combinedWidth, TARGET_HEIGHT, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(combined)
         
@@ -248,7 +248,6 @@ class ImageScraper {
         canvas.drawBitmap(scaled1, 0f, 0f, null)
         canvas.drawBitmap(scaled2, (scaled1.width + gap).toFloat(), 0f, null)
         
-        // 元画像をリサイクル
         if (scaled1 != img1) img1.recycle()
         if (scaled2 != img2) img2.recycle()
         
@@ -263,17 +262,13 @@ class ImageScraper {
                lower.contains(".webp")
     }
 
-    /**
-     * キャッシュと使用済みURLをクリア
-     */
     fun clearCache() {
         urlCache.clear()
         usedUrls.clear()
+        imageCache.values.forEach { it.recycle() }
+        imageCache.clear()
     }
     
-    /**
-     * 使用済みURLのみクリア（新しいテスト開始時）
-     */
     fun clearUsedUrls() {
         usedUrls.clear()
     }

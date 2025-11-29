@@ -10,13 +10,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.similarityquiz.databinding.ActivityOnlineQuizBinding
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 
 /**
  * オンラインモードのクイズ画面
- * 事前に全画像を取得してからテスト開始
+ * 事前に全画像を取得してからテスト開始（並列高速版）
  */
 class OnlineQuizActivity : AppCompatActivity() {
 
@@ -146,7 +148,7 @@ class OnlineQuizActivity : AppCompatActivity() {
     }
 
     /**
-     * 全問題の画像を事前にダウンロード
+     * 全問題の画像を事前にダウンロード（並列高速版）
      */
     private fun prepareAllQuestions() {
         // 新しいテスト開始時に使用済みURLをクリア
@@ -154,12 +156,20 @@ class OnlineQuizActivity : AppCompatActivity() {
         
         downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
+            
+            // 問題設定を事前に生成
+            val questionConfigs = (0 until totalQuestions * 2).map {
+                quizManager.generateRandomQuestion(selectedGenre)
+            }
+            
             var successCount = 0
-            var attemptCount = 0
-            val maxAttempts = totalQuestions * 3
-
-            while (successCount < totalQuestions && attemptCount < maxAttempts && !isCancelled) {
-                attemptCount++
+            var index = 0
+            
+            // 3問ずつ並列でダウンロード
+            while (successCount < totalQuestions && index < questionConfigs.size && !isCancelled) {
+                val batchSize = minOf(3, totalQuestions - successCount)
+                val batch = questionConfigs.drop(index).take(batchSize * 2)
+                index += batch.size
                 
                 // 進捗を更新
                 val progress = (successCount * 100) / totalQuestions
@@ -172,27 +182,29 @@ class OnlineQuizActivity : AppCompatActivity() {
                     }
                 }
 
-                try {
-                    val questionConfig = quizManager.generateRandomQuestion(selectedGenre)
-                    
-                    val bitmap = if (questionConfig.isSame) {
-                        quizManager.scraper.createSameImage(questionConfig.query1)
-                    } else {
-                        quizManager.scraper.createComparisonImage(questionConfig.query1, questionConfig.query2)
+                // 並列ダウンロード
+                val results = batch.map { config ->
+                    async {
+                        try {
+                            val bitmap = if (config.isSame) {
+                                quizManager.scraper.createSameImage(config.query1)
+                            } else {
+                                quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                            }
+                            if (bitmap != null) {
+                                PreparedQuestion(bitmap, config.isSame, config.description)
+                            } else null
+                        } catch (e: Exception) {
+                            null
+                        }
                     }
-
-                    if (bitmap != null && !isCancelled) {
-                        preparedQuestions.add(
-                            PreparedQuestion(
-                                bitmap = bitmap,
-                                isSame = questionConfig.isSame,
-                                description = questionConfig.description
-                            )
-                        )
-                        successCount++
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                }.awaitAll().filterNotNull()
+                
+                // 必要な分だけ追加
+                for (result in results) {
+                    if (successCount >= totalQuestions || isCancelled) break
+                    preparedQuestions.add(result)
+                    successCount++
                 }
             }
 
