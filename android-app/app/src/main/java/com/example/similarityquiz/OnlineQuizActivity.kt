@@ -312,10 +312,13 @@ class OnlineQuizActivity : AppCompatActivity() {
                 .apply()
         }
 
+        // 画像メモリを解放
+        cleanupImages()
+
         // 結果画面へ
         val intent = Intent(this, ResultActivity::class.java).apply {
             putExtra("score", score)
-            putExtra("total_questions", preparedQuestions.size)
+            putExtra("total_questions", totalQuestions)
             putExtra("total_time", totalTime)
             putExtra("results", ArrayList(results))
             putExtra("mode", "online")
@@ -323,6 +326,20 @@ class OnlineQuizActivity : AppCompatActivity() {
         }
         startActivity(intent)
         finish()
+    }
+
+    /**
+     * 画像メモリを解放
+     */
+    private fun cleanupImages() {
+        binding.ivQuizImage.setImageBitmap(null)
+        preparedQuestions.forEach { question ->
+            if (!question.bitmap.isRecycled) {
+                question.bitmap.recycle()
+            }
+        }
+        preparedQuestions.clear()
+        quizManager.scraper.clearCache()
     }
 
     private fun formatTime(millis: Long): String {
@@ -344,5 +361,6 @@ class OnlineQuizActivity : AppCompatActivity() {
         super.onDestroy()
         timer?.cancel()
         downloadJob?.cancel()
+        cleanupImages()
     }
 }
