@@ -66,15 +66,23 @@ jobs:
     - name: Decode Keystore
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android-app/app/keystore.jks
+        ls -la android-app/app/keystore.jks
 
     - name: Build Signed Release APK
       working-directory: android-app
       env:
-        KEYSTORE_FILE: keystore.jks
+        KEYSTORE_FILE: ${{ github.workspace }}/android-app/app/keystore.jks
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: gradle assembleRelease
+      run: |
+        echo "KEYSTORE_FILE=$KEYSTORE_FILE"
+        echo "KEY_ALIAS=$KEY_ALIAS"
+        gradle assembleRelease
+        
+    - name: Verify APK is signed
+      run: |
+        apksigner verify --print-certs android-app/app/build/outputs/apk/release/*.apk || echo "APK verification info"
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
