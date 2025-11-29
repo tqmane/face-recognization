@@ -5,22 +5,21 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jsoup.Jsoup
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * 超高速画像スクレイピングクラス
- * 積極的プリフェッチ、並列ダウンロード最大化
+ * OkHttpによる高性能ネットワーク処理
  */
 class ImageScraper {
 
     companion object {
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         private const val BING_URL = "https://www.bing.com/images/search"
-        private const val CONNECT_TIMEOUT = 3000  // 3秒に短縮
-        private const val READ_TIMEOUT = 3000     // 3秒に短縮
         
         private const val TARGET_HEIGHT = 450
         private const val MAX_WIDTH = 550
@@ -39,6 +38,14 @@ class ImageScraper {
         // ランダムオフセットの範囲（多様性向上）
         private val RANDOM_OFFSETS = listOf(1, 35, 70, 105, 140)
     }
+
+    // OkHttpクライアント（シングルトン、接続プール使用）
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .writeTimeout(5, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
 
     // スレッドセーフなキャッシュ
     private val urlCache = ConcurrentHashMap<String, MutableList<String>>()
@@ -124,34 +131,43 @@ class ImageScraper {
     }
 
     /**
-     * URLから画像をダウンロード（高速版）
+     * URLから画像をダウンロード（OkHttp使用・高性能版）
      */
     private suspend fun downloadImage(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
         // 既に使用済みならスキップ
         if (imageUrl in usedUrls) return@withContext null
         
-        // キャッシュチェック
-        imageCache[imageUrl]?.let { return@withContext it }
+        // キャッシュチェック（recycled確認）
+        imageCache[imageUrl]?.let { cached ->
+            if (!cached.isRecycled) return@withContext cached
+            imageCache.remove(imageUrl)
+        }
         
         try {
-            val url = URL(imageUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.connectTimeout = CONNECT_TIMEOUT
-            connection.readTimeout = READ_TIMEOUT
-            connection.instanceFollowRedirects = true
+            val request = Request.Builder()
+                .url(imageUrl)
+                .header("User-Agent", USER_AGENT)
+                .build()
             
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext null
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                
+                val bytes = response.body?.bytes() ?: return@withContext null
+                
+                // BitmapFactory.Optionsでメモリ効率化
+                val options = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.RGB_565  // メモリ半減
+                    inSampleSize = 1
+                }
+                
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                
+                // キャッシュに保存（サイズ制限）
+                if (bitmap != null && imageCache.size < 50) {
+                    imageCache[imageUrl] = bitmap
+                }
+                bitmap
             }
-            
-            val bitmap = connection.inputStream.use { input ->
-                BitmapFactory.decodeStream(input)
-            }
-            
-            // キャッシュに保存
-            bitmap?.let { imageCache[imageUrl] = it }
-            bitmap
         } catch (e: Exception) {
             null
         }
@@ -327,8 +343,12 @@ class ImageScraper {
         urlCache.clear()
         usedUrls.clear()
         currentQuestionUrls.clear()
-        imageCache.values.forEach { it.recycle() }
+        imageCache.values.forEach { 
+            if (!it.isRecycled) it.recycle() 
+        }
         imageCache.clear()
+        // OkHttpの接続プールをクリア
+        httpClient.connectionPool.evictAll()
     }
     
     fun clearUsedUrls() {

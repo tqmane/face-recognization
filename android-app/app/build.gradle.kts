@@ -53,4 +53,7 @@ dependencies {
     
     // コルーチン
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
+    // ネットワーク（OkHttp - 高性能）
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
