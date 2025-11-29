@@ -49,12 +49,15 @@ class ImageScraper {
         'https://www.bing.com/images/search?q=${Uri.encodeComponent(query)}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo',
       );
 
+      print('Searching: $searchUrl');
+
       final response = await http.get(
         searchUrl,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'en-US,en;q=0.9',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+          'Cache-Control': 'no-cache',
         },
       ).timeout(_timeout);
 
@@ -63,49 +66,85 @@ class ImageScraper {
         return [];
       }
 
+      print('Response length: ${response.body.length}');
+
       final document = html_parser.parse(response.body);
       final urls = <String>[];
 
-      // murl属性から画像URLを抽出
-      final elements = document.querySelectorAll('a.iusc');
+      // 方法1: murl属性から画像URLを抽出（a.iusc）
+      var elements = document.querySelectorAll('a.iusc');
+      print('Found a.iusc elements: ${elements.length}');
+      
+      // 方法2: 代替セレクタを試す
+      if (elements.isEmpty) {
+        elements = document.querySelectorAll('a[m*="murl"]');
+        print('Found a[m*=murl] elements: ${elements.length}');
+      }
+      
+      // 方法3: さらに代替
+      if (elements.isEmpty) {
+        elements = document.querySelectorAll('.mimg');
+        print('Found .mimg elements: ${elements.length}');
+      }
+
       for (final element in elements) {
         final m = element.attributes['m'];
         if (m != null && m.contains('murl')) {
           final match = RegExp(r'"murl":"([^"]+)"').firstMatch(m);
           if (match != null) {
             final url = match.group(1)!.replaceAll(r'\/', '/');
-            // 除外ドメインをチェック
-            final isExcludedDomain = _excludeDomains.any(
-              (domain) => url.toLowerCase().contains(domain)
-            );
-            // 使用済みURLと現在選択中のURLを除外
-            // 拡張子チェックを緩和（URLにクエリパラメータが含まれる場合も対応）
-            final lowerUrl = url.toLowerCase();
-            final isImageUrl = lowerUrl.contains('.jpg') || 
-                               lowerUrl.contains('.jpeg') || 
-                               lowerUrl.contains('.png') || 
-                               lowerUrl.contains('.webp') ||
-                               lowerUrl.contains('.gif') ||
-                               lowerUrl.contains('.bmp') ||
-                               lowerUrl.contains('.tiff') ||
-                               lowerUrl.contains('image') ||
-                               lowerUrl.contains('photo');
-            if (!_usedUrls.contains(url) && 
-                !_currentQuestionUrls.contains(url) &&
-                !isExcludedDomain &&
-                isImageUrl) {
+            if (_isValidImageUrl(url)) {
               urls.add(url);
               if (urls.length >= count) break;
             }
           }
         }
       }
+      
+      // 方法4: HTML全体からmurlを正規表現で抽出（フォールバック）
+      if (urls.isEmpty) {
+        print('Trying regex fallback...');
+        final murlMatches = RegExp(r'"murl":"(https?://[^"]+)"').allMatches(response.body);
+        for (final match in murlMatches) {
+          final url = match.group(1)!.replaceAll(r'\/', '/');
+          if (_isValidImageUrl(url)) {
+            urls.add(url);
+            if (urls.length >= count) break;
+          }
+        }
+        print('Regex found ${urls.length} URLs');
+      }
 
+      print('Total URLs found: ${urls.length}');
       return urls;
     } catch (e) {
       print('Error fetching image URLs: $e');
       return [];
     }
+  }
+  
+  /// URLが有効な画像URLかチェック
+  bool _isValidImageUrl(String url) {
+    // 除外ドメインをチェック
+    final isExcludedDomain = _excludeDomains.any(
+      (domain) => url.toLowerCase().contains(domain)
+    );
+    // 使用済みURLと現在選択中のURLを除外
+    // 拡張子チェックを緩和（URLにクエリパラメータが含まれる場合も対応）
+    final lowerUrl = url.toLowerCase();
+    final isImageUrl = lowerUrl.contains('.jpg') || 
+                       lowerUrl.contains('.jpeg') || 
+                       lowerUrl.contains('.png') || 
+                       lowerUrl.contains('.webp') ||
+                       lowerUrl.contains('.gif') ||
+                       lowerUrl.contains('.bmp') ||
+                       lowerUrl.contains('.tiff') ||
+                       lowerUrl.contains('image') ||
+                       lowerUrl.contains('photo');
+    return !_usedUrls.contains(url) && 
+           !_currentQuestionUrls.contains(url) &&
+           !isExcludedDomain &&
+           isImageUrl;
   }
 
   /// 画像をダウンロード（成功したら使用済みに追加）

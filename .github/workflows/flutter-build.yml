@@ -54,6 +54,11 @@ jobs:
         # デスクトップファイル用にアイコンをコピー
         if [ -f "assets/icon/app_icon.png" ] && [ -d "linux" ]; then
           cp assets/icon/app_icon.png linux/
+          # my_application.ccでウィンドウアイコンを設定
+          if [ -f "linux/my_application.cc" ]; then
+            # アイコン読み込みコードを追加（gtk_window_set_icon_from_file使用）
+            sed -i 's/gtk_window_set_title(window, "similarity_quiz");/gtk_window_set_title(window, "判別クイズ");\n  \n  \/\/ アプリアイコンを設定\n  GError *error = NULL;\n  gchar *icon_path = g_build_filename(g_get_current_dir(), "data", "flutter_assets", "assets", "icon", "app_icon.png", NULL);\n  if (g_file_test(icon_path, G_FILE_TEST_EXISTS)) {\n    gtk_window_set_icon_from_file(window, icon_path, \&error);\n    if (error != NULL) {\n      g_warning("Failed to set icon: %s", error->message);\n      g_error_free(error);\n    }\n  }\n  g_free(icon_path);/' linux/my_application.cc || true
+          fi
         fi
 
     - name: Clean and get dependencies
@@ -116,12 +121,19 @@ jobs:
 
     - name: Set Windows app icon
       working-directory: flutter-app
-      shell: bash
+      shell: pwsh
       run: |
-        # Windows用のアイコンをコピー
-        if [ -f "assets/icon/app_icon.png" ] && [ -d "windows/runner/resources" ]; then
-          cp assets/icon/app_icon.png windows/runner/resources/
-        fi
+        # Windows用のアイコンを設定
+        if ((Test-Path "assets/icon/app_icon.png") -and (Test-Path "windows/runner/resources")) {
+          # PNGからICOに変換（magickがインストールされていれば）
+          # windows/runner/resources/app_icon.ico として保存
+          Copy-Item "assets/icon/app_icon.png" "windows/runner/resources/app_icon.png"
+          # Runner.rcのアイコン参照を更新
+          $rcFile = "windows/runner/Runner.rc"
+          if (Test-Path $rcFile) {
+            (Get-Content $rcFile) -replace 'IDI_APP_ICON\s+ICON\s+"resources\\app_icon.ico"', 'IDI_APP_ICON ICON "resources\app_icon.ico"' | Set-Content $rcFile
+          }
+        }
 
     - name: Clean and get dependencies
       working-directory: flutter-app
