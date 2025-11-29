@@ -9,9 +9,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  KEYSTORE_FILE: keystore.jks
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,7 +28,7 @@ jobs:
       with:
         gradle-version: '8.2'
 
-    # デバッグビルド（常に実行）
+    # デバッグビルド
     - name: Build Debug APK
       working-directory: android-app
       run: gradle assembleDebug
@@ -42,7 +39,7 @@ jobs:
         name: debug-apk
         path: android-app/app/build/outputs/apk/debug/*.apk
 
-  # 署名付きリリースビルド（別ジョブ）
+  # 署名付きリリースビルド
   release:
     runs-on: ubuntu-latest
     needs: build
@@ -63,39 +60,56 @@ jobs:
       with:
         gradle-version: '8.2'
 
-    - name: Decode Keystore
-      run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android-app/app/keystore.jks
-        ls -la android-app/app/keystore.jks
-
-    - name: Build Signed Release APK
+    # 未署名リリースAPKをビルド
+    - name: Build Unsigned Release APK
       working-directory: android-app
+      run: gradle assembleRelease
+
+    # apksignerで署名
+    - name: Sign APK with apksigner
       env:
-        KEYSTORE_FILE: ${{ github.workspace }}/android-app/app/keystore.jks
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        echo "KEYSTORE_FILE=$KEYSTORE_FILE"
-        echo "KEY_ALIAS=$KEY_ALIAS"
-        gradle assembleRelease
+        # 未署名APKを取得
+        UNSIGNED_APK=$(find android-app/app/build/outputs/apk/release -name "*.apk" | head -1)
+        SIGNED_APK="android-app/app/build/outputs/apk/release/app-release-signed.apk"
         
-    - name: Verify APK is signed
-      run: |
-        apksigner verify --print-certs android-app/app/build/outputs/apk/release/*.apk || echo "APK verification info"
+        # キーストアをデコード
+        echo "$SIGNING_KEY" | base64 -d > keystore.p12
+        
+        # zipalignで最適化
+        ${ANDROID_HOME}/build-tools/34.0.0/zipalign -v -p 4 "$UNSIGNED_APK" "${UNSIGNED_APK%.apk}-aligned.apk"
+        
+        # apksignerで署名
+        ${ANDROID_HOME}/build-tools/34.0.0/apksigner sign \
+          --ks keystore.p12 \
+          --ks-key-alias "$KEY_ALIAS" \
+          --ks-pass pass:"$KEY_STORE_PASSWORD" \
+          --key-pass pass:"$KEY_PASSWORD" \
+          --out "$SIGNED_APK" \
+          "${UNSIGNED_APK%.apk}-aligned.apk"
+        
+        # 署名を検証
+        ${ANDROID_HOME}/build-tools/34.0.0/apksigner verify --verbose "$SIGNED_APK"
+        
+        # クリーンアップ
+        rm -f keystore.p12
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
         name: release-apk
-        path: android-app/app/build/outputs/apk/release/*.apk
+        path: android-app/app/build/outputs/apk/release/app-release-signed.apk
 
     # タグがプッシュされた場合、GitHubリリースを作成
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
-        files: android-app/app/build/outputs/apk/release/*.apk
+        files: android-app/app/build/outputs/apk/release/app-release-signed.apk
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
