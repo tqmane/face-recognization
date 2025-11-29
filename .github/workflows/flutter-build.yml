@@ -25,7 +25,6 @@ jobs:
     - name: Generate app icons
       working-directory: flutter-app
       run: |
-        pip install Pillow
         python generate_icons.py
 
     - name: Setup Flutter
@@ -47,6 +46,14 @@ jobs:
       run: |
         if [ ! -d "linux" ]; then
           flutter create --project-name similarity_quiz --org com.tqmane --platforms=linux .
+        fi
+
+    - name: Set Linux app icon
+      working-directory: flutter-app
+      run: |
+        # デスクトップファイル用にアイコンをコピー
+        if [ -f "assets/icon/app_icon.png" ] && [ -d "linux" ]; then
+          cp assets/icon/app_icon.png linux/
         fi
 
     - name: Clean and get dependencies
@@ -89,7 +96,6 @@ jobs:
     - name: Generate app icons
       working-directory: flutter-app
       run: |
-        pip install Pillow
         python generate_icons.py
 
     - name: Setup Flutter
@@ -107,6 +113,15 @@ jobs:
         if (!(Test-Path "windows")) {
           flutter create --project-name similarity_quiz --org com.tqmane --platforms=windows .
         }
+
+    - name: Set Windows app icon
+      working-directory: flutter-app
+      shell: bash
+      run: |
+        # Windows用のアイコンをコピー
+        if [ -f "assets/icon/app_icon.png" ] && [ -d "windows/runner/resources" ]; then
+          cp assets/icon/app_icon.png windows/runner/resources/
+        fi
 
     - name: Clean and get dependencies
       working-directory: flutter-app
@@ -143,7 +158,6 @@ jobs:
     - name: Generate app icons
       working-directory: flutter-app
       run: |
-        pip install Pillow
         python generate_icons.py
 
     - name: Setup Flutter
@@ -160,6 +174,20 @@ jobs:
       run: |
         if [ ! -d "macos" ]; then
           flutter create --project-name similarity_quiz --org com.tqmane --platforms=macos .
+        fi
+
+    - name: Set macOS app icon
+      working-directory: flutter-app
+      run: |
+        # macOS用のアイコンを生成・設定
+        if [ -f "assets/icon/app_icon.png" ] && [ -d "macos/Runner/Assets.xcassets" ]; then
+          # App Icon用にアイコンを配置
+          ICON_DIR="macos/Runner/Assets.xcassets/AppIcon.appiconset"
+          mkdir -p "$ICON_DIR"
+          # 各サイズにリサイズ
+          for size in 16 32 64 128 256 512 1024; do
+            sips -z $size $size assets/icon/app_icon.png --out "$ICON_DIR/app_icon_${size}.png" || true
+          done
         fi
 
     - name: Clean and get dependencies
@@ -198,7 +226,6 @@ jobs:
     - name: Generate app icons
       working-directory: flutter-app
       run: |
-        pip install Pillow
         python generate_icons.py
 
     - name: Setup Flutter
@@ -215,6 +242,19 @@ jobs:
       run: |
         if [ ! -d "ios" ]; then
           flutter create --project-name similarity_quiz --org com.tqmane --platforms=ios .
+        fi
+
+    - name: Set iOS app icon
+      working-directory: flutter-app
+      run: |
+        # iOS用のアイコンを生成・設定
+        if [ -f "assets/icon/app_icon.png" ] && [ -d "ios/Runner/Assets.xcassets" ]; then
+          ICON_DIR="ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          mkdir -p "$ICON_DIR"
+          # 各サイズにリサイズ（iOS用）
+          for size in 20 29 40 58 60 76 80 87 120 152 167 180 1024; do
+            sips -z $size $size assets/icon/app_icon.png --out "$ICON_DIR/Icon-App-${size}x${size}.png" || true
+          done
         fi
 
     - name: Set iOS deployment target to 16.4
@@ -267,7 +307,6 @@ jobs:
     - name: Generate app icons
       working-directory: flutter-app
       run: |
-        pip install Pillow
         python generate_icons.py
 
     - name: Setup Java
