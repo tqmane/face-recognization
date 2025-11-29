@@ -77,11 +77,8 @@ class ImageScraper {
         try {
             // ランダムなオフセットで多様な結果を取得
             val randomOffset = RANDOM_OFFSETS.random()
-            // 写真フィルタと除外キーワードを追加
-            val excludeTerms = EXCLUDE_KEYWORDS.joinToString(" ") { "-$it" }
-            val enhancedQuery = "$query $excludeTerms"
-            // qft=+filterui:photo-photo で写真のみにフィルタ
-            val searchUrl = "$BING_URL?q=${enhancedQuery.replace(" ", "+")}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo"
+            // 写真フィルタのみ使用（除外キーワードはドメインチェックで対応）
+            val searchUrl = "$BING_URL?q=${query.replace(" ", "+")}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo"
             
             val doc = Jsoup.connect(searchUrl)
                 .userAgent(USER_AGENT)
@@ -334,10 +331,16 @@ class ImageScraper {
 
     private fun isImageUrl(url: String): Boolean {
         val lower = url.lowercase()
+        // 一般的な画像拡張子を含むかチェック（クエリパラメータ対応）
         return lower.contains(".jpg") || 
                lower.contains(".jpeg") || 
                lower.contains(".png") || 
-               lower.contains(".webp")
+               lower.contains(".webp") ||
+               lower.contains(".gif") ||
+               lower.contains(".bmp") ||
+               lower.contains(".tiff") ||
+               lower.contains("image") ||
+               lower.contains("photo")
     }
 
     fun clearCache() {

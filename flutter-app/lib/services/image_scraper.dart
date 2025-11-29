@@ -85,7 +85,11 @@ class ImageScraper {
                                lowerUrl.contains('.jpeg') || 
                                lowerUrl.contains('.png') || 
                                lowerUrl.contains('.webp') ||
-                               lowerUrl.contains('image');
+                               lowerUrl.contains('.gif') ||
+                               lowerUrl.contains('.bmp') ||
+                               lowerUrl.contains('.tiff') ||
+                               lowerUrl.contains('image') ||
+                               lowerUrl.contains('photo');
             if (!_usedUrls.contains(url) && 
                 !_currentQuestionUrls.contains(url) &&
                 !isExcludedDomain &&
