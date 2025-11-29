@@ -23,15 +23,12 @@ jobs:
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
-
-    - name: Generate Gradle Wrapper
-      working-directory: android-app
-      run: |
-        gradle wrapper --gradle-version 8.2
+      with:
+        gradle-version: '8.2'
 
     - name: Build Debug APK
       working-directory: android-app
-      run: ./gradlew assembleDebug
+      run: gradle assembleDebug
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
