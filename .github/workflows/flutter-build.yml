@@ -144,6 +144,62 @@ jobs:
         name: macos-build
         path: flutter-app/similarity_quiz-macos.zip
 
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Create platform folders if needed
+      working-directory: flutter-app
+      run: |
+        if [ ! -d "ios" ]; then
+          flutter create --project-name similarity_quiz --platforms=ios .
+        fi
+
+    - name: Set iOS deployment target to 16.4
+      working-directory: flutter-app/ios
+      run: |
+        # Podfileの最小バージョンを16.4に設定
+        sed -i '' "s/platform :ios, '.*'/platform :ios, '16.4'/" Podfile
+        # project.pbxprojのIPHONEOS_DEPLOYMENT_TARGETを更新
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 16.4;/g' Runner.xcodeproj/project.pbxproj
+
+    - name: Get dependencies
+      working-directory: flutter-app
+      run: flutter pub get
+
+    - name: Install CocoaPods dependencies
+      working-directory: flutter-app/ios
+      run: pod install
+
+    - name: Build iOS (no codesign)
+      working-directory: flutter-app
+      run: flutter build ios --release --no-codesign
+
+    - name: Create IPA package
+      run: |
+        cd flutter-app/build/ios/iphoneos
+        mkdir -p Payload
+        cp -r Runner.app Payload/
+        zip -r ../../../similarity_quiz-ios.ipa Payload
+
+    - name: Upload iOS build
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-build
+        path: flutter-app/similarity_quiz-ios.ipa
+
   build-android:
     runs-on: ubuntu-latest
 
@@ -202,7 +258,7 @@ jobs:
   # リリースジョブ
   release:
     runs-on: ubuntu-latest
-    needs: [build-linux, build-windows, build-macos, build-android]
+    needs: [build-linux, build-windows, build-macos, build-ios, build-android]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -221,6 +277,7 @@ jobs:
           artifacts/linux-build/*.tar.gz
           artifacts/windows-build/*.zip
           artifacts/macos-build/*.zip
+          artifacts/ios-build/*.ipa
           artifacts/android-apk/*.apk
         generate_release_notes: true
         name: "Flutter App ${{ github.ref_name }}"
@@ -231,12 +288,14 @@ jobs:
           - **Windows**: similarity_quiz-windows-x64.zip
           - **macOS**: similarity_quiz-macos.zip
           - **Linux**: similarity_quiz-linux-x64.tar.gz
+          - **iOS**: similarity_quiz-ios.ipa (要署名/AltStore等)
           - **Android**: app-release.apk
           
           ### インストール方法
           - Windows: ZIPを解凍して `similarity_quiz.exe` を実行
           - macOS: ZIPを解凍して `similarity_quiz.app` を実行
           - Linux: `tar -xzvf` で解凍して `similarity_quiz` を実行
+          - iOS: AltStore/Sideloadly等でインストール
           - Android: APKをインストール
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
