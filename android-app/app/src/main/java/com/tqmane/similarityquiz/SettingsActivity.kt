@@ -1,6 +1,8 @@
 package com.tqmane.similarityquiz
 
 import android.os.Bundle
+import android.text.InputType
+import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -40,10 +42,17 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
     
+    companion object {
+        const val MAX_PARALLEL_DOWNLOADS = 50
+        const val MAX_CACHE_SIZE = 100
+        const val MAX_DOWNLOAD_TIMEOUT = 60
+        const val MAX_TARGET_IMAGE_SIZE = 1600
+    }
+    
     private fun setupSliders() {
         // 並列ダウンロード数
         binding.sliderParallelDownloads.apply {
-            max = 9  // 1-10
+            max = MAX_PARALLEL_DOWNLOADS - 1  // 1-50
             progress = settings.parallelDownloads - 1
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -57,6 +66,19 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         binding.tvParallelDownloadsValue.text = "${settings.parallelDownloads}"
+        binding.tvParallelDownloadsValue.setOnClickListener {
+            showNumberInputDialog(
+                title = "並列ダウンロード数",
+                currentValue = settings.parallelDownloads,
+                min = 1,
+                max = MAX_PARALLEL_DOWNLOADS
+            ) { value ->
+                settings.parallelDownloads = value
+                binding.sliderParallelDownloads.progress = value - 1
+                binding.tvParallelDownloadsValue.text = "$value"
+                updateSummary()
+            }
+        }
         
         // キャッシュサイズ
         binding.sliderCacheSize.apply {
@@ -74,6 +96,20 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         binding.tvCacheSizeValue.text = "${settings.cacheSize}"
+        binding.tvCacheSizeValue.setOnClickListener {
+            showNumberInputDialog(
+                title = "キャッシュサイズ",
+                currentValue = settings.cacheSize,
+                min = 5,
+                max = MAX_CACHE_SIZE,
+                step = 5
+            ) { value ->
+                settings.cacheSize = value
+                binding.sliderCacheSize.progress = (value - 5) / 5
+                binding.tvCacheSizeValue.text = "$value"
+                updateSummary()
+            }
+        }
         
         // ダウンロードタイムアウト
         binding.sliderDownloadTimeout.apply {
@@ -91,6 +127,20 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         binding.tvDownloadTimeoutValue.text = "${settings.downloadTimeout}秒"
+        binding.tvDownloadTimeoutValue.setOnClickListener {
+            showNumberInputDialog(
+                title = "ダウンロードタイムアウト（秒）",
+                currentValue = settings.downloadTimeout,
+                min = 5,
+                max = MAX_DOWNLOAD_TIMEOUT,
+                step = 5
+            ) { value ->
+                settings.downloadTimeout = value
+                binding.sliderDownloadTimeout.progress = (value - 5) / 5
+                binding.tvDownloadTimeoutValue.text = "${value}秒"
+                updateSummary()
+            }
+        }
         
         // 目標画像サイズ
         binding.sliderTargetImageSize.apply {
@@ -108,6 +158,69 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         binding.tvTargetImageSizeValue.text = "${settings.targetImageSize}px"
+        binding.tvTargetImageSizeValue.setOnClickListener {
+            showNumberInputDialog(
+                title = "目標画像サイズ（px）",
+                currentValue = settings.targetImageSize,
+                min = 400,
+                max = MAX_TARGET_IMAGE_SIZE,
+                step = 100
+            ) { value ->
+                settings.targetImageSize = value
+                binding.sliderTargetImageSize.progress = (value - 400) / 100
+                binding.tvTargetImageSizeValue.text = "${value}px"
+                updateSummary()
+            }
+        }
+    }
+    
+    private fun showNumberInputDialog(
+        title: String,
+        currentValue: Int,
+        min: Int,
+        max: Int,
+        step: Int = 1,
+        onValueSet: (Int) -> Unit
+    ) {
+        val editText = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(currentValue.toString())
+            hint = "$min - $max"
+            setSelection(text.length)
+        }
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setMessage("$min から $max の範囲で入力してください")
+            .setView(editText.apply {
+                val padding = (16 * resources.displayMetrics.density).toInt()
+                setPadding(padding, padding, padding, padding)
+            })
+            .setPositiveButton("OK") { _, _ ->
+                val inputText = editText.text.toString()
+                val inputValue = inputText.toIntOrNull()
+                
+                if (inputValue == null) {
+                    Toast.makeText(this, "数値を入力してください", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                if (inputValue < min || inputValue > max) {
+                    Toast.makeText(this, "$min から $max の範囲で入力してください", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                // ステップがある場合、最も近い値に調整
+                val adjustedValue = if (step > 1) {
+                    ((inputValue - min + step / 2) / step) * step + min
+                } else {
+                    inputValue
+                }.coerceIn(min, max)
+                
+                onValueSet(adjustedValue)
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
     }
     
     private fun setupSwitch() {

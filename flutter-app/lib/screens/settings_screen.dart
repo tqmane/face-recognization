@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/settings_service.dart';
 
 /// 高度な設定画面
@@ -11,6 +12,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _settings = SettingsService.instance;
+  
+  // 上限値
+  static const int maxParallelDownloads = 50;
+  static const int maxCacheSize = 100;
+  static const int maxDownloadTimeout = 60;
+  static const int maxTargetImageSize = 1600;
   
   late int _parallelDownloads;
   late int _cacheSize;
@@ -99,8 +106,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: '同時にダウンロードする画像の数（低いほどメモリ節約）',
             value: _parallelDownloads.toDouble(),
             min: 1,
-            max: 10,
-            divisions: 9,
+            max: maxParallelDownloads.toDouble(),
+            divisions: maxParallelDownloads - 1,
             valueLabel: '$_parallelDownloads',
             onChanged: (value) {
               setState(() {
@@ -108,6 +115,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               });
               _saveSettings();
             },
+            onTapValue: () => _showNumberInputDialog(
+              title: '並列ダウンロード数',
+              currentValue: _parallelDownloads,
+              min: 1,
+              max: maxParallelDownloads,
+              onValueSet: (value) {
+                setState(() {
+                  _parallelDownloads = value;
+                });
+                _saveSettings();
+              },
+            ),
           ),
           
           _buildSliderTile(
@@ -115,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'メモリにキャッシュする画像の最大数',
             value: _cacheSize.toDouble(),
             min: 5,
-            max: 100,
+            max: maxCacheSize.toDouble(),
             divisions: 19,
             valueLabel: '$_cacheSize',
             onChanged: (value) {
@@ -124,6 +143,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               });
               _saveSettings();
             },
+            onTapValue: () => _showNumberInputDialog(
+              title: 'キャッシュサイズ',
+              currentValue: _cacheSize,
+              min: 5,
+              max: maxCacheSize,
+              step: 5,
+              onValueSet: (value) {
+                setState(() {
+                  _cacheSize = value;
+                });
+                _saveSettings();
+              },
+            ),
           ),
           
           _buildSliderTile(
@@ -131,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: '画像ダウンロードの待機時間（秒）',
             value: _downloadTimeout.toDouble(),
             min: 5,
-            max: 60,
+            max: maxDownloadTimeout.toDouble(),
             divisions: 11,
             valueLabel: '${_downloadTimeout}秒',
             onChanged: (value) {
@@ -140,6 +172,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               });
               _saveSettings();
             },
+            onTapValue: () => _showNumberInputDialog(
+              title: 'ダウンロードタイムアウト（秒）',
+              currentValue: _downloadTimeout,
+              min: 5,
+              max: maxDownloadTimeout,
+              step: 5,
+              onValueSet: (value) {
+                setState(() {
+                  _downloadTimeout = value;
+                });
+                _saveSettings();
+              },
+            ),
           ),
           
           const Divider(height: 32),
@@ -153,7 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'ダウンロード時のリサイズ目標（大きいほど高画質、メモリ使用増）',
             value: _targetImageSize.toDouble(),
             min: 400,
-            max: 1600,
+            max: maxTargetImageSize.toDouble(),
             divisions: 12,
             valueLabel: '${_targetImageSize}px',
             onChanged: (value) {
@@ -162,6 +207,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               });
               _saveSettings();
             },
+            onTapValue: () => _showNumberInputDialog(
+              title: '目標画像サイズ（px）',
+              currentValue: _targetImageSize,
+              min: 400,
+              max: maxTargetImageSize,
+              step: 100,
+              onValueSet: (value) {
+                setState(() {
+                  _targetImageSize = value;
+                });
+                _saveSettings();
+              },
+            ),
           ),
           
           const Divider(height: 32),
@@ -259,6 +317,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
   
+  Future<void> _showNumberInputDialog({
+    required String title,
+    required int currentValue,
+    required int min,
+    required int max,
+    int step = 1,
+    required void Function(int) onValueSet,
+  }) async {
+    final controller = TextEditingController(text: currentValue.toString());
+    
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$min から $max の範囲で入力してください'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                hintText: '$min - $max',
+                border: const OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final inputValue = int.tryParse(controller.text);
+              if (inputValue == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('数値を入力してください')),
+                );
+                return;
+              }
+              if (inputValue < min || inputValue > max) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$min から $max の範囲で入力してください')),
+                );
+                return;
+              }
+              Navigator.pop(context, inputValue);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null) {
+      // ステップがある場合、最も近い値に調整
+      int adjustedValue = result;
+      if (step > 1) {
+        adjustedValue = ((result - min + step ~/ 2) ~/ step) * step + min;
+        adjustedValue = adjustedValue.clamp(min, max);
+      }
+      onValueSet(adjustedValue);
+    }
+  }
+  
   Widget _buildSliderTile({
     required String title,
     required String subtitle,
@@ -268,6 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required int divisions,
     required String valueLabel,
     required ValueChanged<double> onChanged,
+    VoidCallback? onTapValue,
   }) {
     return Card(
       child: Padding(
@@ -295,17 +425,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    valueLabel,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                GestureDetector(
+                  onTap: onTapValue,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          valueLabel,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        if (onTapValue != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

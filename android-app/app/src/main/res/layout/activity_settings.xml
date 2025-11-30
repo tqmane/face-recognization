@@ -110,7 +110,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:max="9"
+                        android:max="49"
                         android:progressTint="@color/ios_blue"
                         android:thumbTint="@color/ios_blue" />
 
