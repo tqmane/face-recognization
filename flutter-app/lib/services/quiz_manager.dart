@@ -1,213 +1,613 @@
 import 'dart:math';
+import '../models/quiz_question.dart';
+import 'image_search_service.dart';
 
-/// ジャンル定義
 enum Genre {
-  all('すべて', '全ジャンルからランダム'),
-  bigCats('ネコ科大型', 'チーター・ヒョウ・ジャガー'),
-  dogs('犬種', '柴犬・秋田犬・ハスキー'),
-  wildDogs('犬と野生', '犬とオオカミ'),
-  raccoons('アライグマ系', 'アライグマ・タヌキ'),
-  birds('鳥類', 'カラス・ワタリガラス'),
-  marine('海洋動物', 'アシカ・アザラシ'),
-  reptiles('爬虫類', 'ワニ・クロコダイル'),
-  similarPeople('似ている人', '似ている一般人・芸能人'),
-  cars('車', '似ている車種'),
-  logos('ロゴ', '似ているブランドロゴ');
-
-  final String displayName;
-  final String description;
-
-  const Genre(this.displayName, this.description);
+  cars,
+  logos,
+  celebrities,
+  dogs,
+  cats,
+  smallCats,
+  birds,
+  bears,
+  primates,
+  fish,
+  butterflies,
+  mushrooms,
+  insects,
+  watches,
+  sneakers,
+  bags,
+  buildings,
 }
 
-/// アイテム定義
-class AnimalPair {
-  final String id;
-  final String nameJa;
-  final String query;
-
-  const AnimalPair(this.id, this.nameJa, this.query);
-}
-
-/// 似ているペア定義
 class SimilarPair {
-  final String id1;
-  final String id2;
-  final Genre genre;
-
-  const SimilarPair(this.id1, this.id2, this.genre);
+  final String item1;
+  final String item2;
+  
+  const SimilarPair(this.item1, this.item2);
 }
 
-/// 問題設定
-class QuestionConfig {
-  final String query1;
-  final String query2;
-  final bool isSame;
-  final String description;
-
-  QuestionConfig({
-    required this.query1,
-    required this.query2,
-    required this.isSame,
-    required this.description,
-  });
-}
-
-/// クイズ管理クラス
 class QuizManager {
-  static final Map<String, AnimalPair> _items = {
-    // ネコ科
-    'cheetah': const AnimalPair('cheetah', 'チーター', 'cheetah face'),
-    'leopard': const AnimalPair('leopard', 'ヒョウ', 'leopard face'),
-    'jaguar': const AnimalPair('jaguar', 'ジャガー', 'jaguar animal face'),
-    'lion': const AnimalPair('lion', 'ライオン', 'lion face'),
-    'tiger': const AnimalPair('tiger', 'トラ', 'tiger face'),
-    
-    // 犬種
-    'shiba': const AnimalPair('shiba', '柴犬', 'shiba inu dog'),
-    'akita': const AnimalPair('akita', '秋田犬', 'akita dog'),
-    'husky': const AnimalPair('husky', 'ハスキー', 'husky dog'),
-    'malamute': const AnimalPair('malamute', 'マラミュート', 'malamute dog'),
-    'wolf': const AnimalPair('wolf', 'オオカミ', 'wolf animal'),
-    
-    // アライグマ系
-    'raccoon': const AnimalPair('raccoon', 'アライグマ', 'raccoon animal'),
-    'tanuki': const AnimalPair('tanuki', 'タヌキ', 'tanuki raccoon dog'),
-    
-    // 鳥
-    'crow': const AnimalPair('crow', 'カラス', 'crow bird'),
-    'raven': const AnimalPair('raven', 'ワタリガラス', 'raven bird'),
-    
-    // 海洋
-    'sea_lion': const AnimalPair('sea_lion', 'アシカ', 'sea lion'),
-    'seal': const AnimalPair('seal', 'アザラシ', 'seal animal'),
-    
-    // 爬虫類
-    'alligator': const AnimalPair('alligator', 'ワニ', 'alligator'),
-    'crocodile': const AnimalPair('crocodile', 'クロコダイル', 'crocodile'),
-    
-    // 似ている有名人・双子（同じ人の別写真 vs そっくりさん/双子を見分ける）
-    // 双子ペア
-    'mary_kate_olsen': const AnimalPair('mary_kate_olsen', 'メアリー・ケイト・オルセン', 'Mary-Kate Olsen face'),
-    'ashley_olsen': const AnimalPair('ashley_olsen', 'アシュリー・オルセン', 'Ashley Olsen face'),
-    'dylan_sprouse': const AnimalPair('dylan_sprouse', 'ディラン・スプラウス', 'Dylan Sprouse face'),
-    'cole_sprouse': const AnimalPair('cole_sprouse', 'コール・スプラウス', 'Cole Sprouse face'),
-    'tia_mowry': const AnimalPair('tia_mowry', 'ティア・モウリー', 'Tia Mowry face'),
-    'tamera_mowry': const AnimalPair('tamera_mowry', 'タメラ・モウリー', 'Tamera Mowry face'),
-    
-    // そっくりさんペア（別人だけど似ている）
-    'katy_perry': const AnimalPair('katy_perry', 'ケイティ・ペリー', 'Katy Perry face'),
-    'zooey_deschanel': const AnimalPair('zooey_deschanel', 'ズーイー・デシャネル', 'Zooey Deschanel face'),
-    'natalie_portman': const AnimalPair('natalie_portman', 'ナタリー・ポートマン', 'Natalie Portman face'),
-    'keira_knightley': const AnimalPair('keira_knightley', 'キーラ・ナイトレイ', 'Keira Knightley face'),
-    'margot_robbie': const AnimalPair('margot_robbie', 'マーゴット・ロビー', 'Margot Robbie face'),
-    'jaime_pressly': const AnimalPair('jaime_pressly', 'ジェイミー・プレスリー', 'Jaime Pressly face'),
-    'javier_bardem': const AnimalPair('javier_bardem', 'ハビエル・バルデム', 'Javier Bardem face'),
-    'jeffrey_dean_morgan': const AnimalPair('jeffrey_dean_morgan', 'ジェフリー・ディーン・モーガン', 'Jeffrey Dean Morgan face'),
-    'matt_damon': const AnimalPair('matt_damon', 'マット・デイモン', 'Matt Damon face'),
-    'mark_wahlberg': const AnimalPair('mark_wahlberg', 'マーク・ウォールバーグ', 'Mark Wahlberg face'),
-    
-    // 車
-    'gt86': const AnimalPair('gt86', 'トヨタ86', 'toyota 86 car'),
-    'brz': const AnimalPair('brz', 'スバルBRZ', 'subaru brz car'),
-    'miata': const AnimalPair('miata', 'マツダロードスター', 'mazda miata mx5'),
-    's2000': const AnimalPair('s2000', 'ホンダS2000', 'honda s2000'),
-    
-    // ロゴ
-    'pepsi': const AnimalPair('pepsi', 'ペプシ', 'pepsi logo'),
-    'korean_air': const AnimalPair('korean_air', '大韓航空', 'korean air logo'),
+  static final QuizManager _instance = QuizManager._internal();
+  factory QuizManager() => _instance;
+  QuizManager._internal();
+
+  final _random = Random();
+  final ImageSearchService _imageService = ImageSearchService();
+  
+  // Genre display names
+  static const Map<Genre, String> genreNames = {
+    Genre.cars: '車',
+    Genre.logos: 'ロゴ',
+    Genre.celebrities: '有名人・双子・そっくりさん',
+    Genre.dogs: '犬',
+    Genre.cats: '猫',
+    Genre.smallCats: '小型野生猫',
+    Genre.birds: '鳥',
+    Genre.bears: '熊',
+    Genre.primates: '霊長類',
+    Genre.fish: '魚',
+    Genre.butterflies: '蝶',
+    Genre.mushrooms: 'きのこ',
+    Genre.insects: '昆虫',
+    Genre.watches: '腕時計',
+    Genre.sneakers: 'スニーカー',
+    Genre.bags: 'バッグ',
+    Genre.buildings: '建物',
+  };
+  
+  // All items for each genre - massively expanded
+  static const Map<Genre, List<String>> _items = {
+    Genre.cars: [
+      'Toyota Camry', 'Honda Accord', 'Toyota Corolla', 'Honda Civic',
+      'BMW 3 Series', 'Mercedes C-Class', 'Audi A4', 'Lexus IS',
+      'Porsche 911', 'Chevrolet Corvette', 'Nissan GT-R',
+      'Ford Mustang', 'Chevrolet Camaro', 'Dodge Challenger',
+      'Nissan Z', 'Toyota Supra', 'Mazda MX-5',
+      'Range Rover', 'Porsche Cayenne', 'BMW X5',
+      'Lamborghini Huracan', 'Ferrari 488', 'McLaren 720S',
+    ],
+    Genre.logos: [
+      'Apple', 'Samsung', 'Pepsi', 'Coca-Cola',
+      'Nike', 'Adidas', 'Puma', 'Reebok',
+      'McDonald\'s', 'Burger King', 'Wendy\'s', 'KFC',
+      'Starbucks', 'Dunkin',
+      'Gucci', 'Chanel', 'Louis Vuitton', 'Prada',
+      'LG', 'Renault', 'Bentley', 'Aston Martin',
+      'Target', 'Pinterest', 'Spotify', 'Beats',
+    ],
+    Genre.celebrities: [
+      // Famous identical twins
+      'Mary-Kate Olsen', 'Ashley Olsen',
+      'Dylan Sprouse', 'Cole Sprouse',
+      'Tia Mowry', 'Tamera Mowry',
+      'Bella Hadid', 'Gigi Hadid',
+      // Japanese twins
+      'Manakanana Mana', 'Manakanana Kana',
+      'Takahashi sisters Miriya', 'Takahashi sisters Hikaru',
+      // Celebrity lookalikes
+      'Keira Knightley', 'Natalie Portman',
+      'Zooey Deschanel', 'Katy Perry',
+      'Jessica Chastain', 'Bryce Dallas Howard',
+      'Amy Adams', 'Isla Fisher',
+      'Margot Robbie', 'Jaime Pressly',
+      'Javier Bardem', 'Jeffrey Dean Morgan',
+      'Matt Damon', 'Mark Wahlberg',
+      'Mila Kunis', 'Sarah Hyland',
+      'Selena Gomez', 'Lucy Hale',
+      'Will Ferrell', 'Chad Smith',
+      'Daniel Radcliffe', 'Elijah Wood',
+      'Logan Lerman', 'young Tom Cruise',
+      'Henry Cavill', 'Matt Bomer',
+      'Leighton Meester', 'Minka Kelly',
+      'Nina Dobrev', 'Victoria Justice',
+      // Japanese celebrity lookalikes
+      'Aragaki Yui', 'Fukuda Saki',
+      'Satomi Ishihara', 'Arimura Kasumi',
+      'Yamada Takayuki', 'Oguri Shun',
+    ],
+    Genre.dogs: [
+      'Golden Retriever', 'Labrador Retriever',
+      'German Shepherd', 'Belgian Malinois',
+      'Shiba Inu', 'Akita Inu',
+      'Siberian Husky', 'Alaskan Malamute',
+      'Border Collie', 'Australian Shepherd',
+      'Poodle', 'Bichon Frise', 'Maltese',
+      'Pomeranian', 'Japanese Spitz',
+      'Corgi', 'Beagle', 'Dachshund',
+      'French Bulldog', 'Boston Terrier',
+      'Bernese Mountain Dog', 'Saint Bernard',
+    ],
+    Genre.cats: [
+      'Persian Cat', 'Himalayan Cat',
+      'Scottish Fold', 'British Shorthair',
+      'Maine Coon', 'Norwegian Forest Cat',
+      'Russian Blue', 'Chartreux',
+      'Siamese Cat', 'Balinese Cat',
+      'Bengal Cat', 'Egyptian Mau',
+      'Ragdoll', 'Birman',
+      'Abyssinian', 'Somali',
+      'American Shorthair', 'European Shorthair',
+    ],
+    Genre.smallCats: [
+      'Ocelot', 'Margay', 'Oncilla',
+      'Serval', 'Caracal', 'African Golden Cat',
+      'Lynx', 'Bobcat',
+      'Sand Cat', 'Pallas Cat', 'Black-footed Cat',
+      'Leopard Cat', 'Fishing Cat', 'Rusty-spotted Cat',
+      'Jaguarundi', 'Jungle Cat',
+    ],
+    Genre.birds: [
+      'Cardinal', 'Scarlet Tanager',
+      'Blue Jay', 'Bluebird',
+      'Bald Eagle', 'Golden Eagle',
+      'Peregrine Falcon', 'Gyrfalcon',
+      'Great Horned Owl', 'Snowy Owl', 'Barn Owl',
+      'Flamingo', 'Roseate Spoonbill',
+      'Hummingbird', 'Sunbird',
+      'Peacock', 'Pheasant',
+      'Crow', 'Raven', 'Rook',
+      'Sparrow', 'Finch', 'Wren',
+      'Penguin Emperor', 'Penguin King', 'Penguin Adelie',
+    ],
+    Genre.bears: [
+      'Brown Bear', 'Grizzly Bear', 'Kodiak Bear',
+      'Black Bear', 'Asian Black Bear',
+      'Polar Bear', 'Spirit Bear',
+      'Sun Bear', 'Sloth Bear',
+      'Spectacled Bear', 'Giant Panda', 'Red Panda',
+    ],
+    Genre.primates: [
+      'Chimpanzee', 'Bonobo',
+      'Gorilla Mountain', 'Gorilla Lowland',
+      'Orangutan Bornean', 'Orangutan Sumatran',
+      'Gibbon', 'Siamang',
+      'Mandrill', 'Baboon',
+      'Capuchin', 'Spider Monkey', 'Howler Monkey',
+      'Japanese Macaque', 'Rhesus Macaque',
+      'Lemur Ring-tailed', 'Lemur Red Ruffed',
+    ],
+    Genre.fish: [
+      'Betta Fish', 'Guppy', 'Molly', 'Platy',
+      'Neon Tetra', 'Cardinal Tetra',
+      'Goldfish', 'Koi',
+      'Clownfish', 'Damselfish',
+      'Angelfish Freshwater', 'Angelfish Marine',
+      'Discus', 'Oscar',
+      'Blue Tang', 'Yellow Tang',
+      'Mandarin Fish', 'Lionfish',
+      'Tuna', 'Mackerel', 'Salmon', 'Trout',
+    ],
+    Genre.butterflies: [
+      'Monarch Butterfly', 'Viceroy Butterfly',
+      'Swallowtail Tiger', 'Swallowtail Zebra', 'Swallowtail Spicebush',
+      'Blue Morpho', 'Blue Clipper',
+      'Painted Lady', 'Red Admiral',
+      'Peacock Butterfly', 'Buckeye Butterfly',
+      'Glasswing Butterfly', 'Clearwing Moth',
+      'Atlas Moth', 'Luna Moth', 'Polyphemus Moth',
+    ],
+    Genre.mushrooms: [
+      'Button Mushroom', 'Cremini Mushroom', 'Portobello Mushroom',
+      'Shiitake', 'Maitake', 'Enoki',
+      'Oyster Mushroom', 'King Trumpet Mushroom',
+      'Chanterelle', 'False Chanterelle',
+      'Morel', 'False Morel',
+      'Fly Agaric', 'Panther Cap',
+      'Puffball Giant', 'Puffball Common',
+      'Lion\'s Mane', 'Bear\'s Head Tooth',
+    ],
+    Genre.insects: [
+      'Ladybug', 'Asian Lady Beetle',
+      'Honeybee', 'Bumblebee', 'Carpenter Bee',
+      'Yellowjacket', 'Paper Wasp', 'Hornet',
+      'Dragonfly', 'Damselfly',
+      'Grasshopper', 'Cricket', 'Katydid',
+      'Praying Mantis', 'Stick Insect',
+      'Rhinoceros Beetle', 'Stag Beetle', 'Hercules Beetle',
+      'Firefly', 'Click Beetle',
+      'Cicada', 'Leafhopper',
+    ],
+    Genre.watches: [
+      'Rolex Submariner', 'Omega Seamaster', 'Tudor Black Bay',
+      'Rolex Daytona', 'Omega Speedmaster', 'TAG Heuer Carrera',
+      'Patek Philippe Nautilus', 'Audemars Piguet Royal Oak', 'Vacheron Constantin Overseas',
+      'Casio G-Shock', 'Citizen Eco-Drive', 'Seiko Prospex',
+      'Apple Watch', 'Samsung Galaxy Watch', 'Garmin Fenix',
+    ],
+    Genre.sneakers: [
+      'Nike Air Jordan 1', 'Nike Dunk Low', 'Nike Air Force 1',
+      'Adidas Stan Smith', 'Adidas Superstar', 'Adidas Gazelle',
+      'New Balance 574', 'New Balance 990', 'New Balance 550',
+      'Converse Chuck Taylor', 'Vans Old Skool', 'Vans Sk8-Hi',
+      'Nike Air Max 90', 'Nike Air Max 1', 'Adidas Ultraboost',
+      'Reebok Classic', 'Puma Suede', 'Asics Gel-Lyte',
+    ],
+    Genre.bags: [
+      'Louis Vuitton Speedy', 'Louis Vuitton Neverfull', 'Louis Vuitton Keepall',
+      'Chanel Classic Flap', 'Chanel Boy Bag', 'Chanel 2.55',
+      'Hermes Birkin', 'Hermes Kelly', 'Hermes Constance',
+      'Gucci GG Marmont', 'Gucci Dionysus', 'Gucci Jackie',
+      'Prada Galleria', 'Prada Re-Edition', 'Dior Lady Dior',
+      'Celine Luggage', 'Celine Triomphe', 'Bottega Veneta Pouch',
+    ],
+    Genre.buildings: [
+      'Empire State Building', 'Chrysler Building',
+      'Eiffel Tower', 'Tokyo Tower', 'CN Tower',
+      'Big Ben', 'Elizabeth Tower',
+      'Colosseum Rome', 'Colosseum Macau',
+      'White House', 'Capitol Building',
+      'Sydney Opera House', 'Walt Disney Concert Hall',
+      'Burj Khalifa', 'Shanghai Tower', 'Taipei 101',
+      'Sagrada Familia', 'Notre Dame Paris', 'Cologne Cathedral',
+    ],
   };
 
-  static final List<SimilarPair> _similarPairs = [
-    // ネコ科
-    const SimilarPair('cheetah', 'leopard', Genre.bigCats),
-    const SimilarPair('jaguar', 'leopard', Genre.bigCats),
-    const SimilarPair('lion', 'tiger', Genre.bigCats),
+  // Similar pairs that are challenging to distinguish (includes twins, same person contexts, and lookalikes)
+  static const List<SimilarPair> _similarPairs = [
+    // Cars
+    SimilarPair('Toyota Camry', 'Honda Accord'),
+    SimilarPair('Toyota Corolla', 'Honda Civic'),
+    SimilarPair('BMW 3 Series', 'Mercedes C-Class'),
+    SimilarPair('Audi A4', 'Lexus IS'),
+    SimilarPair('Ford Mustang', 'Chevrolet Camaro'),
+    SimilarPair('Nissan Z', 'Toyota Supra'),
+    SimilarPair('Porsche Cayenne', 'Range Rover'),
+    SimilarPair('Lamborghini Huracan', 'Ferrari 488'),
     
-    // 犬種
-    const SimilarPair('shiba', 'akita', Genre.dogs),
-    const SimilarPair('husky', 'malamute', Genre.dogs),
+    // Logos
+    SimilarPair('Pepsi', 'Coca-Cola'),
+    SimilarPair('Nike', 'Adidas'),
+    SimilarPair('McDonald\'s', 'Burger King'),
+    SimilarPair('Starbucks', 'Dunkin'),
+    SimilarPair('Gucci', 'Chanel'),
+    SimilarPair('LG', 'Renault'),
+    SimilarPair('Target', 'Pinterest'),
+    SimilarPair('Spotify', 'Beats'),
     
-    // 犬と野生
-    const SimilarPair('wolf', 'husky', Genre.wildDogs),
-    const SimilarPair('wolf', 'malamute', Genre.wildDogs),
+    // Celebrities - Identical Twins (different people)
+    SimilarPair('Mary-Kate Olsen', 'Ashley Olsen'),
+    SimilarPair('Dylan Sprouse', 'Cole Sprouse'),
+    SimilarPair('Tia Mowry', 'Tamera Mowry'),
+    SimilarPair('Bella Hadid', 'Gigi Hadid'),
+    SimilarPair('Manakanana Mana', 'Manakanana Kana'),
     
-    // アライグマ系
-    const SimilarPair('raccoon', 'tanuki', Genre.raccoons),
+    // Celebrities - Lookalikes (different people)
+    SimilarPair('Keira Knightley', 'Natalie Portman'),
+    SimilarPair('Zooey Deschanel', 'Katy Perry'),
+    SimilarPair('Jessica Chastain', 'Bryce Dallas Howard'),
+    SimilarPair('Amy Adams', 'Isla Fisher'),
+    SimilarPair('Margot Robbie', 'Jaime Pressly'),
+    SimilarPair('Javier Bardem', 'Jeffrey Dean Morgan'),
+    SimilarPair('Matt Damon', 'Mark Wahlberg'),
+    SimilarPair('Mila Kunis', 'Sarah Hyland'),
+    SimilarPair('Selena Gomez', 'Lucy Hale'),
+    SimilarPair('Will Ferrell', 'Chad Smith'),
+    SimilarPair('Daniel Radcliffe', 'Elijah Wood'),
+    SimilarPair('Henry Cavill', 'Matt Bomer'),
+    SimilarPair('Leighton Meester', 'Minka Kelly'),
+    SimilarPair('Nina Dobrev', 'Victoria Justice'),
+    SimilarPair('Aragaki Yui', 'Fukuda Saki'),
+    SimilarPair('Satomi Ishihara', 'Arimura Kasumi'),
     
-    // 鳥
-    const SimilarPair('crow', 'raven', Genre.birds),
+    // Dogs
+    SimilarPair('Golden Retriever', 'Labrador Retriever'),
+    SimilarPair('German Shepherd', 'Belgian Malinois'),
+    SimilarPair('Shiba Inu', 'Akita Inu'),
+    SimilarPair('Siberian Husky', 'Alaskan Malamute'),
+    SimilarPair('Border Collie', 'Australian Shepherd'),
+    SimilarPair('Poodle', 'Bichon Frise'),
+    SimilarPair('Pomeranian', 'Japanese Spitz'),
+    SimilarPair('French Bulldog', 'Boston Terrier'),
     
-    // 海洋
-    const SimilarPair('sea_lion', 'seal', Genre.marine),
+    // Cats
+    SimilarPair('Persian Cat', 'Himalayan Cat'),
+    SimilarPair('Scottish Fold', 'British Shorthair'),
+    SimilarPair('Maine Coon', 'Norwegian Forest Cat'),
+    SimilarPair('Russian Blue', 'Chartreux'),
+    SimilarPair('Siamese Cat', 'Balinese Cat'),
+    SimilarPair('Ragdoll', 'Birman'),
+    SimilarPair('Abyssinian', 'Somali'),
     
-    // 爬虫類
-    const SimilarPair('alligator', 'crocodile', Genre.reptiles),
+    // Small Cats
+    SimilarPair('Ocelot', 'Margay'),
+    SimilarPair('Serval', 'Caracal'),
+    SimilarPair('Lynx', 'Bobcat'),
+    SimilarPair('Sand Cat', 'Pallas Cat'),
+    SimilarPair('Leopard Cat', 'Fishing Cat'),
     
-    // 似ている人（双子・そっくりさん）- これらは「違う」が正解
-    // 双子
-    const SimilarPair('mary_kate_olsen', 'ashley_olsen', Genre.similarPeople),
-    const SimilarPair('dylan_sprouse', 'cole_sprouse', Genre.similarPeople),
-    const SimilarPair('tia_mowry', 'tamera_mowry', Genre.similarPeople),
-    // そっくりさん
-    const SimilarPair('katy_perry', 'zooey_deschanel', Genre.similarPeople),
-    const SimilarPair('natalie_portman', 'keira_knightley', Genre.similarPeople),
-    const SimilarPair('margot_robbie', 'jaime_pressly', Genre.similarPeople),
-    const SimilarPair('javier_bardem', 'jeffrey_dean_morgan', Genre.similarPeople),
-    const SimilarPair('matt_damon', 'mark_wahlberg', Genre.similarPeople),
+    // Birds
+    SimilarPair('Cardinal', 'Scarlet Tanager'),
+    SimilarPair('Bald Eagle', 'Golden Eagle'),
+    SimilarPair('Peregrine Falcon', 'Gyrfalcon'),
+    SimilarPair('Great Horned Owl', 'Snowy Owl'),
+    SimilarPair('Flamingo', 'Roseate Spoonbill'),
+    SimilarPair('Crow', 'Raven'),
+    SimilarPair('Penguin Emperor', 'Penguin King'),
     
-    // 車
-    const SimilarPair('gt86', 'brz', Genre.cars),
-    const SimilarPair('miata', 's2000', Genre.cars),
+    // Bears
+    SimilarPair('Brown Bear', 'Grizzly Bear'),
+    SimilarPair('Black Bear', 'Asian Black Bear'),
+    SimilarPair('Sun Bear', 'Sloth Bear'),
+    SimilarPair('Giant Panda', 'Red Panda'),
     
-    // ロゴ
-    const SimilarPair('pepsi', 'korean_air', Genre.logos),
+    // Primates
+    SimilarPair('Chimpanzee', 'Bonobo'),
+    SimilarPair('Gorilla Mountain', 'Gorilla Lowland'),
+    SimilarPair('Orangutan Bornean', 'Orangutan Sumatran'),
+    SimilarPair('Gibbon', 'Siamang'),
+    SimilarPair('Mandrill', 'Baboon'),
+    SimilarPair('Japanese Macaque', 'Rhesus Macaque'),
+    
+    // Fish
+    SimilarPair('Neon Tetra', 'Cardinal Tetra'),
+    SimilarPair('Goldfish', 'Koi'),
+    SimilarPair('Clownfish', 'Damselfish'),
+    SimilarPair('Blue Tang', 'Yellow Tang'),
+    SimilarPair('Tuna', 'Mackerel'),
+    SimilarPair('Salmon', 'Trout'),
+    
+    // Butterflies
+    SimilarPair('Monarch Butterfly', 'Viceroy Butterfly'),
+    SimilarPair('Swallowtail Tiger', 'Swallowtail Zebra'),
+    SimilarPair('Blue Morpho', 'Blue Clipper'),
+    SimilarPair('Painted Lady', 'Red Admiral'),
+    SimilarPair('Atlas Moth', 'Luna Moth'),
+    
+    // Mushrooms
+    SimilarPair('Button Mushroom', 'Cremini Mushroom'),
+    SimilarPair('Chanterelle', 'False Chanterelle'),
+    SimilarPair('Morel', 'False Morel'),
+    SimilarPair('Fly Agaric', 'Panther Cap'),
+    SimilarPair('Lion\'s Mane', 'Bear\'s Head Tooth'),
+    
+    // Insects
+    SimilarPair('Ladybug', 'Asian Lady Beetle'),
+    SimilarPair('Honeybee', 'Bumblebee'),
+    SimilarPair('Yellowjacket', 'Paper Wasp'),
+    SimilarPair('Dragonfly', 'Damselfly'),
+    SimilarPair('Grasshopper', 'Cricket'),
+    SimilarPair('Rhinoceros Beetle', 'Stag Beetle'),
+    
+    // Watches
+    SimilarPair('Rolex Submariner', 'Omega Seamaster'),
+    SimilarPair('Rolex Daytona', 'Omega Speedmaster'),
+    SimilarPair('Patek Philippe Nautilus', 'Audemars Piguet Royal Oak'),
+    SimilarPair('Casio G-Shock', 'Seiko Prospex'),
+    
+    // Sneakers
+    SimilarPair('Nike Air Jordan 1', 'Nike Dunk Low'),
+    SimilarPair('Adidas Stan Smith', 'Adidas Superstar'),
+    SimilarPair('New Balance 574', 'New Balance 990'),
+    SimilarPair('Converse Chuck Taylor', 'Vans Old Skool'),
+    SimilarPair('Nike Air Max 90', 'Nike Air Max 1'),
+    
+    // Bags
+    SimilarPair('Louis Vuitton Speedy', 'Louis Vuitton Neverfull'),
+    SimilarPair('Chanel Classic Flap', 'Chanel 2.55'),
+    SimilarPair('Hermes Birkin', 'Hermes Kelly'),
+    SimilarPair('Gucci GG Marmont', 'Gucci Dionysus'),
+    
+    // Buildings
+    SimilarPair('Empire State Building', 'Chrysler Building'),
+    SimilarPair('Eiffel Tower', 'Tokyo Tower'),
+    SimilarPair('Big Ben', 'Elizabeth Tower'),
+    SimilarPair('Burj Khalifa', 'Shanghai Tower'),
+    SimilarPair('Sydney Opera House', 'Walt Disney Concert Hall'),
   ];
 
-  final Random _random = Random();
-
-  /// ジャンルに属するペアを取得
-  List<SimilarPair> _getPairsForGenre(Genre genre) {
-    if (genre == Genre.all) return _similarPairs;
-    return _similarPairs.where((p) => p.genre == genre).toList();
+  // Track used questions to avoid duplicates within a quiz
+  final Set<String> _usedQuestions = {};
+  
+  // Reset for a new quiz
+  void resetQuiz() {
+    _usedQuestions.clear();
   }
-
-  /// ジャンルに属するアイテムを取得
-  List<AnimalPair> _getItemsForGenre(Genre genre) {
-    final pairs = _getPairsForGenre(genre);
-    final ids = pairs.expand((p) => [p.id1, p.id2]).toSet();
-    return ids.map((id) => _items[id]!).toList();
+  
+  // Get genre display name
+  String getGenreName(Genre genre) {
+    return genreNames[genre] ?? genre.toString().split('.').last;
   }
-
-  /// ランダムな問題を生成
-  QuestionConfig generateQuestion(Genre genre) {
-    final pairs = _getPairsForGenre(genre);
-    final items = _getItemsForGenre(genre);
-
-    if (pairs.isEmpty || items.isEmpty) {
-      return generateQuestion(Genre.all);
+  
+  // Generate a quiz question for a specific genre
+  Future<QuizQuestion?> generateQuestion({Genre? genre, bool isCelebrity = false}) async {
+    // For celebrity genre or specific celebrity question
+    if (isCelebrity || genre == Genre.celebrities) {
+      return await _generateCelebrityQuestion();
     }
-
-    final isSame = _random.nextBool();
-
-    if (isSame) {
-      final item = items[_random.nextInt(items.length)];
-      return QuestionConfig(
-        query1: item.query,
-        query2: item.query,
-        isSame: true,
-        description: '${item.nameJa} × ${item.nameJa}',
+    
+    // For other genres
+    return await _generateGenreQuestion(genre);
+  }
+  
+  // Generate celebrity question (same person vs twins/lookalikes)
+  Future<QuizQuestion?> _generateCelebrityQuestion() async {
+    final isSamePerson = _random.nextBool();
+    
+    if (isSamePerson) {
+      // Same person, different photos
+      final items = _items[Genre.celebrities]!;
+      String person;
+      String questionKey;
+      
+      do {
+        person = items[_random.nextInt(items.length)];
+        questionKey = 'celeb_same_$person';
+      } while (_usedQuestions.contains(questionKey) && _usedQuestions.length < items.length);
+      
+      if (_usedQuestions.contains(questionKey)) return null;
+      _usedQuestions.add(questionKey);
+      
+      // Get two different images of the same person
+      final images = await _imageService.searchImages('$person portrait photo', count: 10);
+      if (images.length < 2) return null;
+      
+      // Shuffle and pick two different images
+      images.shuffle();
+      
+      return QuizQuestion(
+        image1Url: images[0],
+        image2Url: images[1],
+        isMatch: true, // Same person = match
+        item1Name: person,
+        item2Name: person,
+        genre: getGenreName(Genre.celebrities),
+        explanation: 'どちらも$personの写真です（同一人物の異なる写真）',
       );
     } else {
-      final pair = pairs[_random.nextInt(pairs.length)];
-      final item1 = _items[pair.id1]!;
-      final item2 = _items[pair.id2]!;
-      return QuestionConfig(
-        query1: item1.query,
-        query2: item2.query,
-        isSame: false,
-        description: '${item1.nameJa} × ${item2.nameJa}',
+      // Twins or lookalikes (different people)
+      final celebrityPairs = _similarPairs.where((pair) {
+        final items = _items[Genre.celebrities]!;
+        return items.contains(pair.item1) && items.contains(pair.item2);
+      }).toList();
+      
+      if (celebrityPairs.isEmpty) return null;
+      
+      SimilarPair pair;
+      String questionKey;
+      
+      do {
+        pair = celebrityPairs[_random.nextInt(celebrityPairs.length)];
+        questionKey = 'celeb_diff_${pair.item1}_${pair.item2}';
+      } while (_usedQuestions.contains(questionKey) && _usedQuestions.length < celebrityPairs.length);
+      
+      if (_usedQuestions.contains(questionKey)) return null;
+      _usedQuestions.add(questionKey);
+      
+      final image1 = await _imageService.searchImages('${pair.item1} portrait photo', count: 5);
+      final image2 = await _imageService.searchImages('${pair.item2} portrait photo', count: 5);
+      
+      if (image1.isEmpty || image2.isEmpty) return null;
+      
+      return QuizQuestion(
+        image1Url: image1[_random.nextInt(image1.length)],
+        image2Url: image2[_random.nextInt(image2.length)],
+        isMatch: false, // Different people = no match
+        item1Name: pair.item1,
+        item2Name: pair.item2,
+        genre: getGenreName(Genre.celebrities),
+        explanation: '左は${pair.item1}、右は${pair.item2}です（双子/そっくりさんで別人です）',
       );
     }
+  }
+  
+  // Generate question for other genres
+  Future<QuizQuestion?> _generateGenreQuestion(Genre? genre) async {
+    // Select a random genre if not specified
+    final selectedGenre = genre ?? _getRandomGenre();
+    final genreItems = _items[selectedGenre]!;
+    final genrePairs = _getGenrePairs(selectedGenre);
+    
+    // Decide if this will be a "same" or "different" question
+    final isSame = _random.nextBool();
+    
+    if (isSame) {
+      // Same item, different images
+      String item;
+      String questionKey;
+      
+      do {
+        item = genreItems[_random.nextInt(genreItems.length)];
+        questionKey = '${selectedGenre}_same_$item';
+      } while (_usedQuestions.contains(questionKey) && _usedQuestions.length < genreItems.length);
+      
+      if (_usedQuestions.contains(questionKey)) return null;
+      _usedQuestions.add(questionKey);
+      
+      final images = await _imageService.searchImages(item, count: 10);
+      if (images.length < 2) return null;
+      
+      images.shuffle();
+      
+      return QuizQuestion(
+        image1Url: images[0],
+        image2Url: images[1],
+        isMatch: true,
+        item1Name: item,
+        item2Name: item,
+        genre: getGenreName(selectedGenre),
+        explanation: 'どちらも$itemです',
+      );
+    } else {
+      // Different but similar items
+      if (genrePairs.isEmpty) {
+        // No similar pairs defined, use random different items
+        final items = genreItems.toList()..shuffle();
+        if (items.length < 2) return null;
+        
+        final item1 = items[0];
+        final item2 = items[1];
+        final questionKey = '${selectedGenre}_diff_${item1}_$item2';
+        
+        if (_usedQuestions.contains(questionKey)) return null;
+        _usedQuestions.add(questionKey);
+        
+        final image1 = await _imageService.searchImages(item1, count: 3);
+        final image2 = await _imageService.searchImages(item2, count: 3);
+        
+        if (image1.isEmpty || image2.isEmpty) return null;
+        
+        return QuizQuestion(
+          image1Url: image1[_random.nextInt(image1.length)],
+          image2Url: image2[_random.nextInt(image2.length)],
+          isMatch: false,
+          item1Name: item1,
+          item2Name: item2,
+          genre: getGenreName(selectedGenre),
+          explanation: '左は$item1、右は$item2です',
+        );
+      }
+      
+      // Use a similar pair
+      SimilarPair pair;
+      String questionKey;
+      
+      do {
+        pair = genrePairs[_random.nextInt(genrePairs.length)];
+        questionKey = '${selectedGenre}_pair_${pair.item1}_${pair.item2}';
+      } while (_usedQuestions.contains(questionKey) && _usedQuestions.length < genrePairs.length);
+      
+      if (_usedQuestions.contains(questionKey)) return null;
+      _usedQuestions.add(questionKey);
+      
+      final image1 = await _imageService.searchImages(pair.item1, count: 3);
+      final image2 = await _imageService.searchImages(pair.item2, count: 3);
+      
+      if (image1.isEmpty || image2.isEmpty) return null;
+      
+      return QuizQuestion(
+        image1Url: image1[_random.nextInt(image1.length)],
+        image2Url: image2[_random.nextInt(image2.length)],
+        isMatch: false,
+        item1Name: pair.item1,
+        item2Name: pair.item2,
+        genre: getGenreName(selectedGenre),
+        explanation: '左は${pair.item1}、右は${pair.item2}です',
+      );
+    }
+  }
+  
+  Genre _getRandomGenre() {
+    final genres = Genre.values.toList();
+    return genres[_random.nextInt(genres.length)];
+  }
+  
+  List<SimilarPair> _getGenrePairs(Genre genre) {
+    final genreItems = _items[genre]!;
+    return _similarPairs.where((pair) {
+      return genreItems.contains(pair.item1) && genreItems.contains(pair.item2);
+    }).toList();
+  }
+  
+  // Get available genres
+  List<Genre> getAvailableGenres() {
+    return Genre.values.toList();
+  }
+  
+  // Get items for a genre
+  List<String> getGenreItems(Genre genre) {
+    return _items[genre] ?? [];
   }
 }
