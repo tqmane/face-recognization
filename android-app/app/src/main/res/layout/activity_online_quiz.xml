@@ -25,6 +25,17 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
+            <!-- 中断ボタン（クイズ中のみ表示） -->
+            <ImageButton
+                android:id="@+id/btnQuit"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="中断"
+                android:visibility="gone"
+                app:tint="@color/ios_red" />
+
             <!-- ジャンル表示 -->
             <TextView
                 android:id="@+id/tvGenre"

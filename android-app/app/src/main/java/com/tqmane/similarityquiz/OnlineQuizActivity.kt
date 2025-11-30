@@ -123,6 +123,10 @@ class OnlineQuizActivity : AppCompatActivity() {
         binding.btnCancel.setOnClickListener {
             showCancelConfirmDialog()
         }
+        
+        binding.btnQuit.setOnClickListener {
+            showQuitConfirmDialog()
+        }
     }
 
     /**
@@ -155,9 +159,10 @@ class OnlineQuizActivity : AppCompatActivity() {
         binding.loadingContainer.visibility = View.GONE
         binding.ivQuizImage.visibility = View.VISIBLE
         
-        // クイズボタンを表示、キャンセルボタンを非表示
+        // クイズボタンを表示、キャンセルボタンを非表示、中断ボタンを表示
         binding.buttonContainer.visibility = View.VISIBLE
         binding.cancelContainer.visibility = View.GONE
+        binding.btnQuit.visibility = View.VISIBLE
     }
 
     /**
@@ -172,6 +177,30 @@ class OnlineQuizActivity : AppCompatActivity() {
             }
             .setNegativeButton("続ける", null)
             .show()
+    }
+
+    /**
+     * クイズ中断確認ダイアログ
+     */
+    private fun showQuitConfirmDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("テストを中断しますか？")
+            .setMessage("中断すると、途中までのテストデータは保存されず、\nすべて破棄されます。\n\n本当に中断しますか？")
+            .setPositiveButton("中断する") { _, _ ->
+                quitQuiz()
+            }
+            .setNegativeButton("続ける", null)
+            .show()
+    }
+
+    /**
+     * クイズを中断して終了
+     */
+    private fun quitQuiz() {
+        timer?.cancel()
+        cleanupImages()
+        Toast.makeText(this, "テストを中断しました", Toast.LENGTH_SHORT).show()
+        finish()
     }
 
     /**
@@ -406,6 +435,11 @@ class OnlineQuizActivity : AppCompatActivity() {
                 responderName = ""
                 startQuiz()
             }
+            .setNegativeButton("キャンセル") { _, _ ->
+                // 画像をクリアして終了
+                cleanupImages()
+                finish()
+            }
             .setCancelable(false)
             .show()
     }
@@ -577,6 +611,9 @@ class OnlineQuizActivity : AppCompatActivity() {
     override fun onBackPressed() {
         if (downloadJob?.isActive == true) {
             showCancelConfirmDialog()
+        } else if (currentQuestionIndex > 0 && currentQuestionIndex < preparedQuestions.size) {
+            // クイズ中の場合は中断確認ダイアログ
+            showQuitConfirmDialog()
         } else {
             super.onBackPressed()
         }

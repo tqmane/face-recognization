@@ -209,6 +209,47 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
+  /// 中断確認ダイアログを表示
+  void _showQuitConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('テストを中断しますか？'),
+        content: const Text(
+          '中断すると、途中までのテストデータは保存されず、\n'
+          'すべて破棄されます。\n\n'
+          '本当に中断しますか？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('続ける'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context); // ダイアログを閉じる
+              _quitQuiz();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('中断する'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// クイズを中断して終了
+  void _quitQuiz() {
+    _stopwatch.stop();
+    _timer?.cancel();
+    _isCancelled = true;
+    
+    // データを保存せずにホームに戻る
+    Navigator.pop(context);
+  }
+
   void _finishQuiz() {
     _stopwatch.stop();
     _timer?.cancel();
@@ -324,6 +365,19 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () {
+                      _isCancelled = true;
+                      Navigator.pop(context);
+                    },
+                    child: Text(
+                      'キャンセル',
+                      style: TextStyle(
+                        color: colorScheme.error,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -389,6 +443,15 @@ class _QuizScreenState extends State<QuizScreen> {
               color: colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
+                  IconButton(
+                    onPressed: _showQuitConfirmDialog,
+                    icon: Icon(
+                      Icons.close,
+                      color: colorScheme.error,
+                    ),
+                    tooltip: '中断',
+                  ),
+                  const SizedBox(width: 8),
                   Chip(
                     label: Text('🌐 ${widget.genre.displayName}'),
                     backgroundColor: colorScheme.primaryContainer,
