@@ -230,6 +230,9 @@ class OnlineQuizActivity : AppCompatActivity() {
         downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
             
+            val downloadStartTime = System.currentTimeMillis()
+            android.util.Log.d("OnlineQuiz", "Download started at $downloadStartTime")
+            
             // 問題設定を事前に生成（余裕を持って3倍用意）
             val questionConfigs = (0 until totalQuestions * 3).map {
                 quizManager.generateRandomQuestion(selectedGenre)
@@ -240,6 +243,8 @@ class OnlineQuizActivity : AppCompatActivity() {
             
             // 順番に処理（並列で5問ずつダウンロード）
             while (successCount < totalQuestions && configIndex < questionConfigs.size && !isCancelled) {
+                val batchStartTime = System.currentTimeMillis()
+                
                 // 進捗を更新
                 val progress = (successCount * 100) / totalQuestions
                 runOnUiThread {
@@ -259,23 +264,29 @@ class OnlineQuizActivity : AppCompatActivity() {
                 val batch = questionConfigs.subList(configIndex, configIndex + batchSize)
                 configIndex += batchSize
 
-                // 並列ダウンロード
-                val results = batch.map { config ->
-                    async {
-                        try {
-                            val bitmap = if (config.isSame) {
-                                quizManager.scraper.createSameImage(config.query1)
-                            } else {
-                                quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                // 並列ダウンロード（Dispatchers.IOで実行）
+                val results = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    batch.map { config ->
+                        async {
+                            try {
+                                val bitmap = if (config.isSame) {
+                                    quizManager.scraper.createSameImage(config.query1)
+                                } else {
+                                    quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                                }
+                                if (bitmap != null) {
+                                    PreparedQuestion(bitmap, config.isSame, config.description)
+                                } else null
+                            } catch (e: Exception) {
+                                android.util.Log.e("OnlineQuiz", "Download error: ${e.message}")
+                                null
                             }
-                            if (bitmap != null) {
-                                PreparedQuestion(bitmap, config.isSame, config.description)
-                            } else null
-                        } catch (e: Exception) {
-                            null
                         }
-                    }
-                }.awaitAll().filterNotNull()
+                    }.awaitAll().filterNotNull()
+                }
+                
+                val batchTime = System.currentTimeMillis() - batchStartTime
+                android.util.Log.d("OnlineQuiz", "Batch completed: ${results.size} images in ${batchTime}ms")
                 
                 // 成功した分だけ追加
                 for (result in results) {
@@ -287,6 +298,9 @@ class OnlineQuizActivity : AppCompatActivity() {
 
             runOnUiThread {
                 if (isCancelled) return@runOnUiThread
+                
+                val totalDownloadTime = System.currentTimeMillis() - downloadStartTime
+                android.util.Log.d("OnlineQuiz", "Download completed: ${preparedQuestions.size} questions in ${totalDownloadTime}ms")
                 
                 // ダウンロード完了、サービスを停止
                 stopDownloadService()

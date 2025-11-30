@@ -70,10 +70,13 @@ class ImageScraper {
      * 検索クエリから画像URLリストを取得
      */
     suspend fun searchImages(query: String, maxResults: Int = 30): List<String> = withContext(Dispatchers.IO) {
+        val searchStartTime = System.currentTimeMillis()
+        
         // キャッシュから未使用のURLを取得
         urlCache[query]?.let { cached ->
             val unused = cached.filter { it !in usedUrls && it !in currentQuestionUrls }
             if (unused.size >= maxResults) {
+                android.util.Log.d("ImageScraper", "Cache hit for '$query': ${unused.size} URLs")
                 return@withContext unused.take(maxResults)
             }
         }
@@ -86,10 +89,12 @@ class ImageScraper {
             // 写真フィルタのみ使用（除外キーワードはドメインチェックで対応）
             val searchUrl = "$BING_URL?q=${query.replace(" ", "+")}&form=HDRSC2&first=$randomOffset&count=100&qft=+filterui:photo-photo"
             
+            val jsoupStartTime = System.currentTimeMillis()
             val doc = Jsoup.connect(searchUrl)
                 .userAgent(USER_AGENT)
                 .timeout(JSOUP_TIMEOUT)
                 .get()
+            android.util.Log.d("ImageScraper", "Jsoup search took ${System.currentTimeMillis() - jsoupStartTime}ms for '$query'")
             
             val images = doc.select("a.iusc")
             
@@ -188,11 +193,15 @@ class ImageScraper {
      * 複数URLから並列で最速ダウンロード（指定されたURLのみを使用）
      */
     private suspend fun downloadRace(urls: List<String>, markAsUsed: Boolean = true): Pair<Bitmap?, String?> = withContext(Dispatchers.IO) {
+        val raceStartTime = System.currentTimeMillis()
         if (urls.isEmpty()) return@withContext Pair(null, null)
         
         // 使用済みURLを除外
         val availableUrls = urls.filter { it !in usedUrls && it !in currentQuestionUrls }
-        if (availableUrls.isEmpty()) return@withContext Pair(null, null)
+        if (availableUrls.isEmpty()) {
+            android.util.Log.w("ImageScraper", "No available URLs for download race")
+            return@withContext Pair(null, null)
+        }
         
         // 最大5つを並列ダウンロード（競争）
         val result = CompletableDeferred<Pair<Bitmap?, String?>>()
@@ -220,6 +229,13 @@ class ImageScraper {
         
         // 残りのジョブをキャンセル
         jobs.forEach { it.cancel() }
+        
+        val raceTime = System.currentTimeMillis() - raceStartTime
+        if (winner == null) {
+            android.util.Log.w("ImageScraper", "Download race timed out after ${raceTime}ms")
+        } else {
+            android.util.Log.d("ImageScraper", "Download race won in ${raceTime}ms")
+        }
         
         winner ?: Pair(null, null)
     }
