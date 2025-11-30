@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import '../services/history_manager.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -11,10 +12,19 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   
+  // 選択モード関連
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+  
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _exitSelectionMode();
+      }
+    });
   }
   
   @override
@@ -22,12 +32,49 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     _tabController.dispose();
     super.dispose();
   }
+  
+  bool get _isDesktop {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.windows ||
+           defaultTargetPlatform == TargetPlatform.linux ||
+           defaultTargetPlatform == TargetPlatform.macOS;
+  }
+  
+  void _enterSelectionMode() {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedIds.clear();
+    });
+  }
+  
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+  
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('テスト結果一覧'),
+        title: Text(_isSelectionMode ? '${_selectedIds.length}件選択中' : 'テスト結果一覧'),
+        leading: _isSelectionMode 
+          ? IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _exitSelectionMode,
+            )
+          : null,
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -39,19 +86,64 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           ],
         ),
         actions: [
+          // 選択削除ボタン（履歴タブのみ）
+          if (_tabController.index == 0)
+            IconButton(
+              icon: Icon(_isSelectionMode ? Icons.delete : Icons.checklist),
+              tooltip: _isSelectionMode ? '選択項目を削除' : '選択削除',
+              onPressed: () {
+                if (_isSelectionMode) {
+                  if (_selectedIds.isNotEmpty) {
+                    _showDeleteSelectedDialog();
+                  }
+                } else {
+                  _enterSelectionMode();
+                }
+              },
+            ),
+          // 全削除ボタン
           IconButton(
             icon: const Icon(Icons.delete_outline),
+            tooltip: '全削除',
             onPressed: () => _showClearDialog(),
           ),
         ],
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _HistoryListTab(),
-          _GenreStatsTab(),
-          _OverallStatsTab(),
-          _ResponderStatsTab(),
+        children: [
+          _HistoryListTab(
+            isSelectionMode: _isSelectionMode,
+            selectedIds: _selectedIds,
+            onTap: (history) {
+              if (_isSelectionMode) {
+                _toggleSelection(history.id);
+              } else {
+                _showDetailDialog(context, history);
+              }
+            },
+            onLongPress: (history) {
+              if (!_isSelectionMode) {
+                _showDeleteSingleDialog(history);
+              }
+            },
+            onSecondaryTap: (history) {
+              _showDeleteSingleDialog(history);
+            },
+            onSelectionChanged: (id, isSelected) {
+              setState(() {
+                if (isSelected) {
+                  _selectedIds.add(id);
+                } else {
+                  _selectedIds.remove(id);
+                }
+              });
+            },
+            isDesktop: _isDesktop,
+          ),
+          const _GenreStatsTab(),
+          const _OverallStatsTab(),
+          const _ResponderStatsTab(),
         ],
       ),
     );
@@ -61,8 +153,8 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('履歴を削除'),
-        content: const Text('全ての履歴を削除しますか？'),
+        title: const Text('全履歴を削除'),
+        content: const Text('全ての履歴を削除しますか？\nこの操作は取り消せません。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -71,6 +163,60 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
           FilledButton(
             onPressed: () async {
               await HistoryManager.instance.clearHistories();
+              if (mounted) {
+                Navigator.pop(context);
+                _exitSelectionMode();
+                setState(() {});
+              }
+            },
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showDeleteSelectedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('選択した履歴を削除'),
+        content: Text('${_selectedIds.length}件の履歴を削除しますか？\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await HistoryManager.instance.deleteHistories(_selectedIds);
+              if (mounted) {
+                Navigator.pop(context);
+                _exitSelectionMode();
+                setState(() {});
+              }
+            },
+            child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showDeleteSingleDialog(QuizHistory history) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('履歴を削除'),
+        content: Text('「${history.genre}」の履歴を削除しますか？\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await HistoryManager.instance.deleteHistory(history.id);
               if (mounted) {
                 Navigator.pop(context);
                 setState(() {});
@@ -82,129 +228,8 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
       ),
     );
   }
-}
-
-/// 履歴一覧タブ
-class _HistoryListTab extends StatelessWidget {
-  const _HistoryListTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final histories = HistoryManager.instance.histories;
-    
-    if (histories.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('まだ履歴がありません'),
-          ],
-        ),
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: histories.length,
-      itemBuilder: (context, index) {
-        final history = histories[index];
-        return _HistoryCard(history: history);
-      },
-    );
-  }
-}
-
-class _HistoryCard extends StatelessWidget {
-  final QuizHistory history;
   
-  const _HistoryCard({required this.history});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final percentage = history.accuracy.round();
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => _showDetailDialog(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Chip(
-                    label: Text(history.genre),
-                    backgroundColor: colorScheme.primaryContainer,
-                    labelStyle: TextStyle(color: colorScheme.onPrimaryContainer),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatDate(history.timestamp),
-                    style: TextStyle(
-                      color: colorScheme.onSurface.withOpacity(0.6),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (history.responderName.isNotEmpty) ...[
-                    Icon(Icons.person, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
-                    const SizedBox(width: 4),
-                    Text(
-                      history.responderName,
-                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.8)),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                  Text(
-                    '${history.score}/${history.total}問正解',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getPercentageColor(percentage).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$percentage%',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _getPercentageColor(percentage),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.timer, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatTime(history.timeMillis),
-                    style: TextStyle(color: colorScheme.onSurface.withOpacity(0.8)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-  
-  void _showDetailDialog(BuildContext context) {
+  void _showDetailDialog(BuildContext context, QuizHistory history) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -242,6 +267,195 @@ class _HistoryCard extends StatelessWidget {
             child: const Text('閉じる'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 履歴一覧タブ
+class _HistoryListTab extends StatelessWidget {
+  final bool isSelectionMode;
+  final Set<String> selectedIds;
+  final void Function(QuizHistory) onTap;
+  final void Function(QuizHistory) onLongPress;
+  final void Function(QuizHistory) onSecondaryTap;
+  final void Function(String, bool) onSelectionChanged;
+  final bool isDesktop;
+  
+  const _HistoryListTab({
+    required this.isSelectionMode,
+    required this.selectedIds,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onSecondaryTap,
+    required this.onSelectionChanged,
+    required this.isDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final histories = HistoryManager.instance.histories;
+    
+    if (histories.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('まだ履歴がありません'),
+          ],
+        ),
+      );
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: histories.length,
+      itemBuilder: (context, index) {
+        final history = histories[index];
+        return _HistoryCard(
+          history: history,
+          isSelectionMode: isSelectionMode,
+          isSelected: selectedIds.contains(history.id),
+          onTap: () => onTap(history),
+          onLongPress: () => onLongPress(history),
+          onSecondaryTap: () => onSecondaryTap(history),
+          onSelectionChanged: (isSelected) => onSelectionChanged(history.id, isSelected),
+          isDesktop: isDesktop,
+        );
+      },
+    );
+  }
+}
+
+class _HistoryCard extends StatelessWidget {
+  final QuizHistory history;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onSecondaryTap;
+  final void Function(bool) onSelectionChanged;
+  final bool isDesktop;
+  
+  const _HistoryCard({
+    required this.history,
+    required this.isSelectionMode,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onSecondaryTap,
+    required this.onSelectionChanged,
+    required this.isDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final percentage = history.accuracy.round();
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: isSelected ? colorScheme.primaryContainer.withOpacity(0.5) : null,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: isDesktop ? null : onLongPress, // モバイルは長押し
+        onSecondaryTap: isDesktop ? onSecondaryTap : null, // デスクトップは右クリック
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // チェックボックス（選択モード時のみ）
+              if (isSelectionMode) ...[
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (value) => onSelectionChanged(value ?? false),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Chip(
+                          label: Text(history.genre),
+                          backgroundColor: colorScheme.primaryContainer,
+                          labelStyle: TextStyle(color: colorScheme.onPrimaryContainer),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _formatDate(history.timestamp),
+                          style: TextStyle(
+                            color: colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        if (history.responderName.isNotEmpty) ...[
+                          Icon(Icons.person, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
+                          const SizedBox(width: 4),
+                          Text(
+                            history.responderName,
+                            style: TextStyle(color: colorScheme.onSurface.withOpacity(0.8)),
+                          ),
+                          const SizedBox(width: 16),
+                        ],
+                        Text(
+                          '${history.score}/${history.total}問正解',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getPercentageColor(percentage).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$percentage%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _getPercentageColor(percentage),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.timer, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatTime(history.timeMillis),
+                          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.8)),
+                        ),
+                        if (isDesktop) ...[
+                          const Spacer(),
+                          Text(
+                            '右クリックで削除',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurface.withOpacity(0.4),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

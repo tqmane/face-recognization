@@ -166,6 +166,22 @@ class HistoryManager private constructor(context: Context) {
         prefs.edit().remove(KEY_HISTORIES).apply()
     }
 
+    /**
+     * 指定したIDの履歴を削除
+     */
+    fun deleteHistory(id: String) {
+        histories.removeAll { it.id == id }
+        persist()
+    }
+    
+    /**
+     * 指定した複数のIDの履歴を削除
+     */
+    fun deleteHistories(ids: Set<String>) {
+        histories.removeAll { it.id in ids }
+        persist()
+    }
+
     fun getStatsByGenre(): Map<String, GenreStats> {
         val grouped = histories.groupBy { it.genre }
         return grouped.mapValues { (genre, list) -> GenreStats.fromHistories(genre, list) }

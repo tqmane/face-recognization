@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -18,6 +19,10 @@ class HistoryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHistoryBinding
     private lateinit var historyManager: HistoryManager
+    
+    // 選択モード関連
+    private var isSelectionMode = false
+    private val selectedIds = mutableSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +35,13 @@ class HistoryActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "テスト結果一覧"
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.toolbar.setNavigationOnClickListener { 
+            if (isSelectionMode) {
+                exitSelectionMode()
+            } else {
+                finish()
+            }
+        }
 
         // タブ設定
         binding.tabLayout.addTab(binding.tabLayout.newTab().setText("履歴"))
@@ -40,19 +51,34 @@ class HistoryActivity : AppCompatActivity() {
 
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
+                exitSelectionMode()
                 updateContent(tab?.position ?: 0)
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
-        // 削除ボタン
+        // 選択削除ボタン
+        binding.btnSelectDelete.setOnClickListener {
+            if (isSelectionMode) {
+                // 選択中のものを削除
+                if (selectedIds.isNotEmpty()) {
+                    showDeleteSelectedDialog()
+                }
+            } else {
+                // 選択モードに入る
+                enterSelectionMode()
+            }
+        }
+
+        // 全削除ボタン
         binding.btnClear.setOnClickListener {
             MaterialAlertDialogBuilder(this)
-                .setTitle("履歴を削除")
-                .setMessage("全ての履歴を削除しますか？")
+                .setTitle("全履歴を削除")
+                .setMessage("全ての履歴を削除しますか？\nこの操作は取り消せません。")
                 .setPositiveButton("削除") { _, _ ->
                     historyManager.clearHistories()
+                    exitSelectionMode()
                     updateContent(binding.tabLayout.selectedTabPosition)
                 }
                 .setNegativeButton("キャンセル", null)
@@ -62,8 +88,60 @@ class HistoryActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         updateContent(0)
     }
+    
+    private fun enterSelectionMode() {
+        isSelectionMode = true
+        selectedIds.clear()
+        supportActionBar?.title = "0件選択中"
+        binding.btnSelectDelete.text = "選択項目を削除"
+        binding.btnSelectDelete.setIconResource(android.R.drawable.ic_menu_delete)
+        updateContent(0) // 履歴タブを再描画
+    }
+    
+    private fun exitSelectionMode() {
+        isSelectionMode = false
+        selectedIds.clear()
+        supportActionBar?.title = "テスト結果一覧"
+        binding.btnSelectDelete.text = "選択削除"
+        binding.btnSelectDelete.setIconResource(android.R.drawable.ic_menu_agenda)
+        if (binding.tabLayout.selectedTabPosition == 0) {
+            updateContent(0)
+        }
+    }
+    
+    private fun updateSelectionCount() {
+        supportActionBar?.title = "${selectedIds.size}件選択中"
+    }
+    
+    private fun showDeleteSelectedDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("選択した履歴を削除")
+            .setMessage("${selectedIds.size}件の履歴を削除しますか？\nこの操作は取り消せません。")
+            .setPositiveButton("削除") { _, _ ->
+                historyManager.deleteHistories(selectedIds)
+                exitSelectionMode()
+                updateContent(0)
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+    
+    private fun showDeleteSingleDialog(history: QuizHistoryData) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("履歴を削除")
+            .setMessage("「${history.genre}」の履歴を削除しますか？\nこの操作は取り消せません。")
+            .setPositiveButton("削除") { _, _ ->
+                historyManager.deleteHistory(history.id)
+                updateContent(0)
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
 
     private fun updateContent(tabIndex: Int) {
+        // 選択モードは履歴タブでのみ有効
+        binding.btnSelectDelete.visibility = if (tabIndex == 0) View.VISIBLE else View.GONE
+        
         when (tabIndex) {
             0 -> showHistoryList()
             1 -> showGenreStats()
@@ -82,10 +160,42 @@ class HistoryActivity : AppCompatActivity() {
             binding.tvEmpty.visibility = View.GONE
             binding.recyclerView.visibility = View.VISIBLE
             binding.statsContainer.visibility = View.GONE
-            binding.recyclerView.adapter = HistoryAdapter(histories) { history ->
-                showHistoryDetail(history)
-            }
+            binding.recyclerView.adapter = HistoryAdapter(
+                histories = histories,
+                isSelectionMode = isSelectionMode,
+                selectedIds = selectedIds,
+                onClick = { history ->
+                    if (isSelectionMode) {
+                        toggleSelection(history.id)
+                    } else {
+                        showHistoryDetail(history)
+                    }
+                },
+                onLongClick = { history ->
+                    if (!isSelectionMode) {
+                        showDeleteSingleDialog(history)
+                    }
+                },
+                onSelectionChanged = { id, isSelected ->
+                    if (isSelected) {
+                        selectedIds.add(id)
+                    } else {
+                        selectedIds.remove(id)
+                    }
+                    updateSelectionCount()
+                }
+            )
         }
+    }
+    
+    private fun toggleSelection(id: String) {
+        if (selectedIds.contains(id)) {
+            selectedIds.remove(id)
+        } else {
+            selectedIds.add(id)
+        }
+        updateSelectionCount()
+        (binding.recyclerView.adapter as? HistoryAdapter)?.notifyDataSetChanged()
     }
 
     private fun showGenreStats() {
@@ -165,7 +275,11 @@ class HistoryActivity : AppCompatActivity() {
 
 class HistoryAdapter(
     private val histories: List<QuizHistoryData>,
-    private val onClick: (QuizHistoryData) -> Unit
+    private val isSelectionMode: Boolean,
+    private val selectedIds: Set<String>,
+    private val onClick: (QuizHistoryData) -> Unit,
+    private val onLongClick: (QuizHistoryData) -> Unit,
+    private val onSelectionChanged: (String, Boolean) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -175,6 +289,7 @@ class HistoryAdapter(
         val tvScore: TextView = view.findViewById(R.id.tvScore)
         val tvAccuracy: TextView = view.findViewById(R.id.tvAccuracy)
         val tvTime: TextView = view.findViewById(R.id.tvTime)
+        val checkbox: CheckBox? = view.findViewById(R.id.checkbox)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -199,7 +314,21 @@ class HistoryAdapter(
         val secs = seconds % 60
         holder.tvTime.text = if (minutes > 0) "${minutes}分${secs}秒" else "${secs}秒"
 
+        // 選択モードの処理
+        holder.checkbox?.visibility = if (isSelectionMode) View.VISIBLE else View.GONE
+        holder.checkbox?.isChecked = selectedIds.contains(history.id)
+        holder.checkbox?.setOnCheckedChangeListener { _, isChecked ->
+            onSelectionChanged(history.id, isChecked)
+        }
+        
+        // 選択中の場合は背景色を変える
+        holder.itemView.isActivated = selectedIds.contains(history.id)
+
         holder.itemView.setOnClickListener { onClick(history) }
+        holder.itemView.setOnLongClickListener { 
+            onLongClick(history)
+            true
+        }
     }
 
     override fun getItemCount() = histories.size

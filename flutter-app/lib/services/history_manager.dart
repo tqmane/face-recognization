@@ -131,6 +131,18 @@ class HistoryManager {
     await prefs.remove(_key);
   }
   
+  /// 指定したIDの履歴を削除
+  Future<void> deleteHistory(String id) async {
+    _histories.removeWhere((h) => h.id == id);
+    await _persist();
+  }
+  
+  /// 指定した複数のIDの履歴を削除
+  Future<void> deleteHistories(Set<String> ids) async {
+    _histories.removeWhere((h) => ids.contains(h.id));
+    await _persist();
+  }
+  
   /// ジャンルごとの統計
   Map<String, GenreStats> getStatsByGenre() {
     final Map<String, List<QuizHistory>> grouped = {};
