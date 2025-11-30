@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         // 設定画面
-        binding.btnSettings?.setOnClickListener {
+        binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
