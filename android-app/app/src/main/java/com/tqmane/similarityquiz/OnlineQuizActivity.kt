@@ -271,7 +271,7 @@ class OnlineQuizActivity : AppCompatActivity() {
             var successCount = 0
             var configIndex = 0
             
-            // 順番に処理（並列で5問ずつダウンロード）
+            // 順番に処理（並列で2問ずつダウンロード - メモリ節約）
             while (successCount < totalQuestions && configIndex < questionConfigs.size && !isCancelled) {
                 val batchStartTime = System.currentTimeMillis()
                 
@@ -289,8 +289,8 @@ class OnlineQuizActivity : AppCompatActivity() {
                     }
                 }
 
-                // 次の5つのconfigを取得
-                val batchSize = minOf(5, questionConfigs.size - configIndex)
+                // 次の2つのconfigを取得（メモリ節約のため並列数を削減）
+                val batchSize = minOf(2, questionConfigs.size - configIndex)
                 val batch = questionConfigs.subList(configIndex, configIndex + batchSize)
                 configIndex += batchSize
 

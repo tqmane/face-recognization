@@ -147,7 +147,7 @@ class ImageScraper {
     }
 
     /**
-     * URLから画像をダウンロード（OkHttp使用・高性能版）
+     * URLから画像をダウンロード（OkHttp使用・メモリ効率改善版）
      */
     private suspend fun downloadImage(imageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
         // 既に使用済みならスキップ
@@ -170,23 +170,56 @@ class ImageScraper {
                 
                 val bytes = response.body?.bytes() ?: return@withContext null
                 
+                // 画像サイズを取得して適切なサンプルサイズを計算
+                val boundsOptions = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+                
+                // 目標サイズ（800px）に対してサンプルサイズを計算
+                val targetSize = 800
+                val sampleSize = calculateInSampleSize(boundsOptions, targetSize, targetSize)
+                
                 // BitmapFactory.Optionsでメモリ効率化
                 val options = BitmapFactory.Options().apply {
                     inPreferredConfig = Bitmap.Config.RGB_565  // メモリ半減
-                    inSampleSize = 1
+                    inSampleSize = sampleSize  // ダウンサンプリング
                 }
                 
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
                 
-                // キャッシュに保存（サイズ制限）
-                if (bitmap != null && imageCache.size < 50) {
+                // キャッシュに保存（サイズ制限：20枚まで）
+                if (bitmap != null && imageCache.size < 20) {
                     imageCache[imageUrl] = bitmap
                 }
                 bitmap
             }
         } catch (e: Exception) {
             null
+        } catch (e: OutOfMemoryError) {
+            android.util.Log.e("ImageScraper", "OutOfMemory during download: ${e.message}")
+            clearCache()
+            System.gc()
+            null
         }
+    }
+    
+    /**
+     * 適切なサンプルサイズを計算
+     */
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height, width) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+        
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+            
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 
     /**
