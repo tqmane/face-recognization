@@ -1,24 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ホーム画面（スマホ） -->
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
-
-    <!-- 設定ボタン（左上） -->
-    <ImageButton
-        android:id="@+id/btnSettings"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_margin="8dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="設定"
-        android:src="@android:drawable/ic_menu_preferences"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/ios_blue"
-        android:elevation="10dp" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -197,4 +183,18 @@
 
     </ScrollView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- 設定ボタン（左上・ScrollViewより上に表示） -->
+    <ImageButton
+        android:id="@+id/btnSettings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="8dp"
+        android:layout_gravity="start|top"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="設定"
+        android:src="@android:drawable/ic_menu_preferences"
+        app:tint="@color/ios_blue" />
+
+</FrameLayout>
