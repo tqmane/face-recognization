@@ -7,6 +7,11 @@
     
     <!-- 通知権限（Android 13以上で必要） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- フォアグラウンドサービス用 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
@@ -30,6 +35,12 @@
         <activity android:name=".ResultActivity" />
         <activity android:name=".TestSetActivity" />
         <activity android:name=".HistoryActivity" />
+        
+        <!-- ダウンロード用フォアグラウンドサービス -->
+        <service
+            android:name=".DownloadService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
 
     </application>
 

@@ -1,8 +1,13 @@
 package com.tqmane.similarityquiz
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
@@ -26,6 +31,23 @@ class OnlineQuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOnlineQuizBinding
     private lateinit var historyManager: HistoryManager
     private val quizManager = OnlineQuizManager()
+    
+    // フォアグラウンドサービス
+    private var downloadService: DownloadService? = null
+    private var serviceBound = false
+    
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as DownloadService.LocalBinder
+            downloadService = binder.getService()
+            serviceBound = true
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            downloadService = null
+            serviceBound = false
+        }
+    }
     
     // 事前に準備した問題リスト
     private val preparedQuestions = mutableListOf<PreparedQuestion>()
@@ -164,8 +186,35 @@ class OnlineQuizActivity : AppCompatActivity() {
         preparedQuestions.forEach { it.bitmap.recycle() }
         preparedQuestions.clear()
         
+        // サービスを停止
+        stopDownloadService()
+        
         Toast.makeText(this, "キャンセルしました", Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    /**
+     * フォアグラウンドサービスを開始
+     */
+    private fun startDownloadService() {
+        val intent = Intent(this, DownloadService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+    
+    /**
+     * フォアグラウンドサービスを停止
+     */
+    private fun stopDownloadService() {
+        if (serviceBound) {
+            downloadService?.complete()
+            unbindService(serviceConnection)
+            serviceBound = false
+        }
     }
 
     /**
@@ -174,6 +223,9 @@ class OnlineQuizActivity : AppCompatActivity() {
     private fun prepareAllQuestions() {
         // 新しいテスト開始時に使用済みURLをクリア
         quizManager.scraper.clearUsedUrls()
+        
+        // フォアグラウンドサービスを開始（省電力モードでも殺されにくくする）
+        startDownloadService()
         
         downloadJob = lifecycleScope.launch {
             preparedQuestions.clear()
@@ -196,6 +248,9 @@ class OnlineQuizActivity : AppCompatActivity() {
                         binding.tvLoadingSubtext.text = "$successCount / $totalQuestions 問を取得しました"
                         binding.progressBar.progress = progress
                         binding.tvProgressPercent.text = "$progress%"
+                        
+                        // 通知も更新
+                        downloadService?.updateProgress(successCount, totalQuestions)
                     }
                 }
 
@@ -232,6 +287,9 @@ class OnlineQuizActivity : AppCompatActivity() {
 
             runOnUiThread {
                 if (isCancelled) return@runOnUiThread
+                
+                // ダウンロード完了、サービスを停止
+                stopDownloadService()
                 
                 if (preparedQuestions.size >= 3) {
                     totalQuestions = preparedQuestions.size
@@ -500,6 +558,17 @@ class OnlineQuizActivity : AppCompatActivity() {
         super.onDestroy()
         timer?.cancel()
         downloadJob?.cancel()
+        
+        // サービスのクリーンアップ
+        if (serviceBound) {
+            try {
+                unbindService(serviceConnection)
+            } catch (e: Exception) {
+                // 無視
+            }
+            serviceBound = false
+        }
+        
         cleanupImages()
     }
 }
