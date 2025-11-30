@@ -25,15 +25,21 @@ class ImageScraper {
         private const val TARGET_HEIGHT = 450
         private const val MAX_WIDTH = 550
         
-        // 除外キーワード（最小限に縮小）
+        // 除外キーワード（強化版）
         private val EXCLUDE_KEYWORDS = listOf(
             "AI generated", "イラスト", "illustration", "drawing",
-            "anime", "アニメ", "manga", "漫画"
+            "anime", "アニメ", "manga", "漫画", "cartoon", "sketch",
+            "vector", "clip art", "clipart", "icon", "logo",
+            "render", "3d", "cg", "digital art", "fanart"
         )
         
-        // 除外ドメイン（イラスト系のみ）
+        // 除外ドメイン（イラスト・素材系）
         private val EXCLUDE_DOMAINS = listOf(
-            "deviantart.com", "pixiv.net", "artstation.com"
+            "deviantart.com", "pixiv.net", "artstation.com",
+            "dreamstime.com", "shutterstock.com", "istockphoto.com",
+            "freepik.com", "flaticon.com", "vectorstock.com",
+            "pngtree.com", "cleanpng.com", "pngwing.com",
+            "pinterest.com", "tumblr.com"
         )
         
         // ランダムオフセットの範囲（多様性向上）
@@ -95,14 +101,21 @@ class ImageScraper {
                     if (dataM.isNotEmpty()) {
                         val murlMatch = Regex("\"murl\":\"([^\"]+)\"").find(dataM)
                         murlMatch?.groupValues?.get(1)?.let { url ->
-                            // 使用済みURLと現在選択中のURLを除外
+                            // タイトル・説明から除外キーワードチェック
+                            val descMatch = Regex("\"desc\":\"([^\"]+)\"").find(dataM)
+                            val desc = descMatch?.groupValues?.get(1)?.lowercase() ?: ""
+                            val hasExcludedKeyword = EXCLUDE_KEYWORDS.any { keyword ->
+                                desc.contains(keyword.lowercase())
+                            }
+                            
                             // 除外ドメインをチェック
                             val isExcludedDomain = EXCLUDE_DOMAINS.any { domain -> 
                                 url.lowercase().contains(domain) 
                             }
+                            
                             if (url.startsWith("http") && isImageUrl(url) && 
                                 url !in usedUrls && url !in currentQuestionUrls &&
-                                !isExcludedDomain) {
+                                !isExcludedDomain && !hasExcludedKeyword) {
                                 imageUrls.add(url)
                             }
                         }

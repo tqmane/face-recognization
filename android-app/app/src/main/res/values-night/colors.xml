@@ -15,8 +15,8 @@
     
     <!-- テキストカラー -->
     <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#98989F</color>
-    <color name="text_tertiary">#636366</color>
+    <color name="text_secondary">#EBEBF5</color>
+    <color name="text_tertiary">#ABABAB</color>
     
     <!-- ボタンカラー -->
     <color name="btn_same">#30D158</color>
@@ -50,4 +50,8 @@
     <color name="warning">#FF9F0A</color>
     <color name="error">#FF453A</color>
     <color name="info">#0A84FF</color>
+    
+    <!-- リザルト画面用背景色（ダーク用） -->
+    <color name="result_correct_bg">#1B3D1B</color>
+    <color name="result_incorrect_bg">#3D1B1B</color>
 </resources>
