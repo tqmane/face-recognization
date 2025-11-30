@@ -1,20 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/image_scraper.dart';
 import '../services/history_manager.dart';
+import '../services/test_set_manager.dart';
 import '../utils/app_colors.dart';
 import 'result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
   final Genre genre;
   final int questionCount;
+  final TestSetInfo? testSet; // テストセットからの読み込み用
 
   const QuizScreen({
     super.key,
     required this.genre,
     required this.questionCount,
+    this.testSet,
   });
 
   @override
@@ -59,6 +63,61 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _prepareQuestions() async {
+    // テストセットがある場合はローカルファイルから読み込み
+    if (widget.testSet != null) {
+      await _loadFromTestSet();
+      return;
+    }
+    
+    // オンラインモード：画像をダウンロード
+    await _downloadQuestions();
+  }
+
+  /// テストセットからローカルファイルを読み込み
+  Future<void> _loadFromTestSet() async {
+    final testSetManager = TestSetManager();
+    final savedQuestions = await testSetManager.loadTestSet(widget.testSet!);
+    
+    // シャッフルして必要な問題数を選択
+    savedQuestions.shuffle();
+    final questionsToLoad = savedQuestions.take(widget.questionCount).toList();
+    
+    int loaded = 0;
+    for (final saved in questionsToLoad) {
+      if (_isCancelled) break;
+      
+      try {
+        final imageFile = File('${widget.testSet!.dirPath}/${saved.imagePath}');
+        if (await imageFile.exists()) {
+          final imageData = await imageFile.readAsBytes();
+          _questions.add(PreparedQuestion(
+            imageData: imageData,
+            isSame: saved.isSame,
+            description: saved.description,
+          ));
+          loaded++;
+          
+          if (mounted) {
+            setState(() {
+              _loadProgress = (loaded * 100) ~/ widget.questionCount;
+            });
+          }
+        }
+      } catch (e) {
+        // エラーは無視
+      }
+    }
+    
+    if (!_isCancelled && mounted) {
+      setState(() {
+        _isLoading = false;
+        _showNameInput = true;
+      });
+    }
+  }
+
+  /// オンラインで画像をダウンロード
+  Future<void> _downloadQuestions() async {
     final quizManager = QuizManager();
     
     // 問題設定を事前生成
@@ -89,9 +148,11 @@ class _QuizScreenState extends State<QuizScreen> {
           ));
           successCount++;
           
-          setState(() {
-            _loadProgress = (successCount * 100) ~/ widget.questionCount;
-          });
+          if (mounted) {
+            setState(() {
+              _loadProgress = (successCount * 100) ~/ widget.questionCount;
+            });
+          }
         }
       } catch (e) {
         // エラーは無視して次へ

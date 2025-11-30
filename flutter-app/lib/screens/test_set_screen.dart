@@ -17,6 +17,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
   int _downloadProgress = 0;
   int _downloadTotal = 0;
   String _downloadGenre = '';
+  bool _cancelRequested = false;
 
   @override
   void initState() {
@@ -160,6 +161,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
             OutlinedButton(
               onPressed: () {
                 setState(() {
+                  _cancelRequested = true;
                   _isDownloading = false;
                 });
               },
@@ -242,13 +244,17 @@ class _TestSetScreenState extends State<TestSetScreen> {
       _downloadProgress = 0;
       _downloadTotal = totalQuestions;
       _downloadGenre = genre.displayName;
+      _cancelRequested = false;
     });
 
+    int lastProgress = 0;
     final success = await _testSetManager.createTestSet(
       genre: genre,
       totalQuestions: totalQuestions,
       onProgress: (current, total) {
-        if (mounted) {
+        // 進捗が減ることはないはずなので、増加時のみ更新
+        if (mounted && current > lastProgress && !_cancelRequested) {
+          lastProgress = current;
           setState(() {
             _downloadProgress = current;
           });
@@ -256,7 +262,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
       },
     );
 
-    if (mounted) {
+    if (mounted && !_cancelRequested) {
       setState(() {
         _isDownloading = false;
       });
@@ -306,6 +312,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
                     builder: (context) => QuizScreen(
                       genre: genre,
                       questionCount: option.$2,
+                      testSet: testSet, // テストセット情報を渡す
                     ),
                   ),
                 );
