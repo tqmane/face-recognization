@@ -204,19 +204,34 @@ def main():
         f.write(contents)
     print(f"iOS icons generated in {ios_dir}")
     
-    # macOS用アイコン生成
+    # macOS用アイコン生成（フォルダがなくても作成）
     macos_dir = os.path.join(base_dir, 'macos', 'Runner', 'Assets.xcassets', 'AppIcon.appiconset')
-    if os.path.exists(os.path.join(base_dir, 'macos')):
-        os.makedirs(macos_dir, exist_ok=True)
-        macos_sizes = [16, 32, 64, 128, 256, 512, 1024]
-        for size in macos_sizes:
-            create_icon(size, os.path.join(macos_dir, f'app_icon_{size}.png'))
-        
-        # Contents.jsonを生成
-        contents = generate_macos_contents_json()
-        with open(os.path.join(macos_dir, 'Contents.json'), 'w') as f:
-            f.write(contents)
-        print(f"macOS icons generated in {macos_dir}")
+    os.makedirs(macos_dir, exist_ok=True)
+    macos_sizes = [16, 32, 64, 128, 256, 512, 1024]
+    for size in macos_sizes:
+        create_icon(size, os.path.join(macos_dir, f'app_icon_{size}.png'))
+    
+    # Contents.jsonを生成
+    contents = generate_macos_contents_json()
+    with open(os.path.join(macos_dir, 'Contents.json'), 'w') as f:
+        f.write(contents)
+    print(f"macOS icons generated in {macos_dir}")
+    
+    # Linux用アイコン生成
+    linux_dir = os.path.join(base_dir, 'linux')
+    os.makedirs(linux_dir, exist_ok=True)
+    create_icon(256, os.path.join(linux_dir, 'app_icon.png'))
+    print(f"Linux icon generated in {linux_dir}")
+    
+    # Windows用アイコン生成
+    windows_dir = os.path.join(base_dir, 'windows', 'runner', 'resources')
+    os.makedirs(windows_dir, exist_ok=True)
+    create_icon(256, os.path.join(windows_dir, 'app_icon.png'))
+    # Windows用にICO形式の代替としてPNGを用意（実際のICO変換はCIで行う）
+    create_icon(48, os.path.join(windows_dir, 'app_icon_48.png'))
+    create_icon(32, os.path.join(windows_dir, 'app_icon_32.png'))
+    create_icon(16, os.path.join(windows_dir, 'app_icon_16.png'))
+    print(f"Windows icons generated in {windows_dir}")
     
     print("Icons generated successfully!")
 
