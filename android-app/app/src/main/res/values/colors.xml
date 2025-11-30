@@ -53,4 +53,8 @@
     <color name="warning">#FF9500</color>
     <color name="error">#FF3B30</color>
     <color name="info">#007AFF</color>
+    
+    <!-- リザルト画面用背景色 -->
+    <color name="result_correct_bg">#E8F5E9</color>
+    <color name="result_incorrect_bg">#FFEBEE</color>
 </resources>

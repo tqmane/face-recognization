@@ -1,12 +1,17 @@
 package com.tqmane.similarityquiz
 
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.tqmane.similarityquiz.databinding.ActivityResultBinding
@@ -37,6 +42,9 @@ class ResultActivity : AppCompatActivity() {
             } ?: arrayListOf()
         }
 
+        // デバッグログ
+        android.util.Log.d("ResultActivity", "Received ${results.size} results for $totalQuestions questions")
+
         // スコア表示
         binding.tvFinalScore.text = "$score"
         
@@ -62,9 +70,10 @@ class ResultActivity : AppCompatActivity() {
             binding.tvNewRecord.visibility = View.GONE
         }
 
-        // 結果リスト
+        // 結果リスト（全問題表示）
         binding.rvResults.layoutManager = LinearLayoutManager(this)
-        binding.rvResults.adapter = ResultAdapter(results)
+        binding.rvResults.adapter = ImprovedResultAdapter(results)
+        binding.rvResults.isNestedScrollingEnabled = false
 
         // 戻るボタン
         binding.btnBackToHome.setOnClickListener {
@@ -90,28 +99,82 @@ class ResultActivity : AppCompatActivity() {
     }
 }
 
-class ResultAdapter(private val results: List<QuizResult>) :
-    RecyclerView.Adapter<ResultAdapter.ViewHolder>() {
+/**
+ * 改善された結果表示アダプター
+ * 全問題の詳細情報を表示
+ */
+class ImprovedResultAdapter(private val results: List<QuizResult>) :
+    RecyclerView.Adapter<ImprovedResultAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvQuestion: TextView = view.findViewById(android.R.id.text1)
-        val tvDetail: TextView = view.findViewById(android.R.id.text2)
+        val card: CardView = view as CardView
+        val viewResultBg: View = view.findViewById(R.id.viewResultBg)
+        val ivResultIcon: ImageView = view.findViewById(R.id.ivResultIcon)
+        val tvQuestionNumber: TextView = view.findViewById(R.id.tvQuestionNumber)
+        val tvDescription: TextView = view.findViewById(R.id.tvDescription)
+        val tvCorrectAnswer: TextView = view.findViewById(R.id.tvCorrectAnswer)
+        val tvUserAnswer: TextView = view.findViewById(R.id.tvUserAnswer)
+        val tvResponseTime: TextView = view.findViewById(R.id.tvResponseTime)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(android.R.layout.simple_list_item_2, parent, false)
+            .inflate(R.layout.item_result, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val result = results[position]
-        val mark = if (result.isCorrect) "⭕" else "❌"
-        val answer = if (result.isSame) "同じ" else "違う"
-        val userAns = if (result.userAnswer) "同じ" else "違う"
+        val context = holder.itemView.context
         
-        holder.tvQuestion.text = "$mark 問題${result.questionNumber}"
-        holder.tvDetail.text = "正解: $answer / あなた: $userAns (${result.responseTimeMs / 1000}.${(result.responseTimeMs % 1000) / 100}秒)"
+        val greenColor = ContextCompat.getColor(context, R.color.ios_green)
+        val redColor = ContextCompat.getColor(context, R.color.ios_red)
+        
+        // 正解/不正解の背景色
+        val bgDrawable = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (result.isCorrect) greenColor else redColor)
+        }
+        holder.viewResultBg.background = bgDrawable
+        
+        // アイコン設定
+        if (result.isCorrect) {
+            holder.ivResultIcon.setImageResource(android.R.drawable.checkbox_on_background)
+        } else {
+            holder.ivResultIcon.setImageResource(android.R.drawable.ic_delete)
+        }
+        holder.ivResultIcon.imageTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(context, android.R.color.white)
+        )
+        
+        // カードの背景色
+        val bgColor = if (result.isCorrect) {
+            // 薄い緑
+            ContextCompat.getColor(context, R.color.ios_green_light)
+        } else {
+            // 薄い赤
+            ContextCompat.getColor(context, R.color.ios_red_light)
+        }
+        holder.card.setCardBackgroundColor(bgColor)
+        
+        // 問題番号
+        holder.tvQuestionNumber.text = "問題 ${result.questionNumber}"
+        
+        // 説明（imagePath に説明が入っている）
+        holder.tvDescription.text = result.imagePath
+        
+        // 正解
+        val correctAnswer = if (result.isSame) "同じ" else "違う"
+        holder.tvCorrectAnswer.text = "正解: $correctAnswer"
+        
+        // ユーザーの回答
+        val userAnswer = if (result.userAnswer) "同じ" else "違う"
+        holder.tvUserAnswer.text = "回答: $userAnswer"
+        holder.tvUserAnswer.setTextColor(if (result.isCorrect) greenColor else redColor)
+        
+        // 回答時間
+        val responseSeconds = result.responseTimeMs / 1000.0
+        holder.tvResponseTime.text = String.format("%.1f秒", responseSeconds)
     }
 
     override fun getItemCount() = results.size
