@@ -191,19 +191,18 @@ def main():
             create_foreground_icon(fg_size, os.path.join(folder_path, 'ic_launcher_foreground.png'))
         print(f"Android icons generated in {android_res_dir}")
     
-    # iOS用アイコン生成
+    # iOS用アイコン生成（フォルダがなくても作成）
     ios_dir = os.path.join(base_dir, 'ios', 'Runner', 'Assets.xcassets', 'AppIcon.appiconset')
-    if os.path.exists(os.path.join(base_dir, 'ios')):
-        os.makedirs(ios_dir, exist_ok=True)
-        ios_sizes = [20, 29, 40, 58, 60, 76, 80, 87, 120, 152, 167, 180, 1024]
-        for size in ios_sizes:
-            create_icon(size, os.path.join(ios_dir, f'Icon-App-{size}x{size}.png'))
-        
-        # Contents.jsonを生成
-        contents = generate_ios_contents_json()
-        with open(os.path.join(ios_dir, 'Contents.json'), 'w') as f:
-            f.write(contents)
-        print(f"iOS icons generated in {ios_dir}")
+    os.makedirs(ios_dir, exist_ok=True)
+    ios_sizes = [20, 29, 40, 58, 60, 76, 80, 87, 120, 152, 167, 180, 1024]
+    for size in ios_sizes:
+        create_icon(size, os.path.join(ios_dir, f'Icon-App-{size}x{size}.png'))
+    
+    # Contents.jsonを生成
+    contents = generate_ios_contents_json()
+    with open(os.path.join(ios_dir, 'Contents.json'), 'w') as f:
+        f.write(contents)
+    print(f"iOS icons generated in {ios_dir}")
     
     # macOS用アイコン生成
     macos_dir = os.path.join(base_dir, 'macos', 'Runner', 'Assets.xcassets', 'AppIcon.appiconset')
