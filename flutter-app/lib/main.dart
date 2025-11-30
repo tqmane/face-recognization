@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/home_screen.dart';
 import 'services/settings_service.dart';
+import 'services/firebase_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Firebase初期化
+  await Firebase.initializeApp();
+  
   await SettingsService.instance.init();
+  
+  // サインイン済みなら同期を開始
+  if (FirebaseSyncService.instance.isSignedIn) {
+    FirebaseSyncService.instance.setupRealtimeSync();
+  }
+  
   runApp(const SimilarityQuizApp());
 }
 

@@ -36,6 +36,7 @@
         <activity android:name=".TestSetActivity" />
         <activity android:name=".HistoryActivity" />
         <activity android:name=".SettingsActivity" />
+        <activity android:name=".SyncActivity" />
         
         <!-- ダウンロード用フォアグラウンドサービス -->
         <service

@@ -1,5 +1,6 @@
 package com.tqmane.similarityquiz
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.widget.EditText
@@ -27,6 +28,7 @@ class SettingsActivity : AppCompatActivity() {
         settings = AppSettings.getInstance()
         
         setupToolbar()
+        setupSync()
         setupSliders()
         setupSwitch()
         updateSummary()
@@ -40,6 +42,29 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnReset.setOnClickListener {
             showResetConfirmDialog()
         }
+    }
+    
+    private fun setupSync() {
+        binding.btnSync.setOnClickListener {
+            startActivity(Intent(this, SyncActivity::class.java))
+        }
+        updateSyncStatus()
+    }
+    
+    private fun updateSyncStatus() {
+        val syncManager = FirebaseSyncManager.getInstance(this)
+        val user = syncManager.currentUser
+        
+        binding.tvSyncStatus.text = if (user != null) {
+            "✓ ${user.email} でサインイン中"
+        } else {
+            "Googleアカウントでテスト結果を同期"
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        updateSyncStatus()
     }
     
     companion object {

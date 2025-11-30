@@ -569,6 +569,14 @@ class OnlineQuizActivity : AppCompatActivity() {
             questionResults = questionResultsForHistory.toList()
         )
         historyManager.saveHistory(history)
+        
+        // Firebaseにもアップロード（サインイン済みの場合）
+        val syncManager = FirebaseSyncManager.getInstance(this)
+        if (syncManager.isSignedIn) {
+            lifecycleScope.launch {
+                syncManager.uploadHistory(history)
+            }
+        }
 
         // 画像メモリを解放
         cleanupImages()

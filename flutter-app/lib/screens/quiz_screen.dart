@@ -6,6 +6,7 @@ import '../services/quiz_manager.dart';
 import '../services/image_scraper.dart';
 import '../services/history_manager.dart';
 import '../services/test_set_manager.dart';
+import '../services/firebase_sync_service.dart';
 import '../utils/app_colors.dart';
 import 'result_screen.dart';
 
@@ -266,6 +267,11 @@ class _QuizScreenState extends State<QuizScreen> {
       questionResults: _questionResults,
     );
     HistoryManager.instance.saveHistory(history);
+    
+    // クラウドに自動アップロード（ログイン中の場合）
+    if (FirebaseSyncService.instance.isSignedIn) {
+      FirebaseSyncService.instance.uploadHistory(history);
+    }
 
     Navigator.pushReplacement(
       context,
