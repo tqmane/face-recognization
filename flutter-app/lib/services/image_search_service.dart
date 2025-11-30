@@ -8,6 +8,8 @@ enum ImageSource {
   inaturalist,  // iNaturalist (動植物専用、高精度)
   dogApi,       // The Dog API (犬専用、品種別)
   catApi,       // The Cat API (猫専用、品種別)
+  gbif,         // GBIF (生物多様性データ、学術用途)
+  unsplash,     // Unsplash Source API (高品質写真)
   bing,         // Bing検索 (人物向け、フォールバック)
 }
 
@@ -17,6 +19,8 @@ enum ImageSource {
 /// - The Dog API: 犬種別の正確な画像（APIキー不要）
 /// - The Cat API: 猫種別の正確な画像（APIキー不要）
 /// - iNaturalist: 専門家が確認した野生動植物の画像
+/// - GBIF: 世界最大の生物多様性データベース
+/// - Unsplash: 高品質な写真（風景、物体など）
 /// - Wikimedia Commons: 著作権フリーの正確なラベル付き画像
 /// - Bing: 人物写真向け（フォールバック）
 class ImageSearchService {
@@ -29,7 +33,7 @@ class ImageSearchService {
     '犬': ImageSource.dogApi,
     // 猫 → The Cat API（最も正確）
     '猫': ImageSource.catApi,
-    // その他の動物系 → iNaturalist
+    // その他の動物系 → iNaturalist（GBIFをバックアップとして使用）
     '小型野生猫': ImageSource.inaturalist,
     '鳥': ImageSource.inaturalist,
     '熊': ImageSource.inaturalist,
@@ -40,13 +44,13 @@ class ImageSearchService {
     '昆虫': ImageSource.inaturalist,
     // 人物系 → Bing
     '有名人・双子・そっくりさん': ImageSource.bing,
-    // その他 → Wikimedia
-    '車': ImageSource.wikimedia,
+    // 製品・建物系 → Unsplash（高品質）またはWikimedia
+    '車': ImageSource.unsplash,
     'ロゴ': ImageSource.wikimedia,
-    '腕時計': ImageSource.wikimedia,
-    'スニーカー': ImageSource.wikimedia,
-    'バッグ': ImageSource.wikimedia,
-    '建物': ImageSource.wikimedia,
+    '腕時計': ImageSource.unsplash,
+    'スニーカー': ImageSource.unsplash,
+    'バッグ': ImageSource.unsplash,
+    '建物': ImageSource.unsplash,
   };
 
   // 犬種名の英語マッピング
@@ -120,6 +124,19 @@ class ImageSearchService {
           
         case ImageSource.inaturalist:
           final results = await _searchINaturalist(query, count: count);
+          if (results.isNotEmpty) return results;
+          // iNaturalistで見つからない場合はGBIFにフォールバック
+          final gbifResults = await _searchGBIF(query, count: count);
+          if (gbifResults.isNotEmpty) return gbifResults;
+          return await _searchWikimedia(query, count: count);
+        
+        case ImageSource.gbif:
+          final results = await _searchGBIF(query, count: count);
+          if (results.isNotEmpty) return results;
+          return await _searchINaturalist(query, count: count);
+        
+        case ImageSource.unsplash:
+          final results = await _searchUnsplash(query, count: count);
           if (results.isNotEmpty) return results;
           return await _searchWikimedia(query, count: count);
           
@@ -352,6 +369,165 @@ class ImageSearchService {
       return urls;
     } catch (e) {
       print('iNaturalist search error: $e');
+      return [];
+    }
+  }
+
+  // GBIF species keys マッピング（学名 → speciesKey）
+  static const Map<String, int> _gbifSpeciesKeys = {
+    // 犬種（Canis lupus familiarisの亜種として）
+    'Golden Retriever': 5219173,
+    'German Shepherd': 5219173,
+    'Labrador Retriever': 5219173,
+    // 猫種
+    'Persian Cat': 2435035,
+    'Siamese Cat': 2435035,
+    // 熊
+    'Grizzly Bear': 2433433,
+    'Polar Bear': 2433451,
+    'Brown Bear': 2433433,
+    'Black Bear': 2433464,
+    'Sun Bear': 2433481,
+    'Sloth Bear': 2433491,
+    // 霊長類
+    'Chimpanzee': 5219533,
+    'Bonobo': 5219537,
+    'Gorilla': 5219521,
+    'Orangutan': 5219504,
+    // 鳥類
+    'Bald Eagle': 2480455,
+    'Golden Eagle': 2480486,
+    'Peregrine Falcon': 2481047,
+    'Snowy Owl': 2498247,
+    'Great Horned Owl': 2498176,
+    // 大型猫
+    'Lion': 5219404,
+    'Tiger': 5219436,
+    'Leopard': 5219392,
+    'Jaguar': 5219426,
+    'Cheetah': 5219323,
+    'Snow Leopard': 5219401,
+    // 小型野生猫
+    'Ocelot': 5219351,
+    'Caracal': 5219327,
+    'Serval': 5219362,
+    'Bobcat': 2435098,
+    'Lynx': 2435087,
+    // 海洋哺乳類
+    'Bottlenose Dolphin': 2440483,
+    'Orca': 2440526,
+    'Humpback Whale': 2440716,
+    'Blue Whale': 2440693,
+    // 蝶
+    'Monarch Butterfly': 1920506,
+    'Swallowtail Butterfly': 1920374,
+    'Blue Morpho': 1920791,
+    'Painted Lady': 1898286,
+    // 魚類
+    'Clownfish': 2394335,
+    'Betta Fish': 2359839,
+    'Goldfish': 2363100,
+    'Koi': 4286942,
+    // きのこ
+    'Fly Agaric': 5259648,
+    'Shiitake': 2542568,
+    'Chanterelle': 5259393,
+  };
+
+  /// GBIF API で画像を検索
+  /// https://www.gbif.org/developer/occurrence - 世界最大の生物多様性データベース
+  Future<List<String>> _searchGBIF(String query, {int count = 5}) async {
+    try {
+      // まずspeciesKeyを取得（マッピングがあれば使用、なければ検索）
+      int? speciesKey = _gbifSpeciesKeys[query];
+      
+      if (speciesKey == null) {
+        // 種名で検索してspeciesKeyを取得
+        final searchUrl = Uri.parse(
+          'https://api.gbif.org/v1/species/search'
+          '?q=${Uri.encodeComponent(query)}'
+          '&limit=5'
+        );
+        
+        final searchResponse = await _client.get(searchUrl).timeout(const Duration(seconds: 10));
+        if (searchResponse.statusCode != 200) return [];
+        
+        final searchData = jsonDecode(searchResponse.body);
+        final results = searchData['results'] as List?;
+        
+        if (results != null && results.isNotEmpty) {
+          speciesKey = results[0]['key'] as int?;
+        }
+      }
+      
+      if (speciesKey == null) {
+        print('GBIF species not found: $query');
+        return [];
+      }
+      
+      // speciesKeyを使って観測データ（画像付き）を取得
+      final occurrenceUrl = Uri.parse(
+        'https://api.gbif.org/v1/occurrence/search'
+        '?taxonKey=$speciesKey'
+        '&mediaType=StillImage'
+        '&limit=${count * 3}'
+      );
+      
+      final occurrenceResponse = await _client.get(occurrenceUrl).timeout(const Duration(seconds: 15));
+      if (occurrenceResponse.statusCode != 200) return [];
+      
+      final occurrenceData = jsonDecode(occurrenceResponse.body);
+      final occurrences = occurrenceData['results'] as List?;
+      
+      if (occurrences == null) return [];
+      
+      final urls = <String>[];
+      for (final occurrence in occurrences) {
+        final media = occurrence['media'] as List?;
+        if (media != null) {
+          for (final m in media) {
+            final identifier = m['identifier'] as String?;
+            if (identifier != null && 
+                (identifier.endsWith('.jpg') || 
+                 identifier.endsWith('.jpeg') || 
+                 identifier.endsWith('.png') ||
+                 identifier.contains('inaturalist') ||
+                 identifier.contains('flickr'))) {
+              urls.add(identifier);
+              if (urls.length >= count) break;
+            }
+          }
+        }
+        if (urls.length >= count) break;
+      }
+      
+      print('GBIF found ${urls.length} images for: $query (speciesKey: $speciesKey)');
+      return urls;
+    } catch (e) {
+      print('GBIF search error: $e');
+      return [];
+    }
+  }
+
+  /// Unsplash Source API で画像を検索
+  /// https://unsplash.com/developers - 高品質な写真
+  Future<List<String>> _searchUnsplash(String query, {int count = 5}) async {
+    try {
+      // Unsplash Source APIはシンプルなURLベースのAPI
+      // 注意: 本番環境ではAccess Keyが必要
+      final urls = <String>[];
+      
+      // 異なるsigを使って複数の画像を取得
+      for (int i = 0; i < count; i++) {
+        // Unsplash Source APIの形式
+        final imageUrl = 'https://source.unsplash.com/800x600/?${Uri.encodeComponent(query)}&sig=$i';
+        urls.add(imageUrl);
+      }
+      
+      print('Unsplash generated ${urls.length} image URLs for: $query');
+      return urls;
+    } catch (e) {
+      print('Unsplash search error: $e');
       return [];
     }
   }
