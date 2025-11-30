@@ -14,15 +14,19 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 信頼性の高い画像ソースを使用した画像取得クラス
- * - iNaturalist: 野生動物
+ * 
+ * 使用API（優先順）:
+ * - iNaturalist: 野生動物（研究グレードの写真）
+ * - GBIF: 生物多様性データ（自然史博物館等の写真）
  * - The Dog API: 犬種
  * - The Cat API: 猫種
- * - Wikimedia Commons: その他
+ * - Unsplash: 高品質写真（車、風景等）
+ * - Wikimedia Commons: その他（ロゴ等）
  */
 class ReliableImageSource {
 
     companion object {
-        private const val USER_AGENT = "SimilarityQuiz/1.0 (Educational App)"
+        private const val USER_AGENT = "SimilarityQuiz/1.0 (Educational Research App - Japanese High School)"
         
         // 画像サイズ設定
         private const val TARGET_HEIGHT = 450
@@ -30,9 +34,12 @@ class ReliableImageSource {
         
         // API URLs
         private const val INATURALIST_API = "https://api.inaturalist.org/v1"
+        private const val GBIF_API = "https://api.gbif.org/v1"
         private const val DOG_API = "https://api.thedogapi.com/v1"
         private const val CAT_API = "https://api.thecatapi.com/v1"
+        private const val UNSPLASH_API = "https://api.unsplash.com"
         private const val WIKIMEDIA_API = "https://commons.wikimedia.org/w/api.php"
+        private const val FLICKR_API = "https://api.flickr.com/services/rest"
     }
 
     private val httpClient = OkHttpClient.Builder()
@@ -147,6 +154,39 @@ class ReliableImageSource {
         "firefly" to 47945
     )
 
+    // GBIF species key マッピング（自然史博物館等の写真）
+    private val gbifSpeciesKeys = mapOf(
+        // ネコ科大型
+        "cheetah" to 5219404,
+        "leopard" to 5219436,
+        "jaguar" to 5219426,
+        "lion" to 5219411,
+        "tiger" to 5219446,
+        "cougar" to 2435099,
+        "snow_leopard" to 5219440,
+        
+        // 野生イヌ科
+        "wolf" to 5219173,
+        "fox" to 5219243,
+        "arctic_fox" to 5219233,
+        "coyote" to 5219142,
+        
+        // アライグマ系
+        "raccoon" to 5218786,
+        "red_panda" to 5218800,
+        
+        // クマ科
+        "brown_bear" to 2433433,
+        "black_bear" to 2433398,
+        "polar_bear" to 2433451,
+        "panda" to 5218781,
+        
+        // 霊長類
+        "chimpanzee" to 5219513,
+        "gorilla" to 5219521,
+        "orangutan" to 5219531
+    )
+
     // Dog API breed_id マッピング
     private val dogBreedIds = mapOf(
         "shiba" to 136,
@@ -193,14 +233,23 @@ class ReliableImageSource {
         val urls = mutableListOf<String>()
 
         try {
-            // 1. iNaturalistを試す（動物）
+            // 1. iNaturalistを試す（動物 - 研究グレード）
             iNaturalistTaxonIds[itemId]?.let { taxonId ->
                 val inatUrls = fetchFromINaturalist(taxonId)
                 urls.addAll(inatUrls)
                 android.util.Log.d("ReliableImageSource", "iNaturalist returned ${inatUrls.size} URLs for $itemId")
             }
 
-            // 2. Dog APIを試す（犬種）
+            // 2. GBIFを試す（生物多様性データ - 自然史博物館等）
+            if (urls.size < maxResults) {
+                gbifSpeciesKeys[itemId]?.let { speciesKey ->
+                    val gbifUrls = fetchFromGBIF(speciesKey)
+                    urls.addAll(gbifUrls)
+                    android.util.Log.d("ReliableImageSource", "GBIF returned ${gbifUrls.size} URLs for $itemId")
+                }
+            }
+
+            // 3. Dog APIを試す（犬種）
             if (urls.size < maxResults) {
                 dogBreedIds[itemId]?.let { breedId ->
                     val dogUrls = fetchFromDogApi(breedId)
@@ -209,7 +258,7 @@ class ReliableImageSource {
                 }
             }
 
-            // 3. Cat APIを試す（猫種）
+            // 4. Cat APIを試す（猫種）
             if (urls.size < maxResults) {
                 catBreedIds[itemId]?.let { breedId ->
                     val catUrls = fetchFromCatApi(breedId)
@@ -218,7 +267,14 @@ class ReliableImageSource {
                 }
             }
 
-            // 4. Wikimedia Commonsを試す（その他・フォールバック）
+            // 5. Unsplashを試す（車、風景等の高品質写真）
+            if (urls.size < maxResults / 2) {
+                val unsplashUrls = fetchFromUnsplash(itemId)
+                urls.addAll(unsplashUrls)
+                android.util.Log.d("ReliableImageSource", "Unsplash returned ${unsplashUrls.size} URLs for $itemId")
+            }
+
+            // 6. Wikimedia Commonsを試す（その他・フォールバック）
             if (urls.size < maxResults / 2) {
                 val wikiUrls = fetchFromWikimedia(itemId)
                 urls.addAll(wikiUrls)
@@ -280,6 +336,81 @@ class ReliableImageSource {
             android.util.Log.e("ReliableImageSource", "iNaturalist error: ${e.message}")
         }
         urls
+    }
+
+    /**
+     * GBIF APIから画像を取得（自然史博物館等の写真）
+     */
+    private suspend fun fetchFromGBIF(speciesKey: Int): List<String> = withContext(Dispatchers.IO) {
+        val urls = mutableListOf<String>()
+        try {
+            val url = "$GBIF_API/occurrence/search?speciesKey=$speciesKey&mediaType=StillImage&limit=30"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val json = JSONObject(response.body?.string() ?: "")
+                    val results = json.optJSONArray("results") ?: JSONArray()
+                    
+                    for (i in 0 until results.length()) {
+                        val occurrence = results.getJSONObject(i)
+                        val media = occurrence.optJSONArray("media") ?: continue
+                        
+                        for (j in 0 until media.length()) {
+                            val mediaItem = media.getJSONObject(j)
+                            val identifier = mediaItem.optString("identifier", "")
+                            if (identifier.isNotEmpty() && isValidImageUrl(identifier)) {
+                                urls.add(identifier)
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ReliableImageSource", "GBIF error: ${e.message}")
+        }
+        urls
+    }
+
+    /**
+     * Unsplash Source APIから画像を取得（APIキー不要）
+     */
+    private suspend fun fetchFromUnsplash(itemId: String): List<String> = withContext(Dispatchers.IO) {
+        val urls = mutableListOf<String>()
+        val searchTerm = getUnsplashSearchTerm(itemId) ?: return@withContext urls
+        
+        try {
+            // Unsplash Source API（APIキー不要、直接画像URL）
+            // 複数のサイズバリエーションを生成
+            for (i in 1..10) {
+                val url = "https://source.unsplash.com/800x600/?$searchTerm&sig=$i"
+                urls.add(url)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ReliableImageSource", "Unsplash error: ${e.message}")
+        }
+        urls
+    }
+
+    private fun getUnsplashSearchTerm(itemId: String): String? {
+        return when (itemId) {
+            // 車
+            "gt86", "brz" -> "sports,car,toyota"
+            "miata" -> "mazda,miata,roadster"
+            "s2000" -> "honda,s2000,car"
+            "rx7" -> "mazda,rx7,sports,car"
+            "supra" -> "toyota,supra,car"
+            "nsx" -> "honda,nsx,supercar"
+            "gtr" -> "nissan,gtr,sports,car"
+            "370z" -> "nissan,370z,car"
+            "mustang" -> "ford,mustang,car"
+            "camaro" -> "chevrolet,camaro,car"
+            "challenger" -> "dodge,challenger,car"
+            else -> null
+        }
     }
 
     /**
