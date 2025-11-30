@@ -9,7 +9,8 @@ import 'package:image/image.dart' as img;
 class ImageScraper {
   static const int _targetHeight = 450;
   static const int _maxWidth = 550;
-  static const Duration _timeout = Duration(seconds: 10);  // タイムアウトを10秒に
+  static const Duration _timeout = Duration(seconds: 15);  // タイムアウトを15秒に延長
+  static const Duration _imageTimeout = Duration(seconds: 20);  // 画像ダウンロード用タイムアウト
 
   // 除外キーワード（最小限に縮小）
   static const List<String> _excludeKeywords = [
@@ -26,6 +27,9 @@ class ImageScraper {
   static const List<int> _randomOffsets = [1, 35, 70, 105, 140];
 
   final Random _random = Random();
+  
+  // HTTPクライアント（接続の再利用）
+  final http.Client _client = http.Client();
 
   /// 使用済みURL（このクイズセッション全体で重複を防ぐ）
   final Set<String> _usedUrls = {};
@@ -37,6 +41,11 @@ class ImageScraper {
   void clearUsedUrls() {
     _usedUrls.clear();
     _currentQuestionUrls.clear();
+  }
+  
+  /// リソースを解放
+  void dispose() {
+    _client.close();
   }
 
   /// Bingから画像URLを取得（未使用のもののみ）
@@ -51,13 +60,14 @@ class ImageScraper {
 
       print('Searching: $searchUrl');
 
-      final response = await http.get(
+      final response = await _client.get(
         searchUrl,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
           'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
           'Sec-Fetch-Dest': 'document',
           'Sec-Fetch-Mode': 'navigate',
           'Sec-Fetch-Site': 'none',
@@ -159,15 +169,16 @@ class ImageScraper {
     }
     
     try {
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse(url),
         headers: {
           'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
           'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+          'Connection': 'keep-alive',
           'Referer': 'https://www.bing.com/',
         },
-      ).timeout(_timeout);
+      ).timeout(_imageTimeout);
 
       if (response.statusCode == 200 && response.bodyBytes.length > 1000) {
         _usedUrls.add(url);

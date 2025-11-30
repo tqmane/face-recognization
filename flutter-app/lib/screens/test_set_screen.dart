@@ -78,6 +78,28 @@ class _TestSetScreenState extends State<TestSetScreen> {
                           color: colorScheme.onPrimaryContainer.withOpacity(0.9),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: _showBatteryOptimizationHelp,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'ダウンロードが遅い場合はこちら',
+                              style: TextStyle(
+                                color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                                fontSize: 12,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -354,6 +376,77 @@ class _TestSetScreenState extends State<TestSetScreen> {
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('削除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBatteryOptimizationHelp() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.battery_alert),
+            SizedBox(width: 8),
+            Text('ダウンロードが遅い場合'),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '一部のデバイスでは省電力機能により、アプリのネットワーク通信が制限されることがあります。',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '以下の設定をお試しください：',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text('1. 設定アプリを開く'),
+              Text('2. 「バッテリー」または「電池」を選択'),
+              Text('3. 「バッテリー最適化」を探す'),
+              Text('4. このアプリを「最適化しない」に設定'),
+              SizedBox(height: 16),
+              Text(
+                '【OnePlus / OPPO / realme の場合】',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '設定 → アプリ → このアプリ → バッテリー使用量 → 「制限なし」を選択',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '【Samsung の場合】',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '設定 → バッテリー → バッテリーを最適化 → このアプリを「除外」',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '※ ダウンロード中は画面をオンにしておくことをおすすめします。',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる'),
           ),
         ],
       ),
