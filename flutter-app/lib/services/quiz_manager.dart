@@ -481,17 +481,6 @@ class QuizManager {
     }
   }
   
-  // Generate a quiz question for a specific genre (async version with images)
-  Future<QuizQuestion?> generateQuestion({Genre? genre, bool isCelebrity = false}) async {
-    // For celebrity genre or specific celebrity question
-    if (isCelebrity || genre == Genre.celebrities) {
-      return await _generateCelebrityQuestion();
-    }
-    
-    // For other genres
-    return await _generateGenreQuestion(genre);
-  }
-  
   // Generate celebrity question (same person vs twins/lookalikes)
   Future<QuizQuestion?> _generateCelebrityQuestion() async {
     final isSamePerson = _random.nextBool();
