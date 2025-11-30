@@ -41,11 +41,17 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create platform folders if needed
+    - name: Create Linux platform structure
       working-directory: flutter-app
       run: |
-        if [ ! -d "linux" ]; then
-          flutter create --project-name similarity_quiz --org com.tqmane --platforms=linux .
+        # 既存のlinuxフォルダを削除して再生成（アイコンは保持）
+        if [ -f "linux/app_icon.png" ]; then
+          cp linux/app_icon.png /tmp/app_icon_linux.png
+        fi
+        rm -rf linux
+        flutter create --project-name similarity_quiz --org com.tqmane --platforms=linux .
+        if [ -f "/tmp/app_icon_linux.png" ]; then
+          cp /tmp/app_icon_linux.png linux/app_icon.png
         fi
 
     - name: Set Linux app icon
@@ -112,11 +118,17 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create platform folders if needed
+    - name: Create Windows platform structure
       working-directory: flutter-app
       run: |
-        if (!(Test-Path "windows")) {
-          flutter create --project-name similarity_quiz --org com.tqmane --platforms=windows .
+        # 既存のwindowsフォルダを削除して再生成（アイコンは保持）
+        if (Test-Path "windows/runner/resources") {
+          Copy-Item "windows/runner/resources/*.png" "$env:TEMP\" -ErrorAction SilentlyContinue
+        }
+        Remove-Item -Recurse -Force "windows" -ErrorAction SilentlyContinue
+        flutter create --project-name similarity_quiz --org com.tqmane --platforms=windows .
+        if (Test-Path "$env:TEMP\app_icon*.png") {
+          Copy-Item "$env:TEMP\app_icon*.png" "windows/runner/resources\" -ErrorAction SilentlyContinue
         }
 
     - name: Set Windows app icon
@@ -181,11 +193,17 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create platform folders if needed
+    - name: Create macOS platform structure
       working-directory: flutter-app
       run: |
-        if [ ! -d "macos" ]; then
-          flutter create --project-name similarity_quiz --org com.tqmane --platforms=macos .
+        # 既存のmacosフォルダを削除して再生成（アイコンは保持）
+        if [ -d "macos/Runner/Assets.xcassets/AppIcon.appiconset" ]; then
+          cp -r macos/Runner/Assets.xcassets/AppIcon.appiconset /tmp/macos_icons
+        fi
+        rm -rf macos
+        flutter create --project-name similarity_quiz --org com.tqmane --platforms=macos .
+        if [ -d "/tmp/macos_icons" ]; then
+          cp -r /tmp/macos_icons/* macos/Runner/Assets.xcassets/AppIcon.appiconset/
         fi
 
     - name: Set macOS app icon
@@ -243,11 +261,17 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create platform folders if needed
+    - name: Create iOS platform structure
       working-directory: flutter-app
       run: |
-        if [ ! -d "ios" ]; then
-          flutter create --project-name similarity_quiz --org com.tqmane --platforms=ios .
+        # 既存のiosフォルダを削除して再生成（アイコンは保持）
+        if [ -d "ios/Runner/Assets.xcassets/AppIcon.appiconset" ]; then
+          cp -r ios/Runner/Assets.xcassets/AppIcon.appiconset /tmp/ios_icons
+        fi
+        rm -rf ios
+        flutter create --project-name similarity_quiz --org com.tqmane --platforms=ios .
+        if [ -d "/tmp/ios_icons" ]; then
+          cp -r /tmp/ios_icons/* ios/Runner/Assets.xcassets/AppIcon.appiconset/
         fi
 
     - name: Set iOS app icon
@@ -325,11 +349,17 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create platform folders if needed
+    - name: Create Android platform structure
       working-directory: flutter-app
       run: |
-        if [ ! -d "android" ]; then
-          flutter create --project-name similarity_quiz --org com.tqmane --platforms=android .
+        # 既存のandroidフォルダを削除して再生成（アイコンは保持）
+        if [ -d "android/app/src/main/res" ]; then
+          cp -r android/app/src/main/res /tmp/android_res
+        fi
+        rm -rf android
+        flutter create --project-name similarity_quiz --org com.tqmane --platforms=android .
+        if [ -d "/tmp/android_res" ]; then
+          cp -r /tmp/android_res/* android/app/src/main/res/
         fi
 
     - name: Update Kotlin version for compatibility
