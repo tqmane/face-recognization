@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -56,4 +58,12 @@ dependencies {
     
     // ネットワーク（OkHttp - 高性能）
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-database-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 }

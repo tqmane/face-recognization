@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/settings_service.dart';
+import '../services/firebase_sync_service.dart';
+import 'sync_screen.dart';
 
 /// 高度な設定画面
 class SettingsScreen extends StatefulWidget {
@@ -97,6 +99,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // クラウド同期セクション
+          _buildSectionHeader('クラウド同期', Icons.cloud_sync),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                Icons.sync,
+                color: colorScheme.primary,
+              ),
+              title: const Text('クラウド同期設定'),
+              subtitle: Text(
+                FirebaseSyncService.instance.isSignedIn
+                    ? 'ログイン中'
+                    : '未ログイン',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SyncScreen()),
+                ).then((_) => setState(() {}));
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          
           // パフォーマンス設定セクション
           _buildSectionHeader('パフォーマンス設定', Icons.speed),
           const SizedBox(height: 8),
