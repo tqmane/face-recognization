@@ -123,7 +123,7 @@ class _QuizScreenState extends State<QuizScreen> {
     // 問題設定を事前生成
     final configs = List.generate(
       widget.questionCount * 3,
-      (_) => quizManager.generateQuestion(widget.genre),
+      (_) => quizManager.generateQuestion(genre: widget.genre),
     );
 
     int successCount = 0;

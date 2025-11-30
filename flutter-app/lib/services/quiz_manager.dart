@@ -3,23 +3,29 @@ import '../models/quiz_question.dart';
 import 'image_search_service.dart';
 
 enum Genre {
-  cars,
-  logos,
-  celebrities,
-  dogs,
-  cats,
-  smallCats,
-  birds,
-  bears,
-  primates,
-  fish,
-  butterflies,
-  mushrooms,
-  insects,
-  watches,
-  sneakers,
-  bags,
-  buildings,
+  all('すべて', 'ランダムな問題'),
+  cars('車', '似ている車種を判別'),
+  logos('ロゴ', '似ているロゴを判別'),
+  celebrities('有名人・双子・そっくりさん', '双子やそっくりさんを判別'),
+  dogs('犬', '似ている犬種を判別'),
+  cats('猫', '似ている猫種を判別'),
+  smallCats('小型野生猫', '似ている野生猫を判別'),
+  birds('鳥', '似ている鳥を判別'),
+  bears('熊', '似ている熊を判別'),
+  primates('霊長類', '似ている霊長類を判別'),
+  fish('魚', '似ている魚を判別'),
+  butterflies('蝶', '似ている蝶を判別'),
+  mushrooms('きのこ', '似ているきのこを判別'),
+  insects('昆虫', '似ている昆虫を判別'),
+  watches('腕時計', '似ている腕時計を判別'),
+  sneakers('スニーカー', '似ているスニーカーを判別'),
+  bags('バッグ', '似ているバッグを判別'),
+  buildings('建物', '似ている建物を判別');
+
+  final String displayName;
+  final String description;
+
+  const Genre(this.displayName, this.description);
 }
 
 class SimilarPair {
@@ -27,6 +33,23 @@ class SimilarPair {
   final String item2;
   
   const SimilarPair(this.item1, this.item2);
+}
+
+/// 問題の設定（画像ダウンロード前）
+class QuestionConfig {
+  final bool isSame;
+  final String query1;
+  final String query2;
+  final String description;
+  final String genre;
+  
+  const QuestionConfig({
+    required this.isSame,
+    required this.query1,
+    required this.query2,
+    required this.description,
+    required this.genre,
+  });
 }
 
 class QuizManager {
@@ -408,10 +431,57 @@ class QuizManager {
   
   // Get genre display name
   String getGenreName(Genre genre) {
-    return genreNames[genre] ?? genre.toString().split('.').last;
+    return genre.displayName;
+  }
+
+  /// 問題設定を同期的に生成（画像ダウンロード前の設定）
+  QuestionConfig generateQuestion({Genre? genre}) {
+    // allの場合またはnullの場合はランダムなジャンルを選択
+    final selectedGenre = (genre == null || genre == Genre.all)
+        ? _getRandomGenre()
+        : genre;
+    
+    final genreItems = _items[selectedGenre]!;
+    final genrePairs = _getGenrePairs(selectedGenre);
+    
+    final isSame = _random.nextBool();
+    
+    if (isSame) {
+      // 同じアイテムの異なる画像
+      final item = genreItems[_random.nextInt(genreItems.length)];
+      return QuestionConfig(
+        isSame: true,
+        query1: item,
+        query2: item,
+        description: '$item（同じ）',
+        genre: selectedGenre.displayName,
+      );
+    } else {
+      // 似ているが異なるアイテム
+      if (genrePairs.isNotEmpty) {
+        final pair = genrePairs[_random.nextInt(genrePairs.length)];
+        return QuestionConfig(
+          isSame: false,
+          query1: pair.item1,
+          query2: pair.item2,
+          description: '${pair.item1} vs ${pair.item2}',
+          genre: selectedGenre.displayName,
+        );
+      } else {
+        // ペアがない場合はランダムに2つ選択
+        final items = genreItems.toList()..shuffle();
+        return QuestionConfig(
+          isSame: false,
+          query1: items[0],
+          query2: items[1],
+          description: '${items[0]} vs ${items[1]}',
+          genre: selectedGenre.displayName,
+        );
+      }
+    }
   }
   
-  // Generate a quiz question for a specific genre
+  // Generate a quiz question for a specific genre (async version with images)
   Future<QuizQuestion?> generateQuestion({Genre? genre, bool isCelebrity = false}) async {
     // For celebrity genre or specific celebrity question
     if (isCelebrity || genre == Genre.celebrities) {
@@ -590,12 +660,14 @@ class QuizManager {
   }
   
   Genre _getRandomGenre() {
-    final genres = Genre.values.toList();
+    // allを除外した実際のジャンルからランダムに選択
+    final genres = Genre.values.where((g) => g != Genre.all).toList();
     return genres[_random.nextInt(genres.length)];
   }
   
   List<SimilarPair> _getGenrePairs(Genre genre) {
-    final genreItems = _items[genre]!;
+    final genreItems = _items[genre];
+    if (genreItems == null) return [];
     return _similarPairs.where((pair) {
       return genreItems.contains(pair.item1) && genreItems.contains(pair.item2);
     }).toList();

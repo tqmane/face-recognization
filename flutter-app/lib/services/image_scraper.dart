@@ -48,6 +48,11 @@ class ImageScraper {
     _client.close();
   }
 
+  /// 画像URLを検索（公開API）
+  Future<List<String>> searchImages(String query, {int count = 5}) async {
+    return await _fetchImageUrls(query, count: count);
+  }
+
   /// Bingから画像URLを取得（未使用のもののみ）
   Future<List<String>> _fetchImageUrls(String query, {int count = 10}) async {
     try {

@@ -126,7 +126,7 @@ class TestSetManager {
 
     final configs = List.generate(
       totalQuestions * 3,
-      (_) => _quizManager.generateQuestion(genre),
+      (_) => _quizManager.generateQuestion(genre: genre),
     );
 
     int successCount = 0;
