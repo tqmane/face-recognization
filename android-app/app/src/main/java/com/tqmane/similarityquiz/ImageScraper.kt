@@ -176,8 +176,8 @@ class ImageScraper {
                 }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
                 
-                // 目標サイズ（800px）に対してサンプルサイズを計算
-                val targetSize = 800
+                // 目標サイズ（設定から取得）
+                val targetSize = AppSettings.getInstance().targetImageSize
                 val sampleSize = calculateInSampleSize(boundsOptions, targetSize, targetSize)
                 
                 // BitmapFactory.Optionsでメモリ効率化
@@ -188,8 +188,9 @@ class ImageScraper {
                 
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
                 
-                // キャッシュに保存（サイズ制限：20枚まで）
-                if (bitmap != null && imageCache.size < 20) {
+                // キャッシュに保存（設定から取得）
+                val maxCacheSize = AppSettings.getInstance().cacheSize
+                if (bitmap != null && imageCache.size < maxCacheSize) {
                     imageCache[imageUrl] = bitmap
                 }
                 bitmap
@@ -240,7 +241,9 @@ class ImageScraper {
         val result = CompletableDeferred<Pair<Bitmap?, String?>>()
         val jobs = mutableListOf<Job>()
         
-        availableUrls.take(5).forEach { url ->
+        // 並列ダウンロード数を設定から取得
+        val parallelDownloads = AppSettings.getInstance().parallelDownloads
+        availableUrls.take(parallelDownloads).forEach { url ->
             val job = launch {
                 val bitmap = downloadImage(url)
                 if (bitmap != null && result.isActive) {
@@ -255,8 +258,9 @@ class ImageScraper {
             jobs.add(job)
         }
         
-        // タイムアウト付きで待機
-        val winner = withTimeoutOrNull(4000) {
+        // タイムアウト付きで待機（設定から取得）
+        val timeout = AppSettings.getInstance().downloadTimeout * 1000L
+        val winner = withTimeoutOrNull(timeout) {
             result.await()
         }
         

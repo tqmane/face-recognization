@@ -54,6 +54,12 @@
     <color name="error">#FF3B30</color>
     <color name="info">#007AFF</color>
     
+    <!-- 背景色（薄い色） -->
+    <color name="ios_orange_light">#FFF3E0</color>
+    <color name="ios_blue_light">#E3F2FD</color>
+    <color name="ios_green_light">#E8F5E9</color>
+    <color name="ios_red_light">#FFEBEE</color>
+    
     <!-- リザルト画面用背景色 -->
     <color name="result_correct_bg">#E8F5E9</color>
     <color name="result_incorrect_bg">#FFEBEE</color>

@@ -32,6 +32,11 @@ class MainActivity : AppCompatActivity() {
         binding.cardHistory?.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
+        
+        // 設定画面
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         updateStats()
     }

@@ -4,13 +4,16 @@ import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:image/image.dart' as img;
+import 'settings_service.dart';
 
 /// 画像スクレイピングサービス
 class ImageScraper {
   static const int _targetHeight = 450;
   static const int _maxWidth = 550;
-  static const Duration _timeout = Duration(seconds: 15);  // タイムアウトを15秒に延長
-  static const Duration _imageTimeout = Duration(seconds: 20);  // 画像ダウンロード用タイムアウト
+  
+  // タイムアウトは設定から取得
+  Duration get _timeout => Duration(seconds: SettingsService.instance.downloadTimeout);
+  Duration get _imageTimeout => Duration(seconds: SettingsService.instance.downloadTimeout + 5);
 
   // 除外キーワード（最小限に縮小）
   static const List<String> _excludeKeywords = [
@@ -36,6 +39,12 @@ class ImageScraper {
   
   /// 現在の問題で選択中のURL（並列ダウンロード時の重複防止）
   final Set<String> _currentQuestionUrls = {};
+  
+  /// 画像キャッシュ
+  final Map<String, Uint8List> _imageCache = {};
+  
+  /// キャッシュサイズを設定から取得
+  int get _maxCacheSize => SettingsService.instance.cacheSize;
 
   /// 使用済みURLをクリア
   void clearUsedUrls() {
@@ -43,9 +52,15 @@ class ImageScraper {
     _currentQuestionUrls.clear();
   }
   
+  /// キャッシュをクリア
+  void clearCache() {
+    _imageCache.clear();
+  }
+  
   /// リソースを解放
   void dispose() {
     _client.close();
+    _imageCache.clear();
   }
 
   /// 画像URLを検索（公開API）
@@ -187,6 +202,10 @@ class ImageScraper {
 
       if (response.statusCode == 200 && response.bodyBytes.length > 1000) {
         _usedUrls.add(url);
+        // キャッシュサイズを制限
+        if (_imageCache.length < _maxCacheSize) {
+          _imageCache[url] = response.bodyBytes;
+        }
         return response.bodyBytes;
       } else {
         print('Download failed: status=${response.statusCode}, size=${response.bodyBytes.length}');

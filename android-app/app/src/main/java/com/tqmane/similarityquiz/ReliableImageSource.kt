@@ -586,8 +586,8 @@ class ReliableImageSource {
                 }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
                 
-                // 目標サイズ（800px）に対してサンプルサイズを計算
-                val targetSize = 800
+                // 目標サイズ（設定から取得、デフォルト800px）
+                val targetSize = AppSettings.getInstance().targetImageSize
                 val sampleSize = calculateInSampleSize(boundsOptions, targetSize, targetSize)
                 
                 val options = BitmapFactory.Options().apply {
@@ -597,8 +597,9 @@ class ReliableImageSource {
                 
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
                 
-                // キャッシュサイズを制限（20枚まで）
-                if (bitmap != null && imageCache.size < 20) {
+                // キャッシュサイズを制限（設定から取得）
+                val maxCacheSize = AppSettings.getInstance().cacheSize
+                if (bitmap != null && imageCache.size < maxCacheSize) {
                     imageCache[imageUrl] = bitmap
                 }
                 bitmap
@@ -649,7 +650,9 @@ class ReliableImageSource {
         val result = CompletableDeferred<Pair<Bitmap?, String?>>()
         val jobs = mutableListOf<Job>()
         
-        availableUrls.take(5).forEach { url ->
+        // 並列ダウンロード数を設定から取得
+        val parallelDownloads = AppSettings.getInstance().parallelDownloads
+        availableUrls.take(parallelDownloads).forEach { url ->
             val job = launch {
                 val bitmap = downloadImage(url)
                 if (bitmap != null && result.isActive) {
@@ -662,7 +665,9 @@ class ReliableImageSource {
             jobs.add(job)
         }
         
-        val winner = withTimeoutOrNull(6000) { result.await() }
+        // タイムアウトを設定から取得
+        val timeout = AppSettings.getInstance().downloadTimeout * 1000L
+        val winner = withTimeoutOrNull(timeout) { result.await() }
         jobs.forEach { it.cancel() }
         
         val raceTime = System.currentTimeMillis() - raceStartTime

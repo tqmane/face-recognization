@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'quiz_screen.dart';
 import 'test_set_screen.dart';
 import 'history_screen.dart';
+import 'settings_screen.dart';
 import '../services/quiz_manager.dart';
 import '../services/history_manager.dart';
 
@@ -45,19 +46,37 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // アイコン
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
+        child: Stack(
+          children: [
+            // 設定ボタン（左上）
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: '設定',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  );
+                },
+              ),
+            ),
+            // メインコンテンツ
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // アイコン
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
                       color: colorScheme.primary,
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -203,6 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+        ),
+          ],
         ),
       ),
     );

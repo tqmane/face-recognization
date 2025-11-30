@@ -6,6 +6,19 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
+    <!-- 設定ボタン（左上） -->
+    <ImageButton
+        android:id="@+id/btnSettings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="設定"
+        android:src="@android:drawable/ic_menu_preferences"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/ios_blue" />
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
