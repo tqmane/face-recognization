@@ -30,10 +30,20 @@ class AppSettings private constructor(context: Context) {
         @Volatile
         private var instance: AppSettings? = null
         
-        fun getInstance(context: Context): AppSettings {
-            return instance ?: synchronized(this) {
-                instance ?: AppSettings(context.applicationContext).also { instance = it }
+        fun init(context: Context) {
+            if (instance == null) {
+                synchronized(this) {
+                    if (instance == null) {
+                        instance = AppSettings(context.applicationContext)
+                    }
+                }
             }
+        }
+        
+        fun getInstance(): AppSettings {
+            return instance ?: throw IllegalStateException(
+                "AppSettings must be initialized with init(context) before use"
+            )
         }
     }
     

@@ -16,6 +16,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // AppSettingsを初期化
+        AppSettings.init(this)
+        
         historyManager = HistoryManager.getInstance(this)
 
         // オンラインモード（問題数選択ダイアログ表示）
@@ -34,7 +37,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         // 設定画面
-        binding.btnSettings.setOnClickListener {
+        binding.btnSettings?.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 

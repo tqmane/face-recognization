@@ -20,7 +20,9 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
-        settings = AppSettings.getInstance(this)
+        // AppSettingsを初期化（まだの場合）
+        AppSettings.init(this)
+        settings = AppSettings.getInstance()
         
         setupToolbar()
         setupSliders()
