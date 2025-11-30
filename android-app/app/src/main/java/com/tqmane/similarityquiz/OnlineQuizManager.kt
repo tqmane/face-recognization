@@ -6,6 +6,10 @@ package com.tqmane.similarityquiz
  */
 class OnlineQuizManager {
 
+    // 信頼性の高い画像ソース（iNaturalist, Dog API, Cat API等）
+    val reliableSource = ReliableImageSource()
+    
+    // Bingフォールバック用
     val scraper = ImageScraper()
 
     // ジャンル定義
@@ -371,6 +375,8 @@ class OnlineQuizManager {
         return if (isSame) {
             val item = genreItems.random()
             QuestionConfig(
+                itemId1 = item.id,
+                itemId2 = item.id,
                 query1 = item.query,
                 query2 = item.query,
                 isSame = true,
@@ -381,6 +387,8 @@ class OnlineQuizManager {
             val item1 = items[pair.id1]!!
             val item2 = items[pair.id2]!!
             QuestionConfig(
+                itemId1 = item1.id,
+                itemId2 = item2.id,
                 query1 = item1.query,
                 query2 = item2.query,
                 isSame = false,
@@ -390,6 +398,8 @@ class OnlineQuizManager {
     }
 
     data class QuestionConfig(
+        val itemId1: String,
+        val itemId2: String,
         val query1: String,
         val query2: String,
         val isSame: Boolean,

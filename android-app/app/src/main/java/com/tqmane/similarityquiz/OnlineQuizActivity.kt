@@ -222,6 +222,7 @@ class OnlineQuizActivity : AppCompatActivity() {
      */
     private fun prepareAllQuestions() {
         // 新しいテスト開始時に使用済みURLをクリア
+        quizManager.reliableSource.clearUsedUrls()
         quizManager.scraper.clearUsedUrls()
         
         // フォアグラウンドサービスを開始（省電力モードでも殺されにくくする）
@@ -265,15 +266,28 @@ class OnlineQuizActivity : AppCompatActivity() {
                 configIndex += batchSize
 
                 // 並列ダウンロード（Dispatchers.IOで実行）
+                // 信頼性の高いソース（iNaturalist, Dog API等）を優先使用
                 val results = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     batch.map { config ->
                         async {
                             try {
-                                val bitmap = if (config.isSame) {
-                                    quizManager.scraper.createSameImage(config.query1)
+                                // まず信頼性の高いソースを試す
+                                var bitmap = if (config.isSame) {
+                                    quizManager.reliableSource.createSameImage(config.itemId1)
                                 } else {
-                                    quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                                    quizManager.reliableSource.createComparisonImage(config.itemId1, config.itemId2)
                                 }
+                                
+                                // 信頼ソースで取得できない場合、Bingフォールバック
+                                if (bitmap == null) {
+                                    android.util.Log.d("OnlineQuiz", "Falling back to Bing for ${config.description}")
+                                    bitmap = if (config.isSame) {
+                                        quizManager.scraper.createSameImage(config.query1)
+                                    } else {
+                                        quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                                    }
+                                }
+                                
                                 if (bitmap != null) {
                                     PreparedQuestion(bitmap, config.isSame, config.description)
                                 } else null

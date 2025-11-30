@@ -97,6 +97,7 @@ class TestSetManager(private val context: Context) {
         setDir.mkdirs()
 
         // 使用済みURLをクリア
+        quizManager.reliableSource.clearUsedUrls()
         quizManager.scraper.clearUsedUrls()
 
         // 問題設定を事前に生成（余裕を持って多めに）
@@ -118,14 +119,24 @@ class TestSetManager(private val context: Context) {
             val batch = questionConfigs.subList(configIndex, configIndex + currentBatch)
             configIndex += currentBatch
 
-            // 並列ダウンロード（各問題にインデックス付与で混ざらない）
+            // 並列ダウンロード（信頼性の高いソースを優先）
             val results = batch.map { (originalIndex, config) ->
                 async {
                     try {
-                        val bitmap = if (config.isSame) {
-                            quizManager.scraper.createSameImage(config.query1)
+                        // まず信頼性の高いソースを試す
+                        var bitmap = if (config.isSame) {
+                            quizManager.reliableSource.createSameImage(config.itemId1)
                         } else {
-                            quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                            quizManager.reliableSource.createComparisonImage(config.itemId1, config.itemId2)
+                        }
+                        
+                        // 信頼ソースで取得できない場合、Bingフォールバック
+                        if (bitmap == null) {
+                            bitmap = if (config.isSame) {
+                                quizManager.scraper.createSameImage(config.query1)
+                            } else {
+                                quizManager.scraper.createComparisonImage(config.query1, config.query2)
+                            }
                         }
                         
                         if (bitmap != null) {
@@ -175,6 +186,7 @@ class TestSetManager(private val context: Context) {
         }
 
         // スクレイパーのキャッシュクリア
+        quizManager.reliableSource.clearCache()
         quizManager.scraper.clearCache()
 
         successCount
