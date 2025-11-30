@@ -150,10 +150,10 @@ class ImprovedResultAdapter(private val results: List<QuizResult>) :
         // カードの背景色
         val bgColor = if (result.isCorrect) {
             // 薄い緑
-            ContextCompat.getColor(context, R.color.ios_green_light)
+            ContextCompat.getColor(context, R.color.result_correct_bg)
         } else {
             // 薄い赤
-            ContextCompat.getColor(context, R.color.ios_red_light)
+            ContextCompat.getColor(context, R.color.result_incorrect_bg)
         }
         holder.card.setCardBackgroundColor(bgColor)
         
