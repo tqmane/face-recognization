@@ -72,15 +72,15 @@ class ReliableImageSource {
 
     // 動物ID → iNaturalist taxon_id マッピング
     private val iNaturalistTaxonIds = mapOf(
-        // ネコ科大型
-        "cheetah" to 41976,
-        "leopard" to 41962,
-        "jaguar" to 41959,
-        "lion" to 41958,
-        "tiger" to 41957,
-        "cougar" to 41968,
-        "snow_leopard" to 41963,
-        "clouded_leopard" to 41972,
+        // ネコ科大型（正しいtaxon_id: 2024年12月確認）
+        "cheetah" to 41955,         // Acinonyx jubatus
+        "leopard" to 41963,         // Panthera pardus
+        "jaguar" to 41970,          // Panthera onca
+        "lion" to 41964,            // Panthera leo
+        "tiger" to 41967,           // Panthera tigris
+        "cougar" to 42007,          // Puma concolor
+        "snow_leopard" to 74831,    // Panthera uncia
+        "clouded_leopard" to 41972, // Neofelis nebulosa
         
         // 野生イヌ科
         "wolf" to 43351,
