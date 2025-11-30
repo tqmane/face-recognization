@@ -67,13 +67,26 @@ class OnlineQuizManager {
         "alligator" to AnimalPair("alligator", "ワニ", "alligator"),
         "crocodile" to AnimalPair("crocodile", "クロコダイル", "crocodile"),
         
-        // 似ている人物（単独ポートレートを検索）
-        "similar_person1" to AnimalPair("similar_person1", "人物A", "portrait face one person headshot"),
-        "similar_person2" to AnimalPair("similar_person2", "人物B", "solo portrait headshot single person"),
-        "similar_person3" to AnimalPair("similar_person3", "人物C", "face portrait single individual"),
-        "similar_person4" to AnimalPair("similar_person4", "人物D", "one person portrait close up face"),
-        "similar_person5" to AnimalPair("similar_person5", "人物E", "individual portrait headshot alone"),
-        "similar_person6" to AnimalPair("similar_person6", "人物F", "solo face portrait person"),
+        // 似ている有名人・双子（同じ人の別写真 vs そっくりさん/双子を見分ける）
+        // 双子ペア
+        "mary_kate_olsen" to AnimalPair("mary_kate_olsen", "メアリー・ケイト・オルセン", "Mary-Kate Olsen face"),
+        "ashley_olsen" to AnimalPair("ashley_olsen", "アシュリー・オルセン", "Ashley Olsen face"),
+        "dylan_sprouse" to AnimalPair("dylan_sprouse", "ディラン・スプラウス", "Dylan Sprouse face"),
+        "cole_sprouse" to AnimalPair("cole_sprouse", "コール・スプラウス", "Cole Sprouse face"),
+        "tia_mowry" to AnimalPair("tia_mowry", "ティア・モウリー", "Tia Mowry face"),
+        "tamera_mowry" to AnimalPair("tamera_mowry", "タメラ・モウリー", "Tamera Mowry face"),
+        
+        // そっくりさんペア（別人だけど似ている）
+        "katy_perry" to AnimalPair("katy_perry", "ケイティ・ペリー", "Katy Perry face"),
+        "zooey_deschanel" to AnimalPair("zooey_deschanel", "ズーイー・デシャネル", "Zooey Deschanel face"),
+        "natalie_portman" to AnimalPair("natalie_portman", "ナタリー・ポートマン", "Natalie Portman face"),
+        "keira_knightley" to AnimalPair("keira_knightley", "キーラ・ナイトレイ", "Keira Knightley face"),
+        "margot_robbie" to AnimalPair("margot_robbie", "マーゴット・ロビー", "Margot Robbie face"),
+        "jaime_pressly" to AnimalPair("jaime_pressly", "ジェイミー・プレスリー", "Jaime Pressly face"),
+        "javier_bardem" to AnimalPair("javier_bardem", "ハビエル・バルデム", "Javier Bardem face"),
+        "jeffrey_dean_morgan" to AnimalPair("jeffrey_dean_morgan", "ジェフリー・ディーン・モーガン", "Jeffrey Dean Morgan face"),
+        "matt_damon" to AnimalPair("matt_damon", "マット・デイモン", "Matt Damon face"),
+        "mark_wahlberg" to AnimalPair("mark_wahlberg", "マーク・ウォールバーグ", "Mark Wahlberg face"),
         
         // 車
         "gt86" to AnimalPair("gt86", "トヨタ86", "toyota 86 car"),
@@ -117,16 +130,17 @@ class OnlineQuizManager {
         // 爬虫類
         SimilarPair("alligator", "crocodile", Genre.REPTILES),
         
-        // 似ている人物（より多くのペア）
-        SimilarPair("similar_person1", "similar_person2", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person3", "similar_person4", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person5", "similar_person6", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person1", "similar_person3", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person2", "similar_person4", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person1", "similar_person5", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person2", "similar_person6", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person3", "similar_person5", Genre.SIMILAR_PEOPLE),
-        SimilarPair("similar_person4", "similar_person6", Genre.SIMILAR_PEOPLE),
+        // 似ている人（双子・そっくりさん）- これらは「違う」が正解
+        // 双子
+        SimilarPair("mary_kate_olsen", "ashley_olsen", Genre.SIMILAR_PEOPLE),
+        SimilarPair("dylan_sprouse", "cole_sprouse", Genre.SIMILAR_PEOPLE),
+        SimilarPair("tia_mowry", "tamera_mowry", Genre.SIMILAR_PEOPLE),
+        // そっくりさん
+        SimilarPair("katy_perry", "zooey_deschanel", Genre.SIMILAR_PEOPLE),
+        SimilarPair("natalie_portman", "keira_knightley", Genre.SIMILAR_PEOPLE),
+        SimilarPair("margot_robbie", "jaime_pressly", Genre.SIMILAR_PEOPLE),
+        SimilarPair("javier_bardem", "jeffrey_dean_morgan", Genre.SIMILAR_PEOPLE),
+        SimilarPair("matt_damon", "mark_wahlberg", Genre.SIMILAR_PEOPLE),
         
         // 車
         SimilarPair("gt86", "brz", Genre.CARS),
