@@ -86,11 +86,13 @@ class QuizManager {
     'alligator': const AnimalPair('alligator', 'ワニ', 'alligator'),
     'crocodile': const AnimalPair('crocodile', 'クロコダイル', 'crocodile'),
     
-    // 似ている人物（多様な人々を検索）
-    'similar_person1': const AnimalPair('similar_person1', '似ている人物A', 'look alike people different persons'),
-    'similar_person2': const AnimalPair('similar_person2', '似ている人物B', 'doppelganger strangers look alike'),
-    'similar_person3': const AnimalPair('similar_person3', '似ている人物C', 'unrelated look alike people'),
-    'similar_person4': const AnimalPair('similar_person4', '似ている人物D', 'strangers who look alike'),
+    // 似ている人物（単独ポートレートを検索）
+    'similar_person1': const AnimalPair('similar_person1', '人物A', 'portrait face one person headshot'),
+    'similar_person2': const AnimalPair('similar_person2', '人物B', 'solo portrait headshot single person'),
+    'similar_person3': const AnimalPair('similar_person3', '人物C', 'face portrait single individual'),
+    'similar_person4': const AnimalPair('similar_person4', '人物D', 'one person portrait close up face'),
+    'similar_person5': const AnimalPair('similar_person5', '人物E', 'individual portrait headshot alone'),
+    'similar_person6': const AnimalPair('similar_person6', '人物F', 'solo face portrait person'),
     
     // 車
     'gt86': const AnimalPair('gt86', 'トヨタ86', 'toyota 86 car'),
@@ -129,11 +131,16 @@ class QuizManager {
     // 爬虫類
     const SimilarPair('alligator', 'crocodile', Genre.reptiles),
     
-    // 似ている人物
+    // 似ている人物（より多くのペア）
     const SimilarPair('similar_person1', 'similar_person2', Genre.similarPeople),
     const SimilarPair('similar_person3', 'similar_person4', Genre.similarPeople),
+    const SimilarPair('similar_person5', 'similar_person6', Genre.similarPeople),
     const SimilarPair('similar_person1', 'similar_person3', Genre.similarPeople),
     const SimilarPair('similar_person2', 'similar_person4', Genre.similarPeople),
+    const SimilarPair('similar_person1', 'similar_person5', Genre.similarPeople),
+    const SimilarPair('similar_person2', 'similar_person6', Genre.similarPeople),
+    const SimilarPair('similar_person3', 'similar_person5', Genre.similarPeople),
+    const SimilarPair('similar_person4', 'similar_person6', Genre.similarPeople),
     
     // 車
     const SimilarPair('gt86', 'brz', Genre.cars),
