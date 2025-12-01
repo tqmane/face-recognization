@@ -1,19 +1,32 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'screens/home_screen.dart';
 import 'services/settings_service.dart';
 import 'services/firebase_sync_service.dart';
+import 'services/firebase_init.dart';
+
+bool get _isMobile {
+  if (kIsWeb) return false;
+  try {
+    return Platform.isAndroid || Platform.isIOS;
+  } catch (e) {
+    return false;
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebase初期化
-  await Firebase.initializeApp();
+  // Firebase初期化（モバイルのみ）
+  if (_isMobile) {
+    await initializeFirebase();
+  }
   
   await SettingsService.instance.init();
   
-  // サインイン済みなら同期を開始
-  if (FirebaseSyncService.instance.isSignedIn) {
+  // サインイン済みなら同期を開始（モバイルのみ）
+  if (_isMobile && FirebaseSyncService.instance.isSignedIn) {
     FirebaseSyncService.instance.setupRealtimeSync();
   }
   

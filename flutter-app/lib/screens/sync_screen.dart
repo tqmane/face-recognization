@@ -1,6 +1,16 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firebase_sync_service.dart';
+
+bool get _isMobile {
+  if (kIsWeb) return false;
+  try {
+    return Platform.isAndroid || Platform.isIOS;
+  } catch (e) {
+    return false;
+  }
+}
 
 /// クラウド同期設定画面
 class SyncScreen extends StatefulWidget {
@@ -18,21 +28,47 @@ class _SyncScreenState extends State<SyncScreen> {
   void initState() {
     super.initState();
     // サインイン済みなら同期を開始
-    if (_syncService.isSignedIn) {
+    if (_isMobile && _syncService.isSignedIn) {
       _syncService.setupRealtimeSync();
     }
   }
   
   @override
   Widget build(BuildContext context) {
+    // デスクトップでは非対応メッセージを表示
+    if (!_isMobile) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('クラウド同期'),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.desktop_windows, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'クラウド同期はモバイルアプリ\n（Android/iOS）でのみ利用可能です',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('クラウド同期'),
       ),
-      body: StreamBuilder<User?>(
+      body: StreamBuilder<dynamic>(
         stream: _syncService.authStateChanges,
         builder: (context, snapshot) {
-          final user = snapshot.data;
+          final isSignedIn = _syncService.isSignedIn;
           
           if (_isLoading) {
             return const Center(
@@ -40,10 +76,10 @@ class _SyncScreenState extends State<SyncScreen> {
             );
           }
           
-          if (user == null) {
+          if (!isSignedIn) {
             return _buildSignedOutView();
           } else {
-            return _buildSignedInView(user);
+            return _buildSignedInView();
           }
         },
       ),
@@ -88,7 +124,7 @@ class _SyncScreenState extends State<SyncScreen> {
     );
   }
   
-  Widget _buildSignedInView(User user) {
+  Widget _buildSignedInView() {
     final colorScheme = Theme.of(context).colorScheme;
     
     return ListView(
@@ -117,14 +153,14 @@ class _SyncScreenState extends State<SyncScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  user.displayName ?? '名前なし',
+                  _syncService.userDisplayName ?? '名前なし',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user.email ?? 'メールアドレスなし',
+                  _syncService.userEmail ?? 'メールアドレスなし',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

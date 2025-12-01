@@ -44,6 +44,19 @@ jobs:
           cp /tmp/app_icon_linux.png linux/app_icon.png
         fi
 
+    - name: Remove Firebase dependencies for desktop
+      working-directory: flutter-app
+      run: |
+        # Firebaseはデスクトップでサポートされていないため削除
+        sed -i '/firebase_core:/d' pubspec.yaml
+        sed -i '/firebase_auth:/d' pubspec.yaml
+        sed -i '/firebase_database:/d' pubspec.yaml
+        sed -i '/google_sign_in:/d' pubspec.yaml
+        # Firebase初期化ファイルをデスクトップ用スタブに置き換え
+        cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
+        # Firebase同期サービスをスタブに置き換え
+        cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+
     - name: Set Linux app icon
       working-directory: flutter-app
       run: |
@@ -111,6 +124,22 @@ jobs:
           Copy-Item "$env:TEMP\app_icon*.png" "windows/runner/resources\" -ErrorAction SilentlyContinue
         }
 
+    - name: Remove Firebase dependencies for desktop
+      working-directory: flutter-app
+      shell: pwsh
+      run: |
+        # Firebaseはデスクトップでサポートされていないため削除
+        $content = Get-Content pubspec.yaml -Raw
+        $content = $content -replace '  firebase_core:.*\n', ''
+        $content = $content -replace '  firebase_auth:.*\n', ''
+        $content = $content -replace '  firebase_database:.*\n', ''
+        $content = $content -replace '  google_sign_in:.*\n', ''
+        Set-Content pubspec.yaml $content
+        # Firebase初期化ファイルをデスクトップ用スタブに置き換え
+        Copy-Item lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart -Force
+        # Firebase同期サービスをスタブに置き換え
+        Copy-Item lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart -Force
+
     - name: Set Windows app icon
       working-directory: flutter-app
       shell: pwsh
@@ -175,6 +204,19 @@ jobs:
         if [ -d "/tmp/macos_icons" ]; then
           cp -r /tmp/macos_icons/* macos/Runner/Assets.xcassets/AppIcon.appiconset/
         fi
+
+    - name: Remove Firebase dependencies for desktop
+      working-directory: flutter-app
+      run: |
+        # Firebaseはデスクトップでサポートされていないため削除
+        sed -i '' '/firebase_core:/d' pubspec.yaml
+        sed -i '' '/firebase_auth:/d' pubspec.yaml
+        sed -i '' '/firebase_database:/d' pubspec.yaml
+        sed -i '' '/google_sign_in:/d' pubspec.yaml
+        # Firebase初期化ファイルをデスクトップ用スタブに置き換え
+        cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
+        # Firebase同期サービスをスタブに置き換え
+        cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
 
     - name: Clean and get dependencies
       working-directory: flutter-app
