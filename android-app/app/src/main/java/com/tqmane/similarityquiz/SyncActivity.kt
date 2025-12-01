@@ -28,18 +28,25 @@ class SyncActivity : AppCompatActivity() {
     private val signInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        android.util.Log.d("SyncActivity", "signInLauncher結果: resultCode=${result.resultCode}")
         if (result.resultCode == Activity.RESULT_OK) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
                 val account = task.getResult(ApiException::class.java)
+                android.util.Log.d("SyncActivity", "Googleアカウント取得成功: ${account.email}")
                 account.idToken?.let { token ->
+                    android.util.Log.d("SyncActivity", "IDトークン取得成功")
                     signInWithFirebase(token)
                 } ?: run {
-                    Toast.makeText(this, "IDトークンの取得に失敗しました", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("SyncActivity", "IDトークンがnull")
+                    Toast.makeText(this, "IDトークンの取得に失敗しました", Toast.LENGTH_LONG).show()
                 }
             } catch (e: ApiException) {
-                Toast.makeText(this, "Google認証に失敗しました: ${e.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("SyncActivity", "Google認証エラー: code=${e.statusCode}, message=${e.message}", e)
+                Toast.makeText(this, "Google認証に失敗しました: ${e.statusCode}", Toast.LENGTH_LONG).show()
             }
+        } else {
+            android.util.Log.w("SyncActivity", "認証キャンセルまたは失敗: resultCode=${result.resultCode}")
         }
     }
     
@@ -52,12 +59,21 @@ class SyncActivity : AppCompatActivity() {
         setupGoogleSignIn()
         setupUI()
         updateUI()
+        
+        // 現在の認証状態をログ出力
+        android.util.Log.d("SyncActivity", "onCreate: isSignedIn=${syncManager.isSignedIn}, user=${syncManager.currentUser?.email}")
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        updateUI()
+        android.util.Log.d("SyncActivity", "onResume: isSignedIn=${syncManager.isSignedIn}, user=${syncManager.currentUser?.email}")
     }
     
     private fun setupGoogleSignIn() {
         // google-services.jsonからWeb Client IDを取得
         val webClientId = getString(R.string.default_web_client_id)
-        
+        android.util.Log.d("SyncActivity", "Web Client ID: $webClientId")
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(webClientId)
             .requestEmail()
@@ -96,6 +112,7 @@ class SyncActivity : AppCompatActivity() {
     
     private fun updateUI() {
         val user = syncManager.currentUser
+        android.util.Log.d("SyncActivity", "updateUI: user=${user?.email}, isSignedIn=${syncManager.isSignedIn}")
         
         if (user != null) {
             // サインイン済み
@@ -105,31 +122,38 @@ class SyncActivity : AppCompatActivity() {
             binding.tvUserEmail.text = user.email ?: "メールアドレスなし"
             binding.tvUserName.text = user.displayName ?: "名前なし"
             
+            android.util.Log.d("SyncActivity", "UI更新: サインイン済み - ${user.email}")
+            
             // リアルタイム同期を開始
             syncManager.setupRealtimeSync()
         } else {
             // 未サインイン
             binding.layoutSignedOut.visibility = View.VISIBLE
             binding.layoutSignedIn.visibility = View.GONE
+            android.util.Log.d("SyncActivity", "UI更新: 未サインイン")
         }
     }
     
     private fun startGoogleSignIn() {
+        android.util.Log.d("SyncActivity", "Google認証を開始")
         val signInIntent = googleSignInClient.signInIntent
         signInLauncher.launch(signInIntent)
     }
     
     private fun signInWithFirebase(idToken: String) {
+        android.util.Log.d("SyncActivity", "Firebase認証を開始: token=${idToken.take(20)}...")
         binding.progressBar.visibility = View.VISIBLE
         
         lifecycleScope.launch {
             syncManager.signInWithGoogle(idToken)
-                .onSuccess {
-                    Toast.makeText(this@SyncActivity, "サインインしました", Toast.LENGTH_SHORT).show()
+                .onSuccess { user ->
+                    android.util.Log.d("SyncActivity", "Firebase認証成功: ${user.email}")
+                    Toast.makeText(this@SyncActivity, "サインインしました: ${user.email}", Toast.LENGTH_SHORT).show()
                     updateUI()
                 }
                 .onFailure { e ->
-                    Toast.makeText(this@SyncActivity, "サインインに失敗しました: ${e.message}", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("SyncActivity", "Firebase認証失敗", e)
+                    Toast.makeText(this@SyncActivity, "サインインに失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             
             binding.progressBar.visibility = View.GONE
