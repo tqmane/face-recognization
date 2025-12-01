@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/test_set_manager.dart';
 import 'quiz_screen.dart';
+import 'foul_edit_screen.dart';
 
 class TestSetScreen extends StatefulWidget {
   const TestSetScreen({super.key});
@@ -149,6 +150,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
                     testSet: testSet,
                     onStartTest: () => _showQuestionCountDialog(testSet),
                     onDelete: () => _confirmDelete(testSet),
+                    onEdit: () => _openFoulEdit(testSet),
                   );
                 }),
             ],
@@ -382,6 +384,17 @@ class _TestSetScreenState extends State<TestSetScreen> {
     );
   }
 
+  void _openFoulEdit(TestSetInfo testSet) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FoulEditScreen(testSet: testSet),
+      ),
+    );
+    // 戻ってきたら再読み込み
+    _loadTestSets();
+  }
+
   void _showBatteryOptimizationHelp() {
     showDialog(
       context: context,
@@ -458,11 +471,13 @@ class _TestSetCard extends StatelessWidget {
   final TestSetInfo testSet;
   final VoidCallback onStartTest;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const _TestSetCard({
     required this.testSet,
     required this.onStartTest,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -518,7 +533,11 @@ class _TestSetCard extends StatelessWidget {
                     child: const Text('テスト開始'),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: onEdit,
+                  child: const Text('編集'),
+                ),
                 TextButton(
                   onPressed: onDelete,
                   style: TextButton.styleFrom(foregroundColor: Colors.red),

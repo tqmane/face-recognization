@@ -78,11 +78,20 @@
                 app:cornerRadius="10dp" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEdit"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:text="編集"
+                android:textSize="15sp"
+                android:textColor="@color/ios_blue" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDelete"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="44dp"
-                android:layout_marginStart="8dp"
                 android:text="削除"
                 android:textSize="15sp"
                 android:textColor="@color/ios_red" />

@@ -119,6 +119,11 @@ class TestSetActivity : AppCompatActivity() {
             showQuestionCountDialog(testSet)
         }
 
+        // 編集ボタン
+        cardView.findViewById<View>(R.id.btnEdit).setOnClickListener {
+            openFoulEdit(testSet)
+        }
+
         // 削除ボタン
         cardView.findViewById<View>(R.id.btnDelete).setOnClickListener {
             confirmDelete(testSet)
@@ -251,6 +256,20 @@ class TestSetActivity : AppCompatActivity() {
         intent.putExtra("question_count", questionCount)
         intent.putExtra("genre", testSet.genre.name)
         startActivity(intent)
+    }
+
+    private fun openFoulEdit(testSet: TestSetManager.TestSetInfo) {
+        val intent = Intent(this, FoulEditActivity::class.java)
+        intent.putExtra("test_set_path", testSet.dirPath)
+        intent.putExtra("test_set_name", testSet.genre.displayName)
+        intent.putExtra("genre", testSet.genre.name)
+        startActivity(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 編集画面から戻ってきたときにリストを更新
+        refreshTestSetList()
     }
 
     private fun confirmDelete(testSet: TestSetManager.TestSetInfo) {
