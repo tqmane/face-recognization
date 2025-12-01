@@ -55,10 +55,12 @@ class SettingsActivity : AppCompatActivity() {
         val syncManager = FirebaseSyncManager.getInstance(this)
         val user = syncManager.currentUser
         
-        binding.tvSyncStatus.text = if (user != null) {
-            "✓ ${user.email} でサインイン中"
+        if (user != null) {
+            binding.tvSyncStatus.text = "✓ ${user.email} でサインイン中"
+            binding.tvSyncStatus.setTextColor(getColor(R.color.ios_green))
         } else {
-            "Googleアカウントでテスト結果を同期"
+            binding.tvSyncStatus.text = "Googleアカウントでテスト結果を同期"
+            binding.tvSyncStatus.setTextColor(getColor(R.color.text_secondary))
         }
     }
     

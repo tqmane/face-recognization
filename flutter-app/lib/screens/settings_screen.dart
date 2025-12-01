@@ -105,14 +105,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Card(
             child: ListTile(
               leading: Icon(
-                Icons.sync,
-                color: colorScheme.primary,
+                FirebaseSyncService.instance.isSignedIn 
+                    ? Icons.check_circle 
+                    : Icons.sync,
+                color: FirebaseSyncService.instance.isSignedIn
+                    ? Colors.green
+                    : colorScheme.primary,
               ),
               title: const Text('クラウド同期設定'),
               subtitle: Text(
                 FirebaseSyncService.instance.isSignedIn
-                    ? 'ログイン中'
-                    : '未ログイン',
+                    ? '✓ ${FirebaseSyncService.instance.userEmail ?? "ログイン中"}'
+                    : 'Googleアカウントでテスト結果を同期',
+                style: TextStyle(
+                  color: FirebaseSyncService.instance.isSignedIn
+                      ? Colors.green
+                      : null,
+                ),
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
