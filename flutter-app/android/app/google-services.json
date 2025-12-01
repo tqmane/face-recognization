@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "991042237694-uu504svpkfor4hudq9b00n006amumf33.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tqmane.similarityquiz",
+            "certificate_hash": "a6b4230a39a320bdf9d2e6284e1a31c1354c3150"
+          }
+        },
+        {
           "client_id": "991042237694-ljbs171jvof77dsh5mhbsln2iis290pk.apps.googleusercontent.com",
           "client_type": 3
         }
