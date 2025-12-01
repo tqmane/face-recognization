@@ -29,24 +29,30 @@ class SyncActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         android.util.Log.d("SyncActivity", "signInLauncher結果: resultCode=${result.resultCode}")
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                android.util.Log.d("SyncActivity", "Googleアカウント取得成功: ${account.email}")
-                account.idToken?.let { token ->
-                    android.util.Log.d("SyncActivity", "IDトークン取得成功")
-                    signInWithFirebase(token)
-                } ?: run {
-                    android.util.Log.e("SyncActivity", "IDトークンがnull")
-                    Toast.makeText(this, "IDトークンの取得に失敗しました", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: ApiException) {
-                android.util.Log.e("SyncActivity", "Google認証エラー: code=${e.statusCode}, message=${e.message}", e)
-                Toast.makeText(this, "Google認証に失敗しました: ${e.statusCode}", Toast.LENGTH_LONG).show()
+        // resultCodeに関わらず、Intentからエラー情報を取得する
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            android.util.Log.d("SyncActivity", "Googleアカウント取得成功: ${account.email}")
+            account.idToken?.let { token ->
+                android.util.Log.d("SyncActivity", "IDトークン取得成功")
+                signInWithFirebase(token)
+            } ?: run {
+                android.util.Log.e("SyncActivity", "IDトークンがnull")
+                Toast.makeText(this, "IDトークンの取得に失敗しました", Toast.LENGTH_LONG).show()
             }
-        } else {
-            android.util.Log.w("SyncActivity", "認証キャンセルまたは失敗: resultCode=${result.resultCode}")
+        } catch (e: ApiException) {
+            val errorMessage = when (e.statusCode) {
+                10 -> "アプリの設定エラー（SHA-1不一致）"
+                12500 -> "Google Play開発者サービスの問題"
+                12501 -> "ユーザーがキャンセルしました"
+                12502 -> "サインインが進行中です"
+                7 -> "ネットワークエラー"
+                8 -> "内部エラー"
+                else -> "不明なエラー"
+            }
+            android.util.Log.e("SyncActivity", "Google認証エラー: code=${e.statusCode} ($errorMessage), message=${e.message}", e)
+            Toast.makeText(this, "Google認証エラー: ${e.statusCode} - $errorMessage", Toast.LENGTH_LONG).show()
         }
     }
     
