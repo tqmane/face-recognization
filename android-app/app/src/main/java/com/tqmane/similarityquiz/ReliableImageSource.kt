@@ -164,6 +164,7 @@ class ReliableImageSource {
         "tiger" to 5219446,
         "cougar" to 2435099,
         "snow_leopard" to 5219440,
+        "clouded_leopard" to 5219395,  // Neofelis nebulosa
         
         // 野生イヌ科
         "wolf" to 5219173,
@@ -306,6 +307,8 @@ class ReliableImageSource {
         val urls = mutableListOf<String>()
         try {
             val url = "$INATURALIST_API/observations?taxon_id=$taxonId&photos=true&quality_grade=research&per_page=30&order=desc&order_by=votes"
+            android.util.Log.d("ReliableImageSource", "iNaturalist request: $url")
+            
             val request = Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT)
@@ -313,8 +316,11 @@ class ReliableImageSource {
 
             httpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
-                    val json = JSONObject(response.body?.string() ?: "")
+                    val responseBody = response.body?.string() ?: ""
+                    val json = JSONObject(responseBody)
                     val results = json.optJSONArray("results") ?: JSONArray()
+                    
+                    android.util.Log.d("ReliableImageSource", "iNaturalist response: ${results.length()} observations for taxon_id=$taxonId")
                     
                     for (i in 0 until results.length()) {
                         val observation = results.getJSONObject(i)
@@ -330,11 +336,14 @@ class ReliableImageSource {
                             }
                         }
                     }
+                } else {
+                    android.util.Log.e("ReliableImageSource", "iNaturalist failed: ${response.code} for taxon_id=$taxonId")
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("ReliableImageSource", "iNaturalist error: ${e.message}")
+            android.util.Log.e("ReliableImageSource", "iNaturalist error for taxon_id=$taxonId: ${e.message}")
         }
+        android.util.Log.d("ReliableImageSource", "iNaturalist found ${urls.size} URLs for taxon_id=$taxonId")
         urls
     }
 
@@ -519,6 +528,15 @@ class ReliableImageSource {
 
     private fun getWikimediaSearchTerm(itemId: String): String {
         return when (itemId) {
+            // ネコ科大型
+            "cheetah" -> "Acinonyx jubatus cheetah"
+            "leopard" -> "Panthera pardus leopard"
+            "jaguar" -> "Panthera onca jaguar"
+            "lion" -> "Panthera leo lion"
+            "tiger" -> "Panthera tigris tiger"
+            "cougar" -> "Puma concolor cougar"
+            "snow_leopard" -> "Panthera uncia snow leopard"
+            "clouded_leopard" -> "Neofelis nebulosa clouded leopard"
             // 車
             "gt86" -> "Toyota 86 car"
             "brz" -> "Subaru BRZ"
