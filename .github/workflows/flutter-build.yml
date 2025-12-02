@@ -349,27 +349,25 @@ jobs:
     - name: Create Android platform structure
       working-directory: flutter-app
       run: |
-        # 既存のandroidフォルダを削除して再生成（アイコンは保持）
+        # 既存のandroidフォルダを削除して再生成（アイコンとgoogle-services.jsonは保持）
         if [ -d "android/app/src/main/res" ]; then
           cp -r android/app/src/main/res /tmp/android_res
+        fi
+        if [ -f "android/app/google-services.json" ]; then
+          cp android/app/google-services.json /tmp/google-services.json
         fi
         rm -rf android
         flutter create --project-name similarity_quiz --org com.tqmane --platforms=android .
         if [ -d "/tmp/android_res" ]; then
           cp -r /tmp/android_res/* android/app/src/main/res/
         fi
+        if [ -f "/tmp/google-services.json" ]; then
+          cp /tmp/google-services.json android/app/google-services.json
+        fi
 
-    - name: Update Kotlin version for compatibility
-      working-directory: flutter-app/android
-      run: |
-        # Update Kotlin version in settings.gradle
-        if [ -f "settings.gradle" ]; then
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' settings.gradle
-        fi
-        # Update Kotlin version in build.gradle if ext.kotlin_version exists
-        if [ -f "build.gradle" ]; then
-          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' build.gradle
-        fi
+    - name: Get dependencies
+      working-directory: flutter-app
+      run: flutter pub get
 
     - name: Setup signing
       env:
@@ -392,8 +390,39 @@ jobs:
       working-directory: flutter-app/android/app
       run: |
         if [ -f "../key.properties" ]; then
-          # build.gradleに署名設定を追加
-          cat > signing_config.gradle << 'SIGNING'
+          # Kotlin DSL (build.gradle.kts) の場合
+          if [ -f "build.gradle.kts" ]; then
+            cat > signing_config.gradle.kts << 'SIGNING'
+        import java.util.Properties
+        import java.io.FileInputStream
+
+        val keystoreProperties = Properties()
+        val keystorePropertiesFile = rootProject.file("key.properties")
+        if (keystorePropertiesFile.exists()) {
+            keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+        }
+
+        android {
+            signingConfigs {
+                create("release") {
+                    keyAlias = keystoreProperties["keyAlias"] as String?
+                    keyPassword = keystoreProperties["keyPassword"] as String?
+                    storeFile = file(keystoreProperties["storeFile"] as String)
+                    storePassword = keystoreProperties["storePassword"] as String?
+                }
+            }
+            buildTypes {
+                release {
+                    signingConfig = signingConfigs.getByName("release")
+                }
+            }
+        }
+        SIGNING
+            echo "" >> build.gradle.kts
+            echo 'apply(from = "signing_config.gradle.kts")' >> build.gradle.kts
+          # Groovy DSL (build.gradle) の場合
+          elif [ -f "build.gradle" ]; then
+            cat > signing_config.gradle << 'SIGNING'
         def keystoreProperties = new Properties()
         def keystorePropertiesFile = rootProject.file('key.properties')
         if (keystorePropertiesFile.exists()) {
@@ -416,14 +445,10 @@ jobs:
             }
         }
         SIGNING
-          # build.gradleの最後に追加
-          echo "" >> build.gradle
-          echo "apply from: 'signing_config.gradle'" >> build.gradle
+            echo "" >> build.gradle
+            echo "apply from: 'signing_config.gradle'" >> build.gradle
+          fi
         fi
-
-    - name: Get dependencies
-      working-directory: flutter-app
-      run: flutter pub get
 
     - name: Build APK
       working-directory: flutter-app
