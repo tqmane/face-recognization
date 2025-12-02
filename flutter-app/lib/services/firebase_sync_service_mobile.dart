@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'history_manager.dart';
+import 'firebase_init.dart';
 
 /// Firebase Realtime Database との同期を管理するクラス
 class FirebaseSyncService {
@@ -13,8 +14,17 @@ class FirebaseSyncService {
   FirebaseSyncService._internal();
   
   // 遅延初期化（Firebase.initializeApp()後に呼ばれるように）
-  FirebaseAuth get _auth => FirebaseAuth.instance;
-  FirebaseDatabase get _database => FirebaseDatabase.instance;
+  // Firebaseが初期化されていない場合はnullを返す
+  FirebaseAuth? get _auth {
+    if (!isFirebaseInitialized) return null;
+    return FirebaseAuth.instance;
+  }
+  
+  FirebaseDatabase? get _database {
+    if (!isFirebaseInitialized) return null;
+    return FirebaseDatabase.instance;
+  }
+  
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   bool _googleSignInInitialized = false;
   
@@ -25,8 +35,8 @@ class FirebaseSyncService {
   
   StreamSubscription<DatabaseEvent>? _syncSubscription;
   
-  User? get currentUser => _auth.currentUser;
-  bool get isSignedIn => currentUser != null;
+  User? get currentUser => _auth?.currentUser;
+  bool get isSignedIn => isFirebaseInitialized && currentUser != null;
   
   /// ユーザー表示名を取得
   String? get userDisplayName => currentUser?.displayName;
@@ -35,7 +45,14 @@ class FirebaseSyncService {
   String? get userEmail => currentUser?.email;
   
   /// 認証状態の変更を監視
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges {
+    final auth = _auth;
+    if (auth == null) {
+      // Firebaseが初期化されていない場合は空のストリームを返す
+      return Stream.value(null);
+    }
+    return auth.authStateChanges();
+  }
   
   /// GoogleSignInを初期化
   Future<void> _ensureGoogleSignInInitialized() async {
@@ -65,6 +82,12 @@ class FirebaseSyncService {
   
   /// Google認証でサインイン
   Future<User?> signInWithGoogle() async {
+    final auth = _auth;
+    if (auth == null) {
+      print('Firebase is not initialized, cannot sign in');
+      return null;
+    }
+    
     try {
       print('GoogleSignIn: Starting sign in...');
       await _ensureGoogleSignInInitialized();
@@ -74,15 +97,15 @@ class FirebaseSyncService {
       final account = await _googleSignIn.authenticate();
       print('GoogleSignIn: authenticate() returned: $account');
       
-      final auth = account.authentication;
-      print('GoogleSignIn: Got authentication, idToken exists: ${auth.idToken != null}');
+      final authResult = account.authentication;
+      print('GoogleSignIn: Got authentication, idToken exists: ${authResult.idToken != null}');
       
       final credential = GoogleAuthProvider.credential(
-        idToken: auth.idToken,
+        idToken: authResult.idToken,
       );
       
       print('GoogleSignIn: Signing in with Firebase...');
-      final userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await auth.signInWithCredential(credential);
       print('GoogleSignIn: Firebase sign in complete, user: ${userCredential.user?.email}');
       
       // サインイン後、リアルタイム同期を開始
@@ -103,15 +126,16 @@ class FirebaseSyncService {
     } catch (e) {
       // disconnect may fail if not signed in
     }
-    await _auth.signOut();
+    await _auth?.signOut();
   }
   
   /// リアルタイム同期をセットアップ
   void setupRealtimeSync() {
     final user = currentUser;
-    if (user == null) return;
+    final database = _database;
+    if (user == null || database == null) return;
     
-    final ref = _database.ref('users/${user.uid}/histories');
+    final ref = database.ref('users/${user.uid}/histories');
     
     _syncSubscription?.cancel();
     _syncSubscription = ref.onValue.listen((event) {
@@ -196,10 +220,11 @@ class FirebaseSyncService {
   /// ローカルの履歴をFirebaseにアップロード
   Future<bool> uploadHistory(QuizHistory history) async {
     final user = currentUser;
-    if (user == null) return false;
+    final database = _database;
+    if (user == null || database == null) return false;
     
     try {
-      final ref = _database.ref('users/${user.uid}/histories/${history.id}');
+      final ref = database.ref('users/${user.uid}/histories/${history.id}');
       
       await ref.set({
         'id': history.id,
@@ -247,10 +272,11 @@ class FirebaseSyncService {
   /// Firebaseから履歴を削除
   Future<bool> deleteHistoryFromFirebase(String historyId) async {
     final user = currentUser;
-    if (user == null) return false;
+    final database = _database;
+    if (user == null || database == null) return false;
     
     try {
-      await _database.ref('users/${user.uid}/histories/$historyId').remove();
+      await database.ref('users/${user.uid}/histories/$historyId').remove();
       print('History deleted from Firebase: $historyId');
       return true;
     } catch (e) {
@@ -262,10 +288,11 @@ class FirebaseSyncService {
   /// Firebaseから全履歴を削除
   Future<bool> clearFirebaseHistories() async {
     final user = currentUser;
-    if (user == null) return false;
+    final database = _database;
+    if (user == null || database == null) return false;
     
     try {
-      await _database.ref('users/${user.uid}/histories').remove();
+      await database.ref('users/${user.uid}/histories').remove();
       print('All histories cleared from Firebase');
       return true;
     } catch (e) {

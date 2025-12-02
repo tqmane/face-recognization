@@ -10,6 +10,7 @@
 
 import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
+import '../firebase_options.dart';
 
 bool get _isMobile {
   try {
@@ -19,17 +20,30 @@ bool get _isMobile {
   }
 }
 
+/// Firebaseが正常に初期化されたかどうか
+bool _firebaseInitialized = false;
+
+/// Firebaseが初期化済みかどうかを返す
+bool get isFirebaseInitialized => _firebaseInitialized;
+
 /// Firebase初期化
-Future<void> initializeFirebase() async {
+Future<bool> initializeFirebase() async {
   if (!_isMobile) {
     print('Firebase is not supported on desktop platforms');
-    return;
+    _firebaseInitialized = false;
+    return false;
   }
   
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    _firebaseInitialized = true;
     print('Firebase initialized successfully');
+    return true;
   } catch (e) {
+    _firebaseInitialized = false;
     print('Firebase initialization failed: $e');
+    return false;
   }
 }
