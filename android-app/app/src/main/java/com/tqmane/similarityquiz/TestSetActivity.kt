@@ -201,7 +201,10 @@ class TestSetActivity : AppCompatActivity() {
                     notificationHelper.showDownloadCancelled()
                     Toast.makeText(this@TestSetActivity, "キャンセルしました", Toast.LENGTH_SHORT).show()
                 } else if (successCount > 0) {
-                    notificationHelper.showDownloadComplete(genre.displayName, successCount)
+                    // 進捗通知が終わってから完了通知を表示するため少し遅延
+                    binding.root.postDelayed({
+                        notificationHelper.showDownloadComplete(genre.displayName, successCount)
+                    }, 300)
                     Toast.makeText(
                         this@TestSetActivity,
                         "${genre.displayName}の${successCount}問を保存しました",
