@@ -13,7 +13,8 @@ class FirebaseSyncService {
   
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseDatabase _database = FirebaseDatabase.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  bool _googleSignInInitialized = false;
   
   StreamSubscription<DatabaseEvent>? _syncSubscription;
   
@@ -29,17 +30,24 @@ class FirebaseSyncService {
   /// 認証状態の変更を監視
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   
+  /// GoogleSignInを初期化
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (!_googleSignInInitialized) {
+      await _googleSignIn.initialize();
+      _googleSignInInitialized = true;
+    }
+  }
+  
   /// Google認証でサインイン
   Future<User?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      await _ensureGoogleSignInInitialized();
       
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final account = await _googleSignIn.authenticate();
+      final auth = account.authentication;
       
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+        idToken: auth.idToken,
       );
       
       final userCredential = await _auth.signInWithCredential(credential);
@@ -57,7 +65,11 @@ class FirebaseSyncService {
   /// サインアウト
   Future<void> signOut() async {
     stopRealtimeSync();
-    await _googleSignIn.signOut();
+    try {
+      await _googleSignIn.disconnect();
+    } catch (e) {
+      // disconnect may fail if not signed in
+    }
     await _auth.signOut();
   }
   

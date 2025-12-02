@@ -128,9 +128,11 @@ data class GenreStats(
 class HistoryManager private constructor(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val histories: MutableList<QuizHistoryData> = mutableListOf()
+    private val responderNames: MutableList<String> = mutableListOf()
 
     init {
         loadHistories()
+        loadResponderNames()
     }
 
     private fun loadHistories() {
@@ -147,12 +149,65 @@ class HistoryManager private constructor(context: Context) {
             e.printStackTrace()
         }
     }
+    
+    private fun loadResponderNames() {
+        val jsonStr = prefs.getString(KEY_RESPONDER_NAMES, null) ?: return
+        try {
+            val arr = JSONArray(jsonStr)
+            responderNames.clear()
+            for (i in 0 until arr.length()) {
+                responderNames.add(arr.getString(i))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     fun getHistories(): List<QuizHistoryData> = histories.toList()
+    
+    fun getRecentResponderNames(): List<String> = responderNames.toList()
 
     fun saveHistory(history: QuizHistoryData) {
         histories.add(0, history)
+        
+        // 回答者名を履歴に追加
+        if (history.responderName.isNotEmpty()) {
+            addResponderName(history.responderName)
+        }
+        
         persist()
+    }
+    
+    /**
+     * 回答者名を履歴に追加
+     */
+    fun addResponderName(name: String) {
+        if (name.isEmpty()) return
+        
+        // 既に存在する場合は削除して先頭に追加
+        responderNames.remove(name)
+        responderNames.add(0, name)
+        
+        // 最大8件まで保持
+        while (responderNames.size > MAX_RESPONDER_NAMES) {
+            responderNames.removeAt(responderNames.lastIndex)
+        }
+        
+        persistResponderNames()
+    }
+    
+    /**
+     * 回答者名を履歴から削除
+     */
+    fun removeResponderName(name: String) {
+        responderNames.remove(name)
+        persistResponderNames()
+    }
+    
+    private fun persistResponderNames() {
+        val arr = JSONArray()
+        responderNames.forEach { arr.put(it) }
+        prefs.edit().putString(KEY_RESPONDER_NAMES, arr.toString()).apply()
     }
 
     private fun persist() {
@@ -203,6 +258,8 @@ class HistoryManager private constructor(context: Context) {
     companion object {
         private const val PREFS_NAME = "quiz_history"
         private const val KEY_HISTORIES = "histories"
+        private const val KEY_RESPONDER_NAMES = "responder_names"
+        private const val MAX_RESPONDER_NAMES = 8
 
         @Volatile
         private var instance: HistoryManager? = null
