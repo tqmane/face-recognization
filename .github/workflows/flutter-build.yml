@@ -258,13 +258,17 @@ jobs:
     - name: Create iOS platform structure
       working-directory: flutter-app
       run: |
-        # 既存のiosフォルダを削除して再生成（アイコンは保持）
+        # 既存のiosフォルダの設定を保持
         if [ -d "ios/Runner/Assets.xcassets/AppIcon.appiconset" ]; then
           cp -r ios/Runner/Assets.xcassets/AppIcon.appiconset /tmp/ios_icons
         fi
         # GoogleService-Info.plistをバックアップ
         if [ -f "ios/Runner/GoogleService-Info.plist" ]; then
           cp ios/Runner/GoogleService-Info.plist /tmp/GoogleService-Info.plist
+        fi
+        # Info.plistをバックアップ（Google Sign-In設定を保持）
+        if [ -f "ios/Runner/Info.plist" ]; then
+          cp ios/Runner/Info.plist /tmp/Info.plist
         fi
         rm -rf ios
         flutter create --project-name similarity_quiz --org com.tqmane --platforms=ios .
@@ -275,19 +279,15 @@ jobs:
         if [ -f "/tmp/GoogleService-Info.plist" ]; then
           cp /tmp/GoogleService-Info.plist ios/Runner/GoogleService-Info.plist
         fi
+        # Info.plistを復元（GIDClientID, GIDServerClientID, CFBundleURLTypesを保持）
+        if [ -f "/tmp/Info.plist" ]; then
+          cp /tmp/Info.plist ios/Runner/Info.plist
+        fi
 
-    - name: Remove Firebase dependencies for iOS (version conflict workaround)
-      working-directory: flutter-app
+    - name: Setup CocoaPods
       run: |
-        # Firebase/GoogleSignInのバージョン競合を回避するためiOSでも削除
-        sed -i '' '/firebase_core:/d' pubspec.yaml
-        sed -i '' '/firebase_auth:/d' pubspec.yaml
-        sed -i '' '/firebase_database:/d' pubspec.yaml
-        sed -i '' '/google_sign_in:/d' pubspec.yaml
-        # Firebase初期化ファイルをスタブに置き換え
-        cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
-        # Firebase同期サービスをスタブに置き換え
-        cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+        gem install cocoapods
+        pod --version
 
     - name: Set iOS deployment target to 16.4
       working-directory: flutter-app/ios
@@ -303,9 +303,19 @@ jobs:
         flutter clean
         flutter pub get
 
+    - name: Cache CocoaPods
+      uses: actions/cache@v4
+      with:
+        path: flutter-app/ios/Pods
+        key: ${{ runner.os }}-pods-${{ hashFiles('flutter-app/ios/Podfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pods-
+
     - name: Install CocoaPods dependencies
       working-directory: flutter-app/ios
-      run: pod install
+      run: |
+        pod repo update
+        pod install --verbose
 
     - name: Build iOS (no codesign)
       working-directory: flutter-app
