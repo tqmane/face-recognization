@@ -396,13 +396,22 @@ jobs:
         import re
         with open('build.gradle.kts', 'r') as f:
             content = f.read()
+        
+        # インポート文を追加
+        imports = '''import java.util.Properties
+        import java.io.FileInputStream
+        
+        '''
+        if 'import java.util.Properties' not in content:
+            content = imports + content
+        
         signing_config = '''
             signingConfigs {
                 create(\"release\") {
                     val keystorePropertiesFile = rootProject.file(\"key.properties\")
                     if (keystorePropertiesFile.exists()) {
-                        val keystoreProperties = java.util.Properties()
-                        keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                        val keystoreProperties = Properties()
+                        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
                         keyAlias = keystoreProperties[\"keyAlias\"] as String
                         keyPassword = keystoreProperties[\"keyPassword\"] as String
                         storeFile = file(keystoreProperties[\"storeFile\"] as String)
