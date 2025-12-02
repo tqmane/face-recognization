@@ -40,34 +40,50 @@ class FirebaseSyncService {
   /// GoogleSignInを初期化
   Future<void> _ensureGoogleSignInInitialized() async {
     if (!_googleSignInInitialized) {
-      // iOSとAndroidで異なる設定
-      if (Platform.isIOS) {
-        await _googleSignIn.initialize(
-          clientId: _iosClientId,
-          serverClientId: _webClientId,
-        );
-      } else {
-        await _googleSignIn.initialize(
-          serverClientId: _webClientId,
-        );
+      print('GoogleSignIn: Initializing...');
+      try {
+        // google_sign_in v7: iOSはInfo.plistから設定を読み込む
+        // GIDClientID と GIDServerClientID を Info.plist に設定済み
+        if (Platform.isIOS) {
+          // iOSではInfo.plistの設定を使用するため、パラメータなしで初期化
+          await _googleSignIn.initialize();
+          print('GoogleSignIn: iOS initialized without parameters (using Info.plist)');
+        } else {
+          await _googleSignIn.initialize(
+            serverClientId: _webClientId,
+          );
+          print('GoogleSignIn: Android initialized with serverClientId');
+        }
+        _googleSignInInitialized = true;
+        print('GoogleSignIn: Initialization complete');
+      } catch (e) {
+        print('GoogleSignIn: Initialization error: $e');
+        rethrow;
       }
-      _googleSignInInitialized = true;
     }
   }
   
   /// Google認証でサインイン
   Future<User?> signInWithGoogle() async {
     try {
+      print('GoogleSignIn: Starting sign in...');
       await _ensureGoogleSignInInitialized();
       
+      print('GoogleSignIn: Calling authenticate()...');
+      // google_sign_in v7のAPI
       final account = await _googleSignIn.authenticate();
+      print('GoogleSignIn: authenticate() returned: $account');
+      
       final auth = account.authentication;
+      print('GoogleSignIn: Got authentication, idToken exists: ${auth.idToken != null}');
       
       final credential = GoogleAuthProvider.credential(
         idToken: auth.idToken,
       );
       
+      print('GoogleSignIn: Signing in with Firebase...');
       final userCredential = await _auth.signInWithCredential(credential);
+      print('GoogleSignIn: Firebase sign in complete, user: ${userCredential.user?.email}');
       
       // サインイン後、リアルタイム同期を開始
       setupRealtimeSync();
