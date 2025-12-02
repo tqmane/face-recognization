@@ -21,7 +21,8 @@
                 android:id="@+id/ivImage"
                 android:layout_width="match_parent"
                 android:layout_height="160dp"
-                android:scaleType="centerCrop"
+                android:scaleType="fitCenter"
+                android:background="@color/ios_gray6"
                 android:contentDescription="問題画像" />
 
             <!-- インデックス番号 -->

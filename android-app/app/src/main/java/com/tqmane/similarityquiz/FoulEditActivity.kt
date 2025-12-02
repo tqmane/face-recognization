@@ -77,8 +77,8 @@ class FoulEditActivity : AppCompatActivity() {
         adapter = ImageAdapter(
             questions = questions,
             selectedIndices = selectedIndices,
-            onItemClick = { position -> toggleSelection(position) },
-            onItemLongClick = { position -> showImagePreview(position) }
+            onItemClick = { position -> showImagePreview(position) },
+            onItemLongClick = { position -> toggleSelection(position) }
         )
         binding.recyclerView.adapter = adapter
 
@@ -153,24 +153,44 @@ class FoulEditActivity : AppCompatActivity() {
 
     private fun showImagePreview(position: Int) {
         val question = questions[position]
+        
+        // 全画面ダイアログで表示
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(R.layout.dialog_image_fullscreen)
+        
+        val imageView = dialog.findViewById<ImageView>(R.id.fullscreenImage)
+        val tvDescription = dialog.findViewById<TextView>(R.id.tvFullscreenDescription)
+        val tvAnswer = dialog.findViewById<TextView>(R.id.tvFullscreenAnswer)
+        val tvIndex = dialog.findViewById<TextView>(R.id.tvFullscreenIndex)
+        val btnToggleSelect = dialog.findViewById<View>(R.id.btnToggleSelect)
+        val btnClose = dialog.findViewById<View>(R.id.btnClose)
+        
+        // 高解像度の画像を読み込む
         val bitmap = BitmapFactory.decodeFile(question.fullPath)
-        
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_image_preview, null)
-        val imageView = dialogView.findViewById<ImageView>(R.id.previewImage)
-        val descText = dialogView.findViewById<TextView>(R.id.tvDescription)
-        
         imageView.setImageBitmap(bitmap)
-        descText.text = "${question.description}\n${if (question.isSame) "同じ" else "違う"}"
         
-        MaterialAlertDialogBuilder(this)
-            .setView(dialogView)
-            .setPositiveButton("閉じる", null)
-            .setNegativeButton("削除対象に追加") { _, _ ->
-                if (!selectedIndices.contains(position)) {
-                    toggleSelection(position)
-                }
-            }
-            .show()
+        tvDescription.text = question.description
+        tvAnswer.text = "正解: ${if (question.isSame) "同じ" else "違う"}"
+        tvAnswer.setTextColor(if (question.isSame) 
+            resources.getColor(R.color.ios_green, null) 
+            else resources.getColor(R.color.ios_orange, null))
+        tvIndex.text = "問題 ${position + 1}"
+        
+        btnToggleSelect.setOnClickListener {
+            toggleSelection(position)
+            dialog.dismiss()
+        }
+        
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        // 画像タップでも閉じる
+        imageView.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
 
     private fun updateUI() {
@@ -178,9 +198,10 @@ class FoulEditActivity : AppCompatActivity() {
         binding.tvSelectedCount.text = if (count > 0) {
             "${count}件選択中"
         } else {
-            "削除する画像をタップして選択"
+            "画像を長押しで削除選択"
         }
         binding.tvTotalCount.text = "全${questions.size}問"
+        binding.tvHint.text = "💡 タップで画像を拡大表示・長押しで削除選択"
         binding.btnDelete.isEnabled = count > 0
         binding.btnSelectAll.text = if (selectedIndices.size == questions.size) "全選択解除" else "全選択"
     }
@@ -413,6 +434,7 @@ class FoulEditActivity : AppCompatActivity() {
             val imageView: ImageView = view.findViewById(R.id.ivImage)
             val checkOverlay: View = view.findViewById(R.id.checkOverlay)
             val tvIndex: TextView = view.findViewById(R.id.tvIndex)
+            val ivCheck: ImageView = view.findViewById(R.id.ivCheck)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -437,6 +459,7 @@ class FoulEditActivity : AppCompatActivity() {
             // 選択状態
             val isSelected = selectedIndices.contains(position)
             holder.checkOverlay.visibility = if (isSelected) View.VISIBLE else View.GONE
+            holder.ivCheck.visibility = if (isSelected) View.VISIBLE else View.GONE
             holder.itemView.alpha = if (isSelected) 0.7f else 1.0f
 
             holder.itemView.setOnClickListener { onItemClick(position) }
