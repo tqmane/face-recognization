@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -15,6 +16,11 @@ class FirebaseSyncService {
   final FirebaseDatabase _database = FirebaseDatabase.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   bool _googleSignInInitialized = false;
+  
+  // iOS用のClient ID（GoogleService-Info.plistから）
+  static const String _iosClientId = '991042237694-8p0oehun6n5i50dil6apqqdh5d0u14e6.apps.googleusercontent.com';
+  // Android用のWeb Client ID（Firebase Consoleから）
+  static const String _webClientId = '991042237694-ij0b64qvl4llhf8e3dkk86mdpsc59snj.apps.googleusercontent.com';
   
   StreamSubscription<DatabaseEvent>? _syncSubscription;
   
@@ -33,7 +39,17 @@ class FirebaseSyncService {
   /// GoogleSignInを初期化
   Future<void> _ensureGoogleSignInInitialized() async {
     if (!_googleSignInInitialized) {
-      await _googleSignIn.initialize();
+      // iOSとAndroidで異なる設定
+      if (Platform.isIOS) {
+        await _googleSignIn.initialize(
+          clientId: _iosClientId,
+          serverClientId: _webClientId,
+        );
+      } else {
+        await _googleSignIn.initialize(
+          serverClientId: _webClientId,
+        );
+      }
       _googleSignInInitialized = true;
     }
   }
