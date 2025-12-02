@@ -365,6 +365,23 @@ jobs:
           cp /tmp/google-services.json android/app/google-services.json
         fi
 
+    - name: Disable Impeller in AndroidManifest
+      working-directory: flutter-app
+      run: |
+        # AndroidManifest.xmlにImpeller無効化フラグを追加
+        python3 -c "
+        with open('android/app/src/main/AndroidManifest.xml', 'r') as f:
+            content = f.read()
+        impeller_meta = '''
+        <meta-data
+            android:name=\"io.flutter.embedding.android.EnableImpeller\"
+            android:value=\"false\" />'''
+        if 'EnableImpeller' not in content:
+            content = content.replace('</application>', impeller_meta + '\n    </application>')
+        with open('android/app/src/main/AndroidManifest.xml', 'w') as f:
+            f.write(content)
+        "
+
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
@@ -429,7 +446,7 @@ jobs:
 
     - name: Build APK
       working-directory: flutter-app
-      run: flutter build apk --release
+      run: flutter build apk --release --no-enable-impeller
 
     - name: Rename signed APK
       run: |

@@ -448,7 +448,11 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
       }
 
       // メタデータを更新
-      await _updateMetadata(startIndex + successCount);
+      try {
+        await _updateMetadata(startIndex + successCount);
+      } catch (e) {
+        debugPrint('メタデータ更新エラー（無視）: $e');
+      }
 
       if (mounted) {
         setState(() {
@@ -468,12 +472,13 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
         }
       }
     } catch (e) {
+      debugPrint('追加ダウンロードエラー: $e');
       if (mounted) {
         setState(() {
           _isDownloading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラー: ${e.toString().isNotEmpty ? e : "不明なエラー"}')),
         );
       }
     }
