@@ -475,9 +475,13 @@ class FoulEditActivity : AppCompatActivity() {
                     updateMetadata(startIndex + successCount)
                 }
 
-                // キャッシュクリア
-                quizManager.reliableSource.clearCache()
-                quizManager.scraper.clearCache()
+                // キャッシュクリア（安全に実行）
+                try {
+                    quizManager.reliableSource.clearCache()
+                    quizManager.scraper.clearCache()
+                } catch (e: Exception) {
+                    android.util.Log.w("FoulEdit", "キャッシュクリアエラー（無視）: ${e.message}")
+                }
 
                 withContext(Dispatchers.Main) {
                     isDownloading = false
@@ -493,10 +497,11 @@ class FoulEditActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+                android.util.Log.e("FoulEdit", "追加ダウンロードエラー", e)
                 withContext(Dispatchers.Main) {
                     isDownloading = false
                     binding.downloadingOverlay.visibility = View.GONE
-                    Toast.makeText(this@FoulEditActivity, "エラー: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@FoulEditActivity, "エラー: ${e.message ?: "不明なエラー"}", Toast.LENGTH_LONG).show()
                 }
             }
         }
