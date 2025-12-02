@@ -99,10 +99,12 @@ class FirebaseSyncService {
       print('GoogleSignIn: authenticate() returned: $account');
       
       final authResult = account.authentication;
-      print('GoogleSignIn: Got authentication, idToken exists: ${authResult.idToken != null}');
+      print('GoogleSignIn: Got authentication, idToken exists: ${authResult.idToken != null}, accessToken exists: ${authResult.accessToken != null}');
       
+      // Firebase認証にはidTokenとaccessTokenの両方を渡す
       final credential = GoogleAuthProvider.credential(
         idToken: authResult.idToken,
+        accessToken: authResult.accessToken,
       );
       
       print('GoogleSignIn: Signing in with Firebase...');
