@@ -429,11 +429,11 @@ class OnlineQuizActivity : AppCompatActivity() {
             .setView(editText)
             .setPositiveButton("開始") { _, _ ->
                 responderName = editText.text.toString().trim()
-                startQuiz()
+                startCountdown()
             }
             .setNeutralButton("スキップ") { _, _ ->
                 responderName = ""
-                startQuiz()
+                startCountdown()
             }
             .setNegativeButton("キャンセル") { _, _ ->
                 // 画像をクリアして終了
@@ -442,6 +442,46 @@ class OnlineQuizActivity : AppCompatActivity() {
             }
             .setCancelable(false)
             .show()
+    }
+
+    /**
+     * カウントダウン開始
+     */
+    private fun startCountdown() {
+        // カウントダウンUIを表示
+        binding.loadingContainer.visibility = View.VISIBLE
+        binding.ivQuizImage.visibility = View.INVISIBLE
+        binding.buttonContainer.visibility = View.GONE
+        binding.cancelContainer.visibility = View.GONE
+        binding.btnQuit.visibility = View.GONE
+        
+        // カウントダウンテキストを表示
+        binding.progressLoading.visibility = View.GONE
+        binding.progressBar.visibility = View.GONE
+        binding.tvProgressPercent.visibility = View.GONE
+        binding.tvLoadingSubtext.visibility = View.GONE
+        binding.tvLoadingText.textSize = 80f
+        
+        var countdown = 3
+        val countdownHandler = android.os.Handler(mainLooper)
+        
+        val countdownRunnable = object : Runnable {
+            override fun run() {
+                if (countdown > 0) {
+                    binding.tvLoadingText.text = countdown.toString()
+                    countdown--
+                    countdownHandler.postDelayed(this, 1000)
+                } else {
+                    binding.tvLoadingText.text = "START!"
+                    binding.tvLoadingText.textSize = 48f
+                    countdownHandler.postDelayed({
+                        startQuiz()
+                    }, 500)
+                }
+            }
+        }
+        
+        countdownHandler.post(countdownRunnable)
     }
 
     /**
@@ -458,6 +498,13 @@ class OnlineQuizActivity : AppCompatActivity() {
         
         // クイズUIに切り替え
         showQuizUI()
+        
+        // ローディングテキストを元に戻す
+        binding.tvLoadingText.textSize = 18f
+        binding.progressLoading.visibility = View.VISIBLE
+        binding.progressBar.visibility = View.VISIBLE
+        binding.tvProgressPercent.visibility = View.VISIBLE
+        binding.tvLoadingSubtext.visibility = View.VISIBLE
         
         // タイマー開始
         startTime = System.currentTimeMillis()
