@@ -38,6 +38,7 @@
         <activity android:name=".SettingsActivity" />
         <activity android:name=".SyncActivity" />
         <activity android:name=".FoulEditActivity" />
+        <activity android:name=".AdminActivity" />
         
         <!-- ダウンロード用フォアグラウンドサービス -->
         <service

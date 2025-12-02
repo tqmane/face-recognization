@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/settings_service.dart';
 import '../services/firebase_sync_service.dart';
 import 'sync_screen.dart';
+import 'admin_screen.dart';
 
 /// 高度な設定画面
 class SettingsScreen extends StatefulWidget {
@@ -129,6 +130,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   MaterialPageRoute(builder: (context) => const SyncScreen()),
                 ).then((_) => setState(() {}));
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                Icons.admin_panel_settings,
+                color: colorScheme.secondary,
+              ),
+              title: const Text('管理者画面'),
+              subtitle: const Text('全ユーザーのプレイデータを閲覧'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminScreen()),
+                );
               },
             ),
           ),
