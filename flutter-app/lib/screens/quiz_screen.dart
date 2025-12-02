@@ -38,6 +38,10 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _showNameInput = false;
   String _responderName = '';
   
+  // カウントダウン
+  bool _showCountdown = false;
+  int _countdownValue = 3;
+  
   int _currentIndex = 0;
   int _score = 0;
   final Stopwatch _stopwatch = Stopwatch();
@@ -45,6 +49,11 @@ class _QuizScreenState extends State<QuizScreen> {
   
   // 問題ごとの結果を記録
   final List<QuestionResult> _questionResults = [];
+  
+  // フィードバック表示用
+  bool _showFeedback = false;
+  bool _lastAnswerCorrect = false;
+  bool _isAnswering = false;
   
   // タイマー用のValueNotifierで画像の再描画を防ぐ
   final ValueNotifier<String> _timerNotifier = ValueNotifier('0:00');
@@ -168,9 +177,43 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
-  void _startQuiz() {
+  void _startCountdown() {
     setState(() {
       _showNameInput = false;
+      _showCountdown = true;
+      _countdownValue = 3;
+    });
+    
+    _runCountdown();
+  }
+  
+  void _runCountdown() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted || _isCancelled) return;
+      
+      if (_countdownValue > 1) {
+        setState(() {
+          _countdownValue--;
+        });
+        _runCountdown();
+      } else {
+        // カウントダウン終了、"START!"を表示
+        setState(() {
+          _countdownValue = 0; // 0 = START!
+        });
+        
+        // 0.5秒後にクイズ開始
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted || _isCancelled) return;
+          _startQuiz();
+        });
+      }
+    });
+  }
+
+  void _startQuiz() {
+    setState(() {
+      _showCountdown = false;
     });
     _stopwatch.start();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -184,7 +227,11 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   void _answer(bool isSame) {
-    if (_currentIndex >= _questions.length) return;
+    if (_currentIndex >= _questions.length || _isAnswering) return;
+
+    setState(() {
+      _isAnswering = true;
+    });
 
     final question = _questions[_currentIndex];
     final correct = question.isSame == isSame;
@@ -201,13 +248,26 @@ class _QuizScreenState extends State<QuizScreen> {
       answeredSame: isSame,
     ));
 
+    // フィードバック表示
     setState(() {
-      _currentIndex++;
+      _showFeedback = true;
+      _lastAnswerCorrect = correct;
     });
 
-    if (_currentIndex >= _questions.length) {
-      _finishQuiz();
-    }
+    // 0.8秒後に次の問題へ
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      
+      setState(() {
+        _currentIndex++;
+        _showFeedback = false;
+        _isAnswering = false;
+      });
+
+      if (_currentIndex >= _questions.length) {
+        _finishQuiz();
+      }
+    });
   }
 
   /// 中断確認ダイアログを表示
@@ -297,6 +357,10 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_showNameInput) {
       return _buildNameInputScreen();
     }
+    
+    if (_showCountdown) {
+      return _buildCountdownScreen();
+    }
 
     if (_questions.isEmpty) {
       return Scaffold(
@@ -308,6 +372,41 @@ class _QuizScreenState extends State<QuizScreen> {
     }
 
     return _buildQuizScreen();
+  }
+  
+  Widget _buildCountdownScreen() {
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return ScaleTransition(scale: animation, child: child);
+          },
+          child: _countdownValue > 0
+              ? Text(
+                  '$_countdownValue',
+                  key: ValueKey(_countdownValue),
+                  style: TextStyle(
+                    fontSize: 120,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                )
+              : Text(
+                  'START!',
+                  key: const ValueKey('start'),
+                  style: TextStyle(
+                    fontSize: 64,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+        ),
+      ),
+    );
   }
   
   Widget _buildNameInputScreen() {
@@ -348,7 +447,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       border: OutlineInputBorder(),
                     ),
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _startQuiz(),
+                    onSubmitted: (_) => _startCountdown(),
                   ),
                   const SizedBox(height: 32),
                   Row(
@@ -357,7 +456,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         child: OutlinedButton(
                           onPressed: () {
                             _responderName = '';
-                            _startQuiz();
+                            _startCountdown();
                           },
                           child: const Text('スキップ'),
                         ),
@@ -365,7 +464,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _startQuiz,
+                          onPressed: _startCountdown,
                           child: const Text('開始'),
                         ),
                       ),
@@ -504,9 +603,40 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Card(
                   clipBehavior: Clip.antiAlias,
-                  child: Image.memory(
-                    question.imageData,
-                    fit: BoxFit.contain,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.memory(
+                          question.imageData,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      // フィードバック表示
+                      if (_showFeedback)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.black.withOpacity(0.3),
+                            child: Center(
+                              child: Text(
+                                _lastAnswerCorrect ? '🎉 正解！' : '❌ 不正解',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: _lastAnswerCorrect 
+                                      ? Colors.green 
+                                      : Colors.red,
+                                  shadows: const [
+                                    Shadow(
+                                      blurRadius: 10,
+                                      color: Colors.black,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -521,9 +651,10 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: SizedBox(
                       height: 64,
                       child: FilledButton(
-                        onPressed: () => _answer(true),
+                        onPressed: _isAnswering ? null : () => _answer(true),
                         style: FilledButton.styleFrom(
                           backgroundColor: context.successColor,
+                          disabledBackgroundColor: context.successColor.withOpacity(0.5),
                         ),
                         child: const Text(
                           '✓ 同じ',
@@ -537,9 +668,10 @@ class _QuizScreenState extends State<QuizScreen> {
                     child: SizedBox(
                       height: 64,
                       child: FilledButton(
-                        onPressed: () => _answer(false),
+                        onPressed: _isAnswering ? null : () => _answer(false),
                         style: FilledButton.styleFrom(
                           backgroundColor: context.errorColor,
+                          disabledBackgroundColor: context.errorColor.withOpacity(0.5),
                         ),
                         child: const Text(
                           '✗ 違う',
