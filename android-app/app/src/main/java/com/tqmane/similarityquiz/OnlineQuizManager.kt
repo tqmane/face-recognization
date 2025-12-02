@@ -15,7 +15,6 @@ class OnlineQuizManager {
     // ジャンル定義
     enum class Genre(val displayName: String, val description: String) {
         ALL("すべて", "全ジャンルからランダム"),
-        BIG_CATS("ネコ科大型", "チーター・ヒョウ・ジャガー・ライオン・トラ・ピューマ"),
         SMALL_CATS("ネコ科小型", "イエネコの品種"),
         DOGS("犬種", "柴犬・秋田犬・ハスキー・マラミュート等"),
         WILD_DOGS("犬と野生", "犬とオオカミ・キツネ・コヨーテ"),
@@ -45,16 +44,6 @@ class OnlineQuizManager {
 
     // すべてのアイテム
     private val items = mapOf(
-        // ネコ科大型
-        "cheetah" to AnimalPair("cheetah", "チーター", "cheetah face close up"),
-        "leopard" to AnimalPair("leopard", "ヒョウ", "leopard face close up"),
-        "jaguar" to AnimalPair("jaguar", "ジャガー", "jaguar animal face"),
-        "lion" to AnimalPair("lion", "ライオン", "lion face portrait"),
-        "tiger" to AnimalPair("tiger", "トラ", "tiger face close up"),
-        "cougar" to AnimalPair("cougar", "ピューマ", "cougar mountain lion face"),
-        "snow_leopard" to AnimalPair("snow_leopard", "ユキヒョウ", "snow leopard face"),
-        "clouded_leopard" to AnimalPair("clouded_leopard", "ウンピョウ", "clouded leopard face"),
-        
         // ネコ科小型（イエネコ）
         "persian_cat" to AnimalPair("persian_cat", "ペルシャ猫", "persian cat face"),
         "british_shorthair" to AnimalPair("british_shorthair", "ブリティッシュショートヘア", "british shorthair cat face"),
@@ -212,15 +201,6 @@ class OnlineQuizManager {
 
     // 似ているペア（ジャンル付き）
     private val similarPairs = listOf(
-        // ネコ科大型
-        SimilarPair("cheetah", "leopard", Genre.BIG_CATS),
-        SimilarPair("jaguar", "leopard", Genre.BIG_CATS),
-        SimilarPair("lion", "tiger", Genre.BIG_CATS),
-        SimilarPair("cougar", "lion", Genre.BIG_CATS),
-        SimilarPair("snow_leopard", "leopard", Genre.BIG_CATS),
-        SimilarPair("clouded_leopard", "leopard", Genre.BIG_CATS),
-        SimilarPair("jaguar", "cheetah", Genre.BIG_CATS),
-        
         // ネコ科小型
         SimilarPair("persian_cat", "british_shorthair", Genre.SMALL_CATS),
         SimilarPair("scottish_fold", "british_shorthair", Genre.SMALL_CATS),

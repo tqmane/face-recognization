@@ -36,6 +36,9 @@ class FoulEditActivity : AppCompatActivity() {
     private val questions = mutableListOf<QuestionItem>()
     private val selectedIndices = mutableSetOf<Int>()
     
+    // 選択モードかどうか（最初の長押しで有効化）
+    private var isSelectionMode = false
+    
     // 追加ダウンロード用
     private var downloadJob: Job? = null
     private var isDownloading = false
@@ -77,8 +80,8 @@ class FoulEditActivity : AppCompatActivity() {
         adapter = ImageAdapter(
             questions = questions,
             selectedIndices = selectedIndices,
-            onItemClick = { position -> showImagePreview(position) },
-            onItemLongClick = { position -> toggleSelection(position) }
+            onItemClick = { position -> onImageClick(position) },
+            onItemLongClick = { position -> onImageLongClick(position) }
         )
         binding.recyclerView.adapter = adapter
 
@@ -116,6 +119,7 @@ class FoulEditActivity : AppCompatActivity() {
         }
 
         questions.clear()
+        isSelectionMode = false
         try {
             questionsFile.readLines().forEachIndexed { index, line ->
                 val parts = line.split("|")
@@ -147,8 +151,39 @@ class FoulEditActivity : AppCompatActivity() {
         } else {
             selectedIndices.add(position)
         }
+        // 選択が全て解除されたら選択モードを終了
+        if (selectedIndices.isEmpty()) {
+            isSelectionMode = false
+        }
         adapter.notifyItemChanged(position)
         updateUI()
+    }
+    
+    /**
+     * 画像タップ時の処理
+     * - 選択モード中: 選択切り替え
+     * - 選択モードでない: プレビュー表示
+     */
+    private fun onImageClick(position: Int) {
+        if (isSelectionMode) {
+            toggleSelection(position)
+        } else {
+            showImagePreview(position)
+        }
+    }
+    
+    /**
+     * 画像長押し時の処理
+     * - 選択モード中: プレビュー表示
+     * - 選択モードでない: 選択モード開始 & 選択
+     */
+    private fun onImageLongClick(position: Int) {
+        if (isSelectionMode) {
+            showImagePreview(position)
+        } else {
+            isSelectionMode = true
+            toggleSelection(position)
+        }
     }
 
     private fun showImagePreview(position: Int) {
@@ -201,7 +236,11 @@ class FoulEditActivity : AppCompatActivity() {
             "画像を長押しで削除選択"
         }
         binding.tvTotalCount.text = "全${questions.size}問"
-        binding.tvHint.text = "💡 タップで画像を拡大表示・長押しで削除選択"
+        binding.tvHint.text = if (isSelectionMode) {
+            "💡 タップで選択・長押しで拡大表示"
+        } else {
+            "💡 タップで拡大表示・長押しで選択開始"
+        }
         binding.btnDelete.isEnabled = count > 0
         binding.btnSelectAll.text = if (selectedIndices.size == questions.size) "全選択解除" else "全選択"
     }
@@ -285,8 +324,8 @@ class FoulEditActivity : AppCompatActivity() {
 
         MaterialAlertDialogBuilder(this)
             .setTitle("追加ダウンロード")
-            .setMessage("現在 ${questions.size} 問あります。\n追加でダウンロードする問題数を選択してください。")
-            .setItems(options) { _, which ->
+            .setSingleChoiceItems(options, -1) { dialog, which ->
+                dialog.dismiss()
                 startAdditionalDownload(counts[which])
             }
             .setNegativeButton("キャンセル", null)
