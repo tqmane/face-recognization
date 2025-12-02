@@ -319,14 +319,43 @@ class FoulEditActivity : AppCompatActivity() {
      * 追加ダウンロードダイアログを表示
      */
     private fun showAddMoreDialog() {
-        val options = arrayOf("5問追加", "10問追加", "20問追加", "50問追加")
-        val counts = intArrayOf(5, 10, 20, 50)
+        val options = arrayOf("5問追加", "10問追加", "20問追加", "50問追加", "カスタム...")
+        val counts = intArrayOf(5, 10, 20, 50, -1)
 
         MaterialAlertDialogBuilder(this)
             .setTitle("追加ダウンロード")
             .setSingleChoiceItems(options, -1) { dialog, which ->
                 dialog.dismiss()
-                startAdditionalDownload(counts[which])
+                if (counts[which] == -1) {
+                    showCustomCountDialog()
+                } else {
+                    startAdditionalDownload(counts[which])
+                }
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+    /**
+     * カスタム数入力ダイアログを表示
+     */
+    private fun showCustomCountDialog() {
+        val editText = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "ダウンロード数（1〜100）"
+            setPadding(48, 32, 48, 32)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("カスタムダウンロード数")
+            .setView(editText)
+            .setPositiveButton("ダウンロード") { _, _ ->
+                val count = editText.text.toString().toIntOrNull() ?: 0
+                if (count in 1..100) {
+                    startAdditionalDownload(count)
+                } else {
+                    Toast.makeText(this, "1〜100の間で入力してください", Toast.LENGTH_SHORT).show()
+                }
             }
             .setNegativeButton("キャンセル", null)
             .show()
@@ -336,16 +365,22 @@ class FoulEditActivity : AppCompatActivity() {
      * 追加ダウンロードを開始
      */
     private fun startAdditionalDownload(addCount: Int) {
-        // ジャンルを取得
+        // ジャンルを取得（nameまたはdisplayNameからマッチング）
         val genre = try {
             if (genreName.isNotEmpty()) {
-                OnlineQuizManager.Genre.valueOf(genreName)
+                // まずnameで検索
+                OnlineQuizManager.Genre.values().find { it.name == genreName }
+                    // displayNameで検索
+                    ?: OnlineQuizManager.Genre.values().find { it.displayName == genreName }
+                    ?: OnlineQuizManager.Genre.ALL
             } else {
                 // メタデータから取得
                 val metadataFile = File(testSetPath, "metadata.txt")
                 if (metadataFile.exists()) {
                     val genreStr = metadataFile.readLines().firstOrNull() ?: ""
-                    OnlineQuizManager.Genre.valueOf(genreStr)
+                    OnlineQuizManager.Genre.values().find { it.name == genreStr }
+                        ?: OnlineQuizManager.Genre.values().find { it.displayName == genreStr }
+                        ?: OnlineQuizManager.Genre.ALL
                 } else {
                     OnlineQuizManager.Genre.ALL
                 }
@@ -353,6 +388,8 @@ class FoulEditActivity : AppCompatActivity() {
         } catch (e: Exception) {
             OnlineQuizManager.Genre.ALL
         }
+        
+        android.util.Log.d("FoulEdit", "追加ダウンロード: genreName=$genreName, 検出=${genre.name}, 数=$addCount")
 
         isDownloading = true
         binding.downloadingOverlay.visibility = View.VISIBLE
@@ -377,6 +414,7 @@ class FoulEditActivity : AppCompatActivity() {
                     }
 
                     val config = quizManager.generateRandomQuestion(genre)
+                    android.util.Log.d("FoulEdit", "問題生成: itemId1=${config.itemId1}, itemId2=${config.itemId2}, isSame=${config.isSame}")
                     
                     val bitmap = withContext(Dispatchers.IO) {
                         try {
@@ -387,6 +425,8 @@ class FoulEditActivity : AppCompatActivity() {
                                 quizManager.reliableSource.createComparisonImage(config.itemId1, config.itemId2)
                             }
                             
+                            android.util.Log.d("FoulEdit", "信頼ソース結果: ${result != null}")
+                            
                             // 信頼ソースで取得できない場合、Bingフォールバック
                             if (result == null) {
                                 result = if (config.isSame) {
@@ -394,9 +434,11 @@ class FoulEditActivity : AppCompatActivity() {
                                 } else {
                                     quizManager.scraper.createComparisonImage(config.query1, config.query2)
                                 }
+                                android.util.Log.d("FoulEdit", "Bingフォールバック結果: ${result != null}")
                             }
                             result
                         } catch (e: Exception) {
+                            android.util.Log.e("FoulEdit", "ダウンロードエラー: ${e.message}")
                             null
                         }
                     }
@@ -412,13 +454,19 @@ class FoulEditActivity : AppCompatActivity() {
                             }
                             bitmap.recycle()
 
-                            // questions.txtに追加
+                            // questions.txtに追加（改行の処理を適切に）
                             val questionsFile = File(testSetPath, "questions.txt")
+                            val existingContent = if (questionsFile.exists()) questionsFile.readText() else ""
+                            val separator = if (existingContent.isNotEmpty() && !existingContent.endsWith("\n")) "\n" else ""
                             val newLine = "$newIndex|${config.isSame}|${config.description}|$imagePath"
-                            questionsFile.appendText("\n$newLine")
+                            questionsFile.appendText("$separator$newLine\n")
+                            
+                            android.util.Log.d("FoulEdit", "保存完了: $newLine")
                         }
 
                         successCount++
+                    } else {
+                        android.util.Log.w("FoulEdit", "画像取得失敗: ${config.query1}, ${config.query2}")
                     }
                 }
 

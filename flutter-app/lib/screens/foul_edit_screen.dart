@@ -307,6 +307,7 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
             ('5問追加', 5),
             ('10問追加', 10),
             ('20問追加', 20),
+            ('50問追加', 50),
           ])
             TextButton(
               onPressed: () {
@@ -316,6 +317,13 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
               child: Text(option.$1),
             ),
           TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showCustomCountDialog();
+            },
+            child: const Text('カスタム...'),
+          ),
+          TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('キャンセル'),
           ),
@@ -324,13 +332,55 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
     );
   }
 
+  /// カスタム数入力ダイアログを表示
+  void _showCustomCountDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('カスタムダウンロード数'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            hintText: 'ダウンロード数（1〜100）',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () {
+              final count = int.tryParse(controller.text) ?? 0;
+              Navigator.pop(context);
+              if (count >= 1 && count <= 100) {
+                _startAdditionalDownload(count);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('1〜100の間で入力してください')),
+                );
+              }
+            },
+            child: const Text('ダウンロード'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 追加ダウンロードを開始
   Future<void> _startAdditionalDownload(int addCount) async {
-    // ジャンルを特定
+    // ジャンルを特定（displayNameまたはname両方でマッチング）
+    final genreName = widget.testSet.genreName;
     final genre = Genre.values.firstWhere(
-      (g) => g.displayName == widget.testSet.genreName,
+      (g) => g.displayName == genreName || g.name == genreName,
       orElse: () => Genre.all,
     );
+    debugPrint('追加ダウンロード: ジャンル=$genreName, 検出=${genre.name}, 数=$addCount');
 
     setState(() {
       _isDownloading = true;
@@ -349,13 +399,20 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
         if (!_isDownloading) break;
 
         final config = _quizManager.generateQuestion(genre: genre);
+        debugPrint('問題生成: query1=${config.query1}, query2=${config.query2}, isSame=${config.isSame}');
+
+        // クエリが空の場合はスキップ
+        if (config.query1.isEmpty || config.query2.isEmpty) {
+          debugPrint('クエリが空のためスキップ');
+          continue;
+        }
 
         try {
           final imageData = config.isSame
               ? await _scraper.createSameImage(config.query1)
               : await _scraper.createComparisonImage(config.query1, config.query2);
 
-          if (imageData != null) {
+          if (imageData != null && imageData.isNotEmpty) {
             final newIndex = startIndex + successCount;
             final imagePath = 'question_$newIndex.png';
             final imageFile = File('${widget.testSet.dirPath}/$imagePath');
@@ -366,7 +423,9 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
             List<dynamic> existingQuestions = [];
             if (await questionsFile.exists()) {
               final content = await questionsFile.readAsString();
-              existingQuestions = jsonDecode(content);
+              if (content.isNotEmpty) {
+                existingQuestions = jsonDecode(content);
+              }
             }
             existingQuestions.add({
               'index': newIndex,
