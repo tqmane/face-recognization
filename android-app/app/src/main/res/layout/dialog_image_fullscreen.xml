@@ -4,23 +4,32 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- 全画面画像 -->
-    <ImageView
-        android:id="@+id/fullscreenImage"
+    <!-- ズーム可能な画像コンテナ（最前面） -->
+    <FrameLayout
+        android:id="@+id/imageContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="fitCenter"
-        android:contentDescription="プレビュー画像" />
+        android:elevation="10dp">
+        
+        <ImageView
+            android:id="@+id/fullscreenImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="matrix"
+            android:contentDescription="プレビュー画像" />
+    </FrameLayout>
 
-    <!-- 上部のヘッダー -->
+    <!-- 上部のヘッダー（elevation低め） -->
     <LinearLayout
+        android:id="@+id/headerPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
         android:orientation="horizontal"
         android:background="#80000000"
         android:padding="16dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:elevation="5dp">
 
         <ImageButton
             android:id="@+id/btnClose"
@@ -53,14 +62,16 @@
 
     </LinearLayout>
 
-    <!-- 下部の情報パネル -->
+    <!-- 下部の情報パネル（elevation低め） -->
     <LinearLayout
+        android:id="@+id/footerPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="#CC000000"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:elevation="5dp">
 
         <TextView
             android:id="@+id/tvFullscreenDescription"
