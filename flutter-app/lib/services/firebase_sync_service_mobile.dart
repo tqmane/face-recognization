@@ -30,8 +30,8 @@ class FirebaseSyncService {
   
   // iOS用のClient ID（GoogleService-Info.plistから）
   static const String _iosClientId = '991042237694-8p0oehun6n5i50dil6apqqdh5d0u14e6.apps.googleusercontent.com';
-  // Android用のWeb Client ID（Firebase Consoleから）
-  static const String _webClientId = '991042237694-ij0b64qvl4llhf8e3dkk86mdpsc59snj.apps.googleusercontent.com';
+  // Web Client ID（google-services.jsonのclient_type: 3から）
+  static const String _webClientId = '991042237694-ljbs171jvof77dsh5mhbsln2iis290pk.apps.googleusercontent.com';
   
   StreamSubscription<DatabaseEvent>? _syncSubscription;
   

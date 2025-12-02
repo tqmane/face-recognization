@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 import 'services/settings_service.dart';
 import 'services/firebase_sync_service.dart';
@@ -112,7 +113,9 @@ class SimilarityQuizApp extends StatelessWidget {
         color: Color(0xFFE5E5EA),
         thickness: 1,
       ),
-      fontFamily: 'Noto Sans JP',
+      textTheme: GoogleFonts.notoSansJpTextTheme(
+        ThemeData.light().textTheme,
+      ),
     );
   }
 
@@ -180,7 +183,9 @@ class SimilarityQuizApp extends StatelessWidget {
         color: Color(0xFF38383A),
         thickness: 1,
       ),
-      fontFamily: 'Noto Sans JP',
+      textTheme: GoogleFonts.notoSansJpTextTheme(
+        ThemeData.dark().textTheme,
+      ),
     );
   }
 }
