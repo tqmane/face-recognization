@@ -489,7 +489,6 @@ class OnlineQuizActivity : AppCompatActivity() {
             .setNegativeButton("キャンセル", null)
             .show()
     }
-    }
 
     /**
      * カウントダウン開始
