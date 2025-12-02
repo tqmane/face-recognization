@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- 全画面画像 -->
+    <ImageView
+        android:id="@+id/fullscreenImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:contentDescription="プレビュー画像" />
+
+    <!-- 上部のヘッダー -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="horizontal"
+        android:background="#80000000"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="閉じる"
+            android:tint="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/tvFullscreenIndex"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="問題 1"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <ImageButton
+            android:id="@+id/btnToggleSelect"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_delete"
+            android:contentDescription="削除対象に追加"
+            android:tint="@color/ios_red" />
+
+    </LinearLayout>
+
+    <!-- 下部の情報パネル -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="#CC000000"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvFullscreenDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="説明"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvFullscreenAnswer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="正解: 同じ"
+            android:textColor="@color/ios_green"
+            android:textSize="14sp"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+</FrameLayout>

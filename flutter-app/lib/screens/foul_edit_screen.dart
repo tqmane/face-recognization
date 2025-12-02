@@ -88,56 +88,64 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
   void _showImagePreview(int index) {
     final question = _questions[index];
     
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.file(
-              File(question.imagePath),
-              height: 300,
-              fit: BoxFit.contain,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            title: Text('問題 ${index + 1}'),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _selectedIndices.contains(index) 
+                      ? Icons.check_circle 
+                      : Icons.check_circle_outline,
+                  color: _selectedIndices.contains(index) ? Colors.red : Colors.white,
+                ),
+                onPressed: () {
+                  _toggleSelection(index);
+                  Navigator.pop(context);
+                },
+                tooltip: '削除対象に追加/解除',
+              ),
+            ],
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.file(
+                File(question.imagePath),
+                fit: BoxFit.contain,
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
+          ),
+          bottomNavigationBar: Container(
+            color: Colors.black87,
+            padding: const EdgeInsets.all(16),
+            child: SafeArea(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     question.description,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
-                    question.isSame ? '同じ' : '違う',
+                    '正解: ${question.isSame ? "同じ" : "違う"}',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.secondary,
+                      color: question.isSame ? Colors.green : Colors.orange,
+                      fontSize: 14,
                     ),
                   ),
                 ],
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (!_selectedIndices.contains(index)) {
-                      _toggleSelection(index);
-                    }
-                  },
-                  child: const Text('削除対象に追加'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('閉じる'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
+          ),
         ),
       ),
     );
@@ -388,109 +396,115 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : Stack(
               children: [
-                // ヘッダー
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: colorScheme.surface,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '全${_questions.length}問',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _selectedIndices.isEmpty
-                            ? '削除する画像をタップして選択'
-                            : '${_selectedIndices.length}件選択中',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '💡 長押しで画像を拡大表示',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                
-                // 画像グリッド
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.0,
-                    ),
-                    itemCount: _questions.length,
-                    itemBuilder: (context, index) => _buildImageCard(index),
-                  ),
-                ),
-                
-                // 下部ボタン
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 追加ダウンロードボタン
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _isDownloading ? null : _showAddMoreDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text('追加ダウンロード'),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
+                Column(
+                  children: [
+                    // ヘッダー
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      color: colorScheme.surface,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _toggleSelectAll,
-                              child: Text(
-                                _selectedIndices.length == _questions.length
-                                    ? '全選択解除'
-                                    : '全選択',
-                              ),
+                          Text(
+                            '全${_questions.length}問',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: _selectedIndices.isEmpty ? null : _confirmDelete,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                              child: const Text('削除'),
+                          const SizedBox(height: 4),
+                          Text(
+                            _selectedIndices.isEmpty
+                                ? '画像を長押しで削除選択'
+                                : '${_selectedIndices.length}件選択中',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '💡 タップで画像を拡大表示・長押しで削除選択',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const Divider(height: 1),
+                    
+                    // 画像グリッド
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: _questions.length,
+                        itemBuilder: (context, index) => _buildImageCard(index),
+                      ),
+                    ),
+                    
+                    // 下部ボタン
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 追加ダウンロードボタン
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _isDownloading ? null : _showAddMoreDialog,
+                                icon: const Icon(Icons.add),
+                                label: const Text('追加ダウンロード'),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _toggleSelectAll,
+                                    child: Text(
+                                      _selectedIndices.length == _questions.length
+                                          ? '全選択解除'
+                                          : '全選択',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: _selectedIndices.isEmpty ? null : _confirmDelete,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    child: const Text('削除'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 
                 // ダウンロード中オーバーレイ
@@ -523,18 +537,21 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
     final isSelected = _selectedIndices.contains(index);
 
     return GestureDetector(
-      onTap: () => _toggleSelection(index),
-      onLongPress: () => _showImagePreview(index),
+      onTap: () => _showImagePreview(index),
+      onLongPress: () => _toggleSelection(index),
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 画像
-            Image.file(
-              File(question.imagePath),
-              fit: BoxFit.cover,
-              cacheWidth: 300,
+            // 画像（全体表示）
+            Container(
+              color: Colors.grey[200],
+              child: Image.file(
+                File(question.imagePath),
+                fit: BoxFit.contain,
+                cacheWidth: 300,
+              ),
             ),
             
             // インデックス番号
