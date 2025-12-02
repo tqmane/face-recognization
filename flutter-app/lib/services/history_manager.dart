@@ -86,9 +86,12 @@ class QuestionResult {
 /// 履歴管理クラス
 class HistoryManager {
   static const String _key = 'quiz_history';
+  static const String _responderNamesKey = 'responder_names_history';
+  static const int _maxResponderNames = 8;
   static HistoryManager? _instance;
   
   List<QuizHistory> _histories = [];
+  List<String> _responderNames = [];
   
   static HistoryManager get instance {
     _instance ??= HistoryManager._();
@@ -98,6 +101,7 @@ class HistoryManager {
   HistoryManager._();
   
   List<QuizHistory> get histories => List.unmodifiable(_histories);
+  List<String> get recentResponderNames => List.unmodifiable(_responderNames);
   
   /// 履歴を読み込む
   Future<void> loadHistories() async {
@@ -109,12 +113,53 @@ class HistoryManager {
       // 新しい順にソート
       _histories.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     }
+    
+    // 回答者名履歴を読み込む
+    final namesJson = prefs.getString(_responderNamesKey);
+    if (namesJson != null) {
+      final List<dynamic> namesList = jsonDecode(namesJson);
+      _responderNames = namesList.cast<String>();
+    }
   }
   
   /// 履歴を保存
   Future<void> saveHistory(QuizHistory history) async {
     _histories.insert(0, history);
+    
+    // 回答者名を履歴に追加（空でない場合）
+    if (history.responderName.isNotEmpty) {
+      await addResponderName(history.responderName);
+    }
+    
     await _persist();
+  }
+  
+  /// 回答者名を履歴に追加
+  Future<void> addResponderName(String name) async {
+    if (name.isEmpty) return;
+    
+    // 既に存在する場合は削除して先頭に追加
+    _responderNames.remove(name);
+    _responderNames.insert(0, name);
+    
+    // 最大8件まで保持
+    if (_responderNames.length > _maxResponderNames) {
+      _responderNames = _responderNames.sublist(0, _maxResponderNames);
+    }
+    
+    await _persistResponderNames();
+  }
+  
+  /// 回答者名を履歴から削除
+  Future<void> removeResponderName(String name) async {
+    _responderNames.remove(name);
+    await _persistResponderNames();
+  }
+  
+  /// 回答者名履歴を永続化
+  Future<void> _persistResponderNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_responderNamesKey, jsonEncode(_responderNames));
   }
   
   /// 永続化

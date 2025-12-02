@@ -411,6 +411,7 @@ class _QuizScreenState extends State<QuizScreen> {
   
   Widget _buildNameInputScreen() {
     final colorScheme = Theme.of(context).colorScheme;
+    final recentNames = HistoryManager.instance.recentResponderNames;
     
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -418,7 +419,7 @@ class _QuizScreenState extends State<QuizScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -448,7 +449,45 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _startCountdown(),
+                    controller: TextEditingController(text: _responderName),
                   ),
+                  
+                  // 直近の回答者名履歴
+                  if (recentNames.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '最近の回答者（長押しで削除）',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: recentNames.map((name) => GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _responderName = name;
+                          });
+                        },
+                        onLongPress: () => _confirmDeleteResponderName(name),
+                        child: Chip(
+                          label: Text(name),
+                          backgroundColor: _responderName == name
+                              ? colorScheme.primaryContainer
+                              : null,
+                          side: _responderName == name
+                              ? BorderSide(color: colorScheme.primary)
+                              : null,
+                        ),
+                      )).toList(),
+                    ),
+                  ],
+                  
                   const SizedBox(height: 32),
                   Row(
                     children: [
@@ -488,6 +527,34 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  void _confirmDeleteResponderName(String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('履歴から削除'),
+        content: Text('「$name」を履歴から削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await HistoryManager.instance.removeResponderName(name);
+              Navigator.pop(context);
+              setState(() {
+                if (_responderName == name) {
+                  _responderName = '';
+                }
+              });
+            },
+            child: const Text('削除'),
+          ),
+        ],
       ),
     );
   }

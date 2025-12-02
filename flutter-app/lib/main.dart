@@ -70,7 +70,7 @@ class SimilarityQuizApp extends StatelessWidget {
         surfaceContainerHighest: backgroundColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: cardColor,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -138,7 +138,7 @@ class SimilarityQuizApp extends StatelessWidget {
         surfaceContainerHighest: surfaceColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: cardColor,
         elevation: 0,
         shape: RoundedRectangleBorder(

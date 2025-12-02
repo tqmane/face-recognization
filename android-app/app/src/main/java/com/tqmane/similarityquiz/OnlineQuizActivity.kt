@@ -8,8 +8,10 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -418,15 +420,47 @@ class OnlineQuizActivity : AppCompatActivity() {
      * 名前入力ダイアログを表示
      */
     private fun showNameInputDialog() {
-        val editText = EditText(this).apply {
-            hint = "例：山田太郎"
-            setPadding(48, 32, 48, 32)
+        val recentNames = historyManager.getRecentResponderNames()
+        
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_name_input, null)
+        val editText = dialogView.findViewById<EditText>(R.id.editName)
+        val chipGroup = dialogView.findViewById<com.google.android.material.chip.ChipGroup>(R.id.chipGroupNames)
+        val tvRecentLabel = dialogView.findViewById<TextView>(R.id.tvRecentLabel)
+        
+        // 直近の名前をChipとして追加
+        if (recentNames.isNotEmpty()) {
+            tvRecentLabel.visibility = View.VISIBLE
+            chipGroup.visibility = View.VISIBLE
+            recentNames.forEach { name ->
+                val chip = com.google.android.material.chip.Chip(this).apply {
+                    text = name
+                    isCheckable = true
+                    setOnClickListener {
+                        editText.setText(name)
+                        editText.setSelection(name.length)
+                    }
+                    setOnLongClickListener {
+                        showDeleteResponderNameDialog(name) {
+                            chipGroup.removeView(this)
+                            if (chipGroup.childCount == 0) {
+                                tvRecentLabel.visibility = View.GONE
+                                chipGroup.visibility = View.GONE
+                            }
+                        }
+                        true
+                    }
+                }
+                chipGroup.addView(chip)
+            }
+        } else {
+            tvRecentLabel.visibility = View.GONE
+            chipGroup.visibility = View.GONE
         }
         
         MaterialAlertDialogBuilder(this)
             .setTitle("回答者の名前")
             .setMessage("任意入力（スキップ可）")
-            .setView(editText)
+            .setView(dialogView)
             .setPositiveButton("開始") { _, _ ->
                 responderName = editText.text.toString().trim()
                 startCountdown()
@@ -442,6 +476,19 @@ class OnlineQuizActivity : AppCompatActivity() {
             }
             .setCancelable(false)
             .show()
+    }
+    
+    private fun showDeleteResponderNameDialog(name: String, onDeleted: () -> Unit) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("履歴から削除")
+            .setMessage("「$name」を履歴から削除しますか？")
+            .setPositiveButton("削除") { _, _ ->
+                historyManager.removeResponderName(name)
+                onDeleted()
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
     }
 
     /**
