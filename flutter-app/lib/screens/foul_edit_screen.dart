@@ -125,62 +125,13 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
     
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            title: Text('問題 ${index + 1}'),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _selectedIndices.contains(index) 
-                      ? Icons.check_circle 
-                      : Icons.check_circle_outline,
-                  color: _selectedIndices.contains(index) ? Colors.red : Colors.white,
-                ),
-                onPressed: () {
-                  _toggleSelection(index);
-                  Navigator.pop(context);
-                },
-                tooltip: '削除対象に追加/解除',
-              ),
-            ],
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Image.file(
-                File(question.imagePath),
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          bottomNavigationBar: Container(
-            color: Colors.black87,
-            padding: const EdgeInsets.all(16),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    question.description,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '正解: ${question.isSame ? "同じ" : "違う"}',
-                    style: TextStyle(
-                      color: question.isSame ? Colors.green : Colors.orange,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        builder: (context) => _FullScreenImageViewer(
+          question: question,
+          index: index,
+          isSelected: _selectedIndices.contains(index),
+          onToggleSelection: () {
+            _toggleSelection(index);
+          },
         ),
       ),
     );
@@ -706,4 +657,187 @@ class _QuestionItem {
     required this.isSame,
     required this.description,
   });
+}
+
+/// 全画面画像ビューア（ピンチズーム対応）
+class _FullScreenImageViewer extends StatefulWidget {
+  final _QuestionItem question;
+  final int index;
+  final bool isSelected;
+  final VoidCallback onToggleSelection;
+
+  const _FullScreenImageViewer({
+    required this.question,
+    required this.index,
+    required this.isSelected,
+    required this.onToggleSelection,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  final TransformationController _transformationController = TransformationController();
+  double _currentScale = 1.0;
+  bool _isZoomed = false;
+  double _panelOpacity = 1.0;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+    setState(() {
+      _currentScale = 1.0;
+      _isZoomed = false;
+      _panelOpacity = 1.0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // 画像（最前面に表示するためにズーム時にはelevationを上げる）
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                if (_isZoomed) {
+                  _resetZoom();
+                } else {
+                  Navigator.pop(context);
+                }
+              },
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 0.5,
+                maxScale: 5.0,
+                onInteractionUpdate: (details) {
+                  final scale = _transformationController.value.getMaxScaleOnAxis();
+                  if (scale != _currentScale) {
+                    setState(() {
+                      _currentScale = scale;
+                      _isZoomed = scale > 1.1;
+                      // 拡大時にパネルを半透明に
+                      _panelOpacity = _isZoomed ? 0.3 : 1.0;
+                    });
+                  }
+                },
+                child: Center(
+                  child: Image.file(
+                    File(widget.question.imagePath),
+                    // 縦向き: 横幅に合わせる、横向き: 縦幅に合わせる
+                    fit: isPortrait ? BoxFit.fitWidth : BoxFit.fitHeight,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // ヘッダー（拡大時は半透明）
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: _isZoomed,
+              child: AnimatedOpacity(
+                opacity: _panelOpacity,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  color: Colors.black54,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '問題 ${widget.index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              widget.isSelected
+                                  ? Icons.check_circle
+                                  : Icons.check_circle_outline,
+                              color: widget.isSelected ? Colors.red : Colors.white,
+                            ),
+                            onPressed: () {
+                              widget.onToggleSelection();
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // フッター（拡大時は半透明）
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: _isZoomed,
+              child: AnimatedOpacity(
+                opacity: _panelOpacity,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  color: Colors.black87,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.question.description,
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '正解: ${widget.question.isSame ? "同じ" : "違う"}',
+                            style: TextStyle(
+                              color: widget.question.isSame ? Colors.green : Colors.orange,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

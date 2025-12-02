@@ -2,8 +2,11 @@ package com.tqmane.similarityquiz
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -193,16 +196,126 @@ class FoulEditActivity : AppCompatActivity() {
         val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         dialog.setContentView(R.layout.dialog_image_fullscreen)
         
+        val imageContainer = dialog.findViewById<View>(R.id.imageContainer)
         val imageView = dialog.findViewById<ImageView>(R.id.fullscreenImage)
         val tvDescription = dialog.findViewById<TextView>(R.id.tvFullscreenDescription)
         val tvAnswer = dialog.findViewById<TextView>(R.id.tvFullscreenAnswer)
         val tvIndex = dialog.findViewById<TextView>(R.id.tvFullscreenIndex)
         val btnToggleSelect = dialog.findViewById<View>(R.id.btnToggleSelect)
         val btnClose = dialog.findViewById<View>(R.id.btnClose)
+        val headerPanel = dialog.findViewById<View>(R.id.headerPanel)
+        val footerPanel = dialog.findViewById<View>(R.id.footerPanel)
         
         // 高解像度の画像を読み込む
         val bitmap = BitmapFactory.decodeFile(question.fullPath)
         imageView.setImageBitmap(bitmap)
+        
+        // ピンチズーム用の変数
+        val matrix = Matrix()
+        var scaleFactor = 1f
+        var lastTouchX = 0f
+        var lastTouchY = 0f
+        var mode = 0 // 0: none, 1: drag, 2: zoom
+        var initialScale = 1f
+        var minScale = 1f
+        var centerX = 0f
+        var centerY = 0f
+        
+        // 画像のセットアップ（レイアウト完了後）
+        imageView.post {
+            val viewWidth = imageView.width.toFloat()
+            val viewHeight = imageView.height.toFloat()
+            val bitmapWidth = bitmap.width.toFloat()
+            val bitmapHeight = bitmap.height.toFloat()
+            
+            // 画面の向きに応じてスケールを計算
+            val isPortrait = viewHeight > viewWidth
+            val scaleX = viewWidth / bitmapWidth
+            val scaleY = viewHeight / bitmapHeight
+            
+            // 縦向き: 横幅に合わせる、横向き: 縦幅に合わせる
+            initialScale = if (isPortrait) scaleX else scaleY
+            minScale = initialScale
+            scaleFactor = initialScale
+            
+            // 画像を中央に配置
+            centerX = (viewWidth - bitmapWidth * initialScale) / 2
+            centerY = (viewHeight - bitmapHeight * initialScale) / 2
+            
+            matrix.setScale(initialScale, initialScale)
+            matrix.postTranslate(centerX, centerY)
+            imageView.imageMatrix = matrix
+        }
+        
+        val scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val scale = detector.scaleFactor
+                val newScale = scaleFactor * scale
+                
+                // スケール制限（最小: 初期スケール、最大: 5倍）
+                if (newScale >= minScale && newScale <= minScale * 5) {
+                    scaleFactor = newScale
+                    matrix.postScale(scale, scale, detector.focusX, detector.focusY)
+                    imageView.imageMatrix = matrix
+                    
+                    // 拡大時にelevationを上げて最前面に
+                    if (scaleFactor > minScale * 1.1f) {
+                        imageContainer.elevation = 20f
+                        headerPanel.alpha = 0.3f
+                        footerPanel.alpha = 0.3f
+                    }
+                }
+                return true
+            }
+        })
+        
+        imageView.setOnTouchListener { _, event ->
+            scaleGestureDetector.onTouchEvent(event)
+            
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastTouchX = event.x
+                    lastTouchY = event.y
+                    mode = 1
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    mode = 2
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (mode == 1 && scaleFactor > minScale) {
+                        val dx = event.x - lastTouchX
+                        val dy = event.y - lastTouchY
+                        matrix.postTranslate(dx, dy)
+                        imageView.imageMatrix = matrix
+                        lastTouchX = event.x
+                        lastTouchY = event.y
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                    if (mode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
+                        // シングルタップ検出（ほぼ動いていない場合）
+                        val moved = kotlin.math.abs(event.x - lastTouchX) + kotlin.math.abs(event.y - lastTouchY)
+                        if (moved < 10) {
+                            // 拡大中でなければダイアログを閉じる
+                            if (scaleFactor <= minScale * 1.1f) {
+                                dialog.dismiss()
+                            } else {
+                                // 拡大中ならリセット
+                                scaleFactor = minScale
+                                matrix.setScale(minScale, minScale)
+                                matrix.postTranslate(centerX, centerY)
+                                imageView.imageMatrix = matrix
+                                imageContainer.elevation = 10f
+                                headerPanel.alpha = 1f
+                                footerPanel.alpha = 1f
+                            }
+                        }
+                    }
+                    mode = 0
+                }
+            }
+            true
+        }
         
         tvDescription.text = question.description
         tvAnswer.text = "正解: ${if (question.isSame) "同じ" else "違う"}"
@@ -217,11 +330,6 @@ class FoulEditActivity : AppCompatActivity() {
         }
         
         btnClose.setOnClickListener {
-            dialog.dismiss()
-        }
-        
-        // 画像タップでも閉じる
-        imageView.setOnClickListener {
             dialog.dismiss()
         }
         

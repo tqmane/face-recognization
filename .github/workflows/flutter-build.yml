@@ -446,7 +446,7 @@ jobs:
 
     - name: Build APK
       working-directory: flutter-app
-      run: flutter build apk --release --no-enable-impeller
+      run: flutter build apk --release
 
     - name: Rename signed APK
       run: |
