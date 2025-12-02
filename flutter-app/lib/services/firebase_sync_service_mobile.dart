@@ -59,12 +59,13 @@ class FirebaseSyncService {
     if (!_googleSignInInitialized) {
       print('GoogleSignIn: Initializing...');
       try {
-        // google_sign_in v7: iOSはInfo.plistから設定を読み込む
-        // GIDClientID と GIDServerClientID を Info.plist に設定済み
+        // google_sign_in v7: 両プラットフォームでclientIdとserverClientIdを指定
         if (Platform.isIOS) {
-          // iOSではInfo.plistの設定を使用するため、パラメータなしで初期化
-          await _googleSignIn.initialize();
-          print('GoogleSignIn: iOS initialized without parameters (using Info.plist)');
+          await _googleSignIn.initialize(
+            clientId: _iosClientId,
+            serverClientId: _webClientId,
+          );
+          print('GoogleSignIn: iOS initialized with clientId and serverClientId');
         } else {
           await _googleSignIn.initialize(
             serverClientId: _webClientId,
