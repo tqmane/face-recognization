@@ -388,66 +388,34 @@ jobs:
 
     - name: Configure signing in build.gradle
       working-directory: flutter-app/android/app
+      shell: bash
       run: |
-        if [ -f "../key.properties" ]; then
-          # Kotlin DSL (build.gradle.kts) の場合
-          if [ -f "build.gradle.kts" ]; then
-            cat > signing_config.gradle.kts << 'SIGNING'
-        import java.util.Properties
-        import java.io.FileInputStream
-
-        val keystoreProperties = Properties()
-        val keystorePropertiesFile = rootProject.file("key.properties")
-        if (keystorePropertiesFile.exists()) {
-            keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-        }
-
-        android {
+        if [ -f "../key.properties" ] && [ -f "build.gradle.kts" ]; then
+          # Pythonで署名設定を挿入
+          python3 -c "
+        import re
+        with open('build.gradle.kts', 'r') as f:
+            content = f.read()
+        signing_config = '''
             signingConfigs {
-                create("release") {
-                    keyAlias = keystoreProperties["keyAlias"] as String?
-                    keyPassword = keystoreProperties["keyPassword"] as String?
-                    storeFile = file(keystoreProperties["storeFile"] as String)
-                    storePassword = keystoreProperties["storePassword"] as String?
+                create(\"release\") {
+                    val keystorePropertiesFile = rootProject.file(\"key.properties\")
+                    if (keystorePropertiesFile.exists()) {
+                        val keystoreProperties = java.util.Properties()
+                        keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+                        keyAlias = keystoreProperties[\"keyAlias\"] as String
+                        keyPassword = keystoreProperties[\"keyPassword\"] as String
+                        storeFile = file(keystoreProperties[\"storeFile\"] as String)
+                        storePassword = keystoreProperties[\"storePassword\"] as String
+                    }
                 }
             }
-            buildTypes {
-                release {
-                    signingConfig = signingConfigs.getByName("release")
-                }
-            }
-        }
-        SIGNING
-            echo "" >> build.gradle.kts
-            echo 'apply(from = "signing_config.gradle.kts")' >> build.gradle.kts
-          # Groovy DSL (build.gradle) の場合
-          elif [ -f "build.gradle" ]; then
-            cat > signing_config.gradle << 'SIGNING'
-        def keystoreProperties = new Properties()
-        def keystorePropertiesFile = rootProject.file('key.properties')
-        if (keystorePropertiesFile.exists()) {
-            keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-        }
-
-        android {
-            signingConfigs {
-                release {
-                    keyAlias keystoreProperties['keyAlias']
-                    keyPassword keystoreProperties['keyPassword']
-                    storeFile file(keystoreProperties['storeFile'])
-                    storePassword keystoreProperties['storePassword']
-                }
-            }
-            buildTypes {
-                release {
-                    signingConfig signingConfigs.release
-                }
-            }
-        }
-        SIGNING
-            echo "" >> build.gradle
-            echo "apply from: 'signing_config.gradle'" >> build.gradle
-          fi
+        '''
+        content = content.replace('android {', 'android {' + signing_config, 1)
+        content = content.replace('getByName(\"release\") {', 'getByName(\"release\") {\n                signingConfig = signingConfigs.getByName(\"release\")')
+        with open('build.gradle.kts', 'w') as f:
+            f.write(content)
+        "
         fi
 
     - name: Build APK

@@ -23,6 +23,9 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
   int _downloadProgress = 0;
   int _downloadTotal = 0;
   
+  // 選択モードかどうか（最初の長押しで有効化）
+  bool _isSelectionMode = false;
+  
   final QuizManager _quizManager = QuizManager();
   final ImageScraper _scraper = ImageScraper();
 
@@ -33,7 +36,10 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
   }
 
   Future<void> _loadQuestions() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isSelectionMode = false;
+    });
 
     try {
       final questionsFile = File('${widget.testSet.dirPath}/questions.json');
@@ -69,7 +75,36 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
       } else {
         _selectedIndices.add(index);
       }
+      // 選択が全て解除されたら選択モードを終了
+      if (_selectedIndices.isEmpty) {
+        _isSelectionMode = false;
+      }
     });
+  }
+  
+  /// 画像タップ時の処理
+  /// - 選択モード中: 選択切り替え
+  /// - 選択モードでない: プレビュー表示
+  void _onImageTap(int index) {
+    if (_isSelectionMode) {
+      _toggleSelection(index);
+    } else {
+      _showImagePreview(index);
+    }
+  }
+  
+  /// 画像長押し時の処理
+  /// - 選択モード中: プレビュー表示
+  /// - 選択モードでない: 選択モード開始 & 選択
+  void _onImageLongPress(int index) {
+    if (_isSelectionMode) {
+      _showImagePreview(index);
+    } else {
+      setState(() {
+        _isSelectionMode = true;
+      });
+      _toggleSelection(index);
+    }
   }
 
   void _toggleSelectAll() {
@@ -424,7 +459,9 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '💡 タップで画像を拡大表示・長押しで削除選択',
+                            _isSelectionMode
+                                ? '💡 タップで選択・長押しで拡大表示'
+                                : '💡 タップで拡大表示・長押しで選択開始',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -537,8 +574,8 @@ class _FoulEditScreenState extends State<FoulEditScreen> {
     final isSelected = _selectedIndices.contains(index);
 
     return GestureDetector(
-      onTap: () => _showImagePreview(index),
-      onLongPress: () => _toggleSelection(index),
+      onTap: () => _onImageTap(index),
+      onLongPress: () => _onImageLongPress(index),
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Stack(
