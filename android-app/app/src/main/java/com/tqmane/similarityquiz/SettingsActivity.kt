@@ -48,6 +48,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnSync.setOnClickListener {
             startActivity(Intent(this, SyncActivity::class.java))
         }
+        binding.btnAdmin.setOnClickListener {
+            startActivity(Intent(this, AdminActivity::class.java))
+        }
         updateSyncStatus()
     }
     

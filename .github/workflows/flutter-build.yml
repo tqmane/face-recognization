@@ -396,75 +396,49 @@ jobs:
       working-directory: flutter-app
       run: flutter pub get
 
-    - name: Setup signing
-      env:
-        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      run: |
-        if [ -n "$KEYSTORE_BASE64" ]; then
-          echo "$KEYSTORE_BASE64" | base64 -d > flutter-app/android/app/release.keystore
-          cat > flutter-app/android/key.properties << EOF
-        storePassword=$KEYSTORE_PASSWORD
-        keyPassword=$KEY_PASSWORD
-        keyAlias=$KEY_ALIAS
-        storeFile=release.keystore
-        EOF
-        fi
-
-    - name: Configure signing in build.gradle
-      working-directory: flutter-app/android/app
-      shell: bash
-      run: |
-        if [ -f "../key.properties" ] && [ -f "build.gradle.kts" ]; then
-          # Pythonで署名設定を挿入
-          python3 -c "
-        import re
-        with open('build.gradle.kts', 'r') as f:
-            content = f.read()
-        
-        # インポート文を追加
-        imports = '''import java.util.Properties
-        import java.io.FileInputStream
-        
-        '''
-        if 'import java.util.Properties' not in content:
-            content = imports + content
-        
-        signing_config = '''
-            signingConfigs {
-                create(\"release\") {
-                    val keystorePropertiesFile = rootProject.file(\"key.properties\")
-                    if (keystorePropertiesFile.exists()) {
-                        val keystoreProperties = Properties()
-                        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-                        keyAlias = keystoreProperties[\"keyAlias\"] as String
-                        keyPassword = keystoreProperties[\"keyPassword\"] as String
-                        storeFile = file(keystoreProperties[\"storeFile\"] as String)
-                        storePassword = keystoreProperties[\"storePassword\"] as String
-                    }
-                }
-            }
-        '''
-        content = content.replace('android {', 'android {' + signing_config, 1)
-        content = content.replace('getByName(\"release\") {', 'getByName(\"release\") {\n                signingConfig = signingConfigs.getByName(\"release\")')
-        with open('build.gradle.kts', 'w') as f:
-            f.write(content)
-        "
-        fi
-
     - name: Build APK
       working-directory: flutter-app
       run: flutter build apk --release
 
-    - name: Rename signed APK
+    - name: Sign APK with apksigner (v4)
+      if: env.KEYSTORE_BASE64 != ''
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        if [ -f "flutter-app/android/key.properties" ]; then
-          mv flutter-app/build/app/outputs/flutter-apk/app-release.apk flutter-app/build/app/outputs/flutter-apk/similarity_quiz-signed.apk
-        else
-          mv flutter-app/build/app/outputs/flutter-apk/app-release.apk flutter-app/build/app/outputs/flutter-apk/similarity_quiz-unsigned.apk
-        fi
+        UNSIGNED_APK="flutter-app/build/app/outputs/flutter-apk/app-release.apk"
+        SIGNED_APK="flutter-app/build/app/outputs/flutter-apk/similarity_quiz-signed.apk"
+        
+        # キーストアをデコード
+        echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+        
+        # zipalignで最適化
+        ${ANDROID_HOME}/build-tools/34.0.0/zipalign -v -p 4 "$UNSIGNED_APK" "${UNSIGNED_APK%.apk}-aligned.apk"
+        
+        # apksignerで署名
+        ${ANDROID_HOME}/build-tools/34.0.0/apksigner sign \
+          --ks release.keystore \
+          --ks-key-alias "$KEY_ALIAS" \
+          --ks-pass pass:"$KEYSTORE_PASSWORD" \
+          --key-pass pass:"$KEY_PASSWORD" \
+          --v4-signing-enabled true \
+          --out "$SIGNED_APK" \
+          "${UNSIGNED_APK%.apk}-aligned.apk"
+        
+        # 署名の検証
+        ${ANDROID_HOME}/build-tools/34.0.0/apksigner verify --verbose "$SIGNED_APK"
+        
+        # 一時ファイルをクリーンアップ
+        rm -f release.keystore "${UNSIGNED_APK%.apk}-aligned.apk"
+
+    - name: Rename unsigned APK (fallback)
+      if: env.KEYSTORE_BASE64 == ''
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      run: |
+        mv flutter-app/build/app/outputs/flutter-apk/app-release.apk flutter-app/build/app/outputs/flutter-apk/similarity_quiz-unsigned.apk
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
