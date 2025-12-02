@@ -12,8 +12,9 @@ class FirebaseSyncService {
   
   FirebaseSyncService._internal();
   
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  // 遅延初期化（Firebase.initializeApp()後に呼ばれるように）
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  FirebaseDatabase get _database => FirebaseDatabase.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   bool _googleSignInInitialized = false;
   
