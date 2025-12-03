@@ -50,7 +50,7 @@ class TestSetDownloadActivity : AppCompatActivity() {
         adapter.notifyDataSetChanged()
     }
     
-    private fun downloadTestSet(testSet: ZipTestSetService.Companion.TestSetInfo) {
+    private fun downloadTestSet(testSet: ZipTestSetService.TestSetInfo) {
         downloadingIds[testSet.id] = 0f
         adapter.notifyDataSetChanged()
         
@@ -80,7 +80,7 @@ class TestSetDownloadActivity : AppCompatActivity() {
         }
     }
     
-    private fun deleteTestSet(testSet: ZipTestSetService.Companion.TestSetInfo) {
+    private fun deleteTestSet(testSet: ZipTestSetService.TestSetInfo) {
         MaterialAlertDialogBuilder(this)
             .setTitle("削除確認")
             .setMessage("${testSet.displayName} を削除しますか？")
@@ -94,11 +94,11 @@ class TestSetDownloadActivity : AppCompatActivity() {
             .show()
     }
     
-    private fun startQuiz(testSet: ZipTestSetService.Companion.TestSetInfo) {
+    private fun startQuiz(testSet: ZipTestSetService.TestSetInfo) {
         showQuestionCountDialog(testSet)
     }
     
-    private fun showQuestionCountDialog(testSet: ZipTestSetService.Companion.TestSetInfo) {
+    private fun showQuestionCountDialog(testSet: ZipTestSetService.TestSetInfo) {
         val options = arrayOf("5問（お試し）", "10問", "15問", "20問")
         val counts = intArrayOf(5, 10, 15, 20)
         

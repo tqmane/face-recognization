@@ -7,6 +7,7 @@ import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.tqmane.similarityquiz.databinding.ActivityZipQuizBinding
+import kotlinx.coroutines.launch
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 
@@ -244,26 +245,23 @@ class ZipQuizActivity : AppCompatActivity() {
         
         // 履歴に保存
         val historyId = System.currentTimeMillis().toString()
-        val historyData = mapOf(
-            "id" to historyId,
-            "genre" to testSetName,
-            "responderName" to responderName,
-            "score" to score,
-            "total" to questions.size,
-            "timeMillis" to totalTime,
-            "timestamp" to System.currentTimeMillis(),
-            "questionResults" to questionResults.map { it.toMap() }
+        val historyData = QuizHistoryData(
+            id = historyId,
+            genre = testSetName,
+            responderName = responderName,
+            score = score,
+            total = questions.size,
+            timeMillis = totalTime,
+            timestamp = System.currentTimeMillis(),
+            questionResults = questionResults
         )
         
-        historyManager.addHistory(historyId, historyData)
-        
-        // 回答者名を履歴に追加
-        if (responderName.isNotEmpty()) {
-            historyManager.addResponderName(responderName)
-        }
+        historyManager.saveHistory(historyData)
         
         // Firebase同期
-        FirebaseSyncManager.getInstance(this).uploadHistory(historyData)
+        kotlinx.coroutines.GlobalScope.launch {
+            FirebaseSyncManager.getInstance(this@ZipQuizActivity).uploadHistory(historyData)
+        }
         
         // 結果画面へ
         val intent = android.content.Intent(this, ResultActivity::class.java).apply {
