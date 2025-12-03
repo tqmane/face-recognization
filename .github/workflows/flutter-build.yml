@@ -392,6 +392,54 @@ jobs:
             f.write(content)
         "
 
+    - name: Configure Android build for desugaring
+      working-directory: flutter-app
+      run: |
+        # app/build.gradle にcore library desugaring設定を追加
+        python3 -c "
+        with open('android/app/build.gradle', 'r') as f:
+            content = f.read()
+        
+        # compileOptionsにcoreLibraryDesugaringEnabledを追加
+        if 'coreLibraryDesugaringEnabled' not in content:
+            content = content.replace(
+                'compileOptions {',
+                'compileOptions {\n        coreLibraryDesugaringEnabled true'
+            )
+        
+        # Java 17に更新
+        content = content.replace('JavaVersion.VERSION_1_8', 'JavaVersion.VERSION_17')
+        content = content.replace(\"jvmTarget = '1.8'\", \"jvmTarget = '17'\")
+        
+        # multiDexEnabledを追加
+        if 'multiDexEnabled' not in content:
+            content = content.replace(
+                'versionName flutterVersionName',
+                'versionName flutterVersionName\n        multiDexEnabled true'
+            )
+        
+        # dependenciesにdesugar_jdk_libsを追加
+        if 'desugar_jdk_libs' not in content:
+            if 'dependencies {' in content:
+                content = content.replace(
+                    'dependencies {',
+                    \"dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\"
+                )
+            else:
+                content += \"\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n\"
+        
+        with open('android/app/build.gradle', 'w') as f:
+            f.write(content)
+        "
+        
+        # settings.gradleのKotlinバージョンを更新
+        sed -i 's/org.jetbrains.kotlin.android\" version \"[0-9.]*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/' android/settings.gradle
+        
+        # build.gradleのKotlinバージョンを更新
+        if [ -f "android/build.gradle" ]; then
+          sed -i "s/ext.kotlin_version = '[0-9.]*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
+        fi
+
     - name: Get dependencies
       working-directory: flutter-app
       run: flutter pub get
