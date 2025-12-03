@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/quiz_manager.dart';
 import '../services/test_set_manager.dart';
+import '../services/download_notification_service.dart';
 import 'quiz_screen.dart';
 import 'foul_edit_screen.dart';
 
@@ -244,7 +245,7 @@ class _TestSetScreenState extends State<TestSetScreen> {
                 title: Text(option.$1),
                 onTap: () {
                   Navigator.pop(context);
-                  _startDownload(genre, option.$2);
+                  _requestNotificationPermissionAndDownload(genre, option.$2);
                 },
               ),
           ],
@@ -262,7 +263,16 @@ class _TestSetScreenState extends State<TestSetScreen> {
     );
   }
 
+  Future<void> _requestNotificationPermissionAndDownload(Genre genre, int totalQuestions) async {
+    // 通知権限をリクエスト（Android 13以上で必要）
+    await DownloadNotificationService.instance.requestPermission();
+    // 権限の有無に関わらずダウンロードは開始
+    _startDownload(genre, totalQuestions);
+  }
+
   Future<void> _startDownload(Genre genre, int totalQuestions) async {
+    final notificationService = DownloadNotificationService.instance;
+    
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0;
@@ -270,6 +280,9 @@ class _TestSetScreenState extends State<TestSetScreen> {
       _downloadGenre = genre.displayName;
       _cancelRequested = false;
     });
+
+    // 通知を表示
+    await notificationService.showDownloadStarted(genre.displayName, totalQuestions);
 
     int lastProgress = 0;
     final success = await _testSetManager.createTestSet(
@@ -282,6 +295,8 @@ class _TestSetScreenState extends State<TestSetScreen> {
           setState(() {
             _downloadProgress = current;
           });
+          // 通知を更新
+          notificationService.updateProgress(genre.displayName, current, total);
         }
       },
     );
@@ -292,15 +307,22 @@ class _TestSetScreenState extends State<TestSetScreen> {
       });
 
       if (success > 0) {
+        // 完了通知
+        await notificationService.showDownloadComplete(genre.displayName, success);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${genre.displayName}の$success問を保存しました')),
         );
         _loadTestSets();
       } else {
+        // 失敗通知
+        await notificationService.showDownloadFailed(genre.displayName, '画像の取得に失敗しました');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ダウンロードに失敗しました')),
         );
       }
+    } else if (_cancelRequested) {
+      // キャンセル通知
+      await notificationService.showDownloadCanceled(genre.displayName);
     }
   }
 

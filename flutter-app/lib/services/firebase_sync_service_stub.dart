@@ -1,6 +1,15 @@
 import 'dart:async';
 import 'history_manager.dart';
 
+/// ダミーのユーザークラス（デスクトップ用）
+class StubUser {
+  final String uid;
+  final String? displayName;
+  final String? email;
+  
+  StubUser({required this.uid, this.displayName, this.email});
+}
+
 /// Firebase非対応プラットフォーム用のスタブ実装
 class FirebaseSyncService {
   static final FirebaseSyncService _instance = FirebaseSyncService._internal();
@@ -12,6 +21,7 @@ class FirebaseSyncService {
   bool get isSignedIn => false;
   
   // ユーザー情報（常にnull）
+  StubUser? get currentUser => null;
   String? get userDisplayName => null;
   String? get userEmail => null;
   
