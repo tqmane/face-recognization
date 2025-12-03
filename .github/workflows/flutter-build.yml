@@ -395,16 +395,63 @@ jobs:
     - name: Configure Android build for desugaring
       working-directory: flutter-app
       run: |
-        # デバッグ: ファイル構造を確認
-        echo "Current directory: $(pwd)"
-        echo "Android directory contents:"
-        ls -la android/ || echo "android/ not found"
-        ls -la android/app/ || echo "android/app/ not found"
+        # Kotlin DSL (.gradle.kts) または Groovy DSL (.gradle) の両方に対応
+        BUILD_FILE=""
+        if [ -f "android/app/build.gradle.kts" ]; then
+          BUILD_FILE="android/app/build.gradle.kts"
+          echo "Using Kotlin DSL: $BUILD_FILE"
+        elif [ -f "android/app/build.gradle" ]; then
+          BUILD_FILE="android/app/build.gradle"
+          echo "Using Groovy DSL: $BUILD_FILE"
+        else
+          echo "ERROR: No build.gradle found!"
+          ls -la android/app/
+          exit 1
+        fi
         
-        # app/build.gradle にcore library desugaring設定を追加
-        if [ -f "android/app/build.gradle" ]; then
+        # Kotlin DSL用の設定
+        if [[ "$BUILD_FILE" == *.kts ]]; then
           python3 -c "
-        with open('android/app/build.gradle', 'r') as f:
+        with open('$BUILD_FILE', 'r') as f:
+            content = f.read()
+        
+        # isCoreLibraryDesugaringEnabledを追加
+        if 'isCoreLibraryDesugaringEnabled' not in content:
+            content = content.replace(
+                'compileOptions {',
+                'compileOptions {\n        isCoreLibraryDesugaringEnabled = true'
+            )
+        
+        # multiDexEnabledを追加
+        if 'multiDexEnabled' not in content:
+            content = content.replace(
+                'defaultConfig {',
+                'defaultConfig {\n        multiDexEnabled = true'
+            )
+        
+        # dependenciesにdesugar_jdk_libsを追加
+        if 'desugar_jdk_libs' not in content:
+            if 'dependencies {' in content:
+                content = content.replace(
+                    'dependencies {',
+                    'dependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.0.4\")'
+                )
+            else:
+                content += '''
+
+        dependencies {
+            coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.0.4\")
+        }
+        '''
+        
+        with open('$BUILD_FILE', 'w') as f:
+            f.write(content)
+        print('build.gradle.kts updated successfully')
+        "
+        else
+          # Groovy DSL用の設定
+          python3 -c "
+        with open('$BUILD_FILE', 'r') as f:
             content = f.read()
         
         # compileOptionsにcoreLibraryDesugaringEnabledを追加
@@ -435,25 +482,19 @@ jobs:
             else:
                 content += \"\n\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n\"
         
-        with open('android/app/build.gradle', 'w') as f:
+        with open('$BUILD_FILE', 'w') as f:
             f.write(content)
-        print('app/build.gradle updated successfully')
+        print('build.gradle updated successfully')
         "
-        else
-          echo "ERROR: android/app/build.gradle not found!"
-          exit 1
         fi
         
-        # settings.gradleのKotlinバージョンを更新
-        if [ -f "android/settings.gradle" ]; then
+        # settings.gradle(.kts)のKotlinバージョンを更新
+        if [ -f "android/settings.gradle.kts" ]; then
+          sed -i 's/kotlin("android") version "[0-9.]*"/kotlin("android") version "1.9.22"/' android/settings.gradle.kts
+          echo "settings.gradle.kts updated"
+        elif [ -f "android/settings.gradle" ]; then
           sed -i 's/org.jetbrains.kotlin.android\" version \"[0-9.]*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/' android/settings.gradle
           echo "settings.gradle updated"
-        fi
-        
-        # build.gradleのKotlinバージョンを更新
-        if [ -f "android/build.gradle" ]; then
-          sed -i "s/ext.kotlin_version = '[0-9.]*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
-          echo "build.gradle updated"
         fi
 
     - name: Get dependencies
