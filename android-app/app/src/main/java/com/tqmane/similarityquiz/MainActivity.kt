@@ -10,6 +10,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var historyManager: HistoryManager
+    private lateinit var zipService: ZipTestSetService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,15 +21,16 @@ class MainActivity : AppCompatActivity() {
         AppSettings.init(this)
         
         historyManager = HistoryManager.getInstance(this)
+        zipService = ZipTestSetService(this)
 
-        // オンラインモード（問題数選択ダイアログ表示）
+        // テスト開始（ダウンロード済みテストセットから選択）
         binding.btnOnline.setOnClickListener {
-            showQuestionCountDialog()
+            showTestSetSelection()
         }
 
         // テストセット管理
         binding.btnTestSet.setOnClickListener {
-            startActivity(Intent(this, TestSetActivity::class.java))
+            startActivity(Intent(this, TestSetDownloadActivity::class.java))
         }
         
         // 履歴画面
@@ -44,41 +46,49 @@ class MainActivity : AppCompatActivity() {
         updateStats()
     }
 
-    private var selectedGenre: OnlineQuizManager.Genre = OnlineQuizManager.Genre.ALL
-
-    private fun showQuestionCountDialog() {
-        // まずジャンルを選択
-        showGenreDialog()
-    }
-
-    private fun showGenreDialog() {
-        val genres = OnlineQuizManager.Genre.values()
-        val options = genres.map { "${it.displayName}\n${it.description}" }.toTypedArray()
-
+    private fun showTestSetSelection() {
+        val downloaded = zipService.getDownloadedTestSets()
+        
+        if (downloaded.isEmpty()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("テストセットがありません")
+                .setMessage("まずテストセットをダウンロードしてください。")
+                .setPositiveButton("ダウンロード") { _, _ ->
+                    startActivity(Intent(this, TestSetDownloadActivity::class.java))
+                }
+                .setNegativeButton("キャンセル", null)
+                .show()
+            return
+        }
+        
+        val names = downloaded.map { "${it.displayName} (${it.imageCount}枚)" }.toTypedArray()
+        
         MaterialAlertDialogBuilder(this)
-            .setTitle("ジャンルを選択")
-            .setItems(genres.map { it.displayName }.toTypedArray()) { _, which ->
-                selectedGenre = genres[which]
-                showCountDialog()
+            .setTitle("テストセットを選択")
+            .setItems(names) { _, which ->
+                val testSet = downloaded[which]
+                showQuestionCountDialog(testSet)
             }
             .setNegativeButton("キャンセル", null)
             .show()
     }
-
-    private fun showCountDialog() {
-        val options = arrayOf("5問（お試し）", "10問", "20問", "50問")
-        val counts = intArrayOf(5, 10, 20, 50)
-
+    
+    private fun showQuestionCountDialog(testSet: ZipTestSetService.DownloadedTestSet) {
+        val options = arrayOf("5問（お試し）", "10問", "15問", "20問")
+        val counts = intArrayOf(5, 10, 15, 20)
+        
         MaterialAlertDialogBuilder(this)
-            .setTitle("問題数を選択")
+            .setTitle("${testSet.displayName} - 問題数")
             .setItems(options) { _, which ->
-                val intent = Intent(this, OnlineQuizActivity::class.java)
-                intent.putExtra("total_questions", counts[which])
-                intent.putExtra("genre", selectedGenre.name)
+                val intent = Intent(this, ZipQuizActivity::class.java).apply {
+                    putExtra("test_set_id", testSet.id)
+                    putExtra("test_set_name", testSet.displayName)
+                    putExtra("question_count", counts[which])
+                }
                 startActivity(intent)
             }
             .setNegativeButton("戻る") { _, _ ->
-                showGenreDialog()
+                showTestSetSelection()
             }
             .show()
     }
@@ -98,17 +108,6 @@ class MainActivity : AppCompatActivity() {
             binding.tvBestScore.text = sb.toString()
         } else {
             binding.tvBestScore.text = "まだ記録がありません"
-        }
-    }
-
-    private fun formatTime(millis: Long): String {
-        val seconds = millis / 1000
-        val minutes = seconds / 60
-        val secs = seconds % 60
-        return if (minutes > 0) {
-            "${minutes}分${secs}秒"
-        } else {
-            "${secs}秒"
         }
     }
 }

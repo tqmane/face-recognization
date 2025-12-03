@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
-import 'services/settings_service.dart';
 import 'services/firebase_sync_service.dart';
 import 'services/firebase_init.dart';
 import 'services/download_notification_service.dart';
@@ -27,8 +26,6 @@ void main() async {
   
   // 通知サービス初期化
   await DownloadNotificationService.instance.initialize();
-  
-  await SettingsService.instance.init();
   
   // サインイン済みなら同期を開始（モバイルのみ）
   if (_isMobile && FirebaseSyncService.instance.isSignedIn) {

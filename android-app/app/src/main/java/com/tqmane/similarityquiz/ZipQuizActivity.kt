@@ -1,0 +1,301 @@
+package com.tqmane.similarityquiz
+
+import android.graphics.BitmapFactory
+import android.os.Bundle
+import android.view.View
+import android.widget.EditText
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.tqmane.similarityquiz.databinding.ActivityZipQuizBinding
+import java.util.Timer
+import kotlin.concurrent.fixedRateTimer
+
+/**
+ * ZIPテストセット用のクイズ画面
+ * 2枚の画像を別々に表示し、同じ種類か違う種類かを判定
+ */
+class ZipQuizActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityZipQuizBinding
+    private lateinit var historyManager: HistoryManager
+    private lateinit var zipService: ZipTestSetService
+    
+    private var questions: List<ZipTestSetService.QuizQuestion> = emptyList()
+    private var currentIndex = 0
+    private var score = 0
+    
+    private var startTime = 0L
+    private var timer: Timer? = null
+    
+    private var testSetId: String = ""
+    private var testSetName: String = ""
+    private var questionCount: Int = 10
+    private var responderName: String = ""
+    
+    private val questionResults = mutableListOf<QuestionResultData>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityZipQuizBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        historyManager = HistoryManager.getInstance(this)
+        zipService = ZipTestSetService(this)
+        
+        testSetId = intent.getStringExtra("test_set_id") ?: ""
+        testSetName = intent.getStringExtra("test_set_name") ?: ""
+        questionCount = intent.getIntExtra("question_count", 10)
+        
+        if (testSetId.isEmpty()) {
+            finish()
+            return
+        }
+        
+        binding.toolbar.setNavigationOnClickListener { 
+            showExitConfirmDialog()
+        }
+        
+        binding.btnSame.setOnClickListener { answer(true) }
+        binding.btnDifferent.setOnClickListener { answer(false) }
+        
+        showNameInputDialog()
+    }
+    
+    private fun showNameInputDialog() {
+        val input = EditText(this).apply {
+            hint = "回答者名（任意）"
+            setPadding(48, 32, 48, 32)
+        }
+        
+        // 履歴から候補を取得
+        val recentNames = historyManager.getRecentResponderNames()
+        
+        if (recentNames.isNotEmpty()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("回答者名を入力")
+                .setView(input)
+                .setPositiveButton("開始") { _, _ ->
+                    responderName = input.text.toString().trim()
+                    startQuiz()
+                }
+                .setNeutralButton("履歴から選択") { _, _ ->
+                    showNameHistoryDialog()
+                }
+                .setNegativeButton("キャンセル") { _, _ -> finish() }
+                .setCancelable(false)
+                .show()
+        } else {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("回答者名を入力")
+                .setView(input)
+                .setPositiveButton("開始") { _, _ ->
+                    responderName = input.text.toString().trim()
+                    startQuiz()
+                }
+                .setNegativeButton("キャンセル") { _, _ -> finish() }
+                .setCancelable(false)
+                .show()
+        }
+    }
+    
+    private fun showNameHistoryDialog() {
+        val names = historyManager.getRecentResponderNames()
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle("回答者を選択")
+            .setItems(names.toTypedArray()) { _, which ->
+                responderName = names[which]
+                startQuiz()
+            }
+            .setNegativeButton("戻る") { _, _ ->
+                showNameInputDialog()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    private fun startQuiz() {
+        questions = zipService.generateQuestions(testSetId, questionCount)
+        
+        if (questions.isEmpty()) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("エラー")
+                .setMessage("問題を生成できませんでした")
+                .setPositiveButton("OK") { _, _ -> finish() }
+                .show()
+            return
+        }
+        
+        binding.toolbar.title = testSetName
+        
+        // カウントダウン
+        showCountdown()
+    }
+    
+    private fun showCountdown() {
+        binding.layoutCountdown.visibility = View.VISIBLE
+        binding.layoutQuiz.visibility = View.GONE
+        
+        var count = 3
+        binding.tvCountdown.text = count.toString()
+        
+        val countdownTimer = fixedRateTimer(period = 1000) {
+            runOnUiThread {
+                count--
+                if (count > 0) {
+                    binding.tvCountdown.text = count.toString()
+                } else {
+                    this.cancel()
+                    binding.layoutCountdown.visibility = View.GONE
+                    binding.layoutQuiz.visibility = View.VISIBLE
+                    startTime = System.currentTimeMillis()
+                    startTimer()
+                    showQuestion()
+                }
+            }
+        }
+    }
+    
+    private fun startTimer() {
+        timer = fixedRateTimer(period = 100) {
+            runOnUiThread {
+                val elapsed = System.currentTimeMillis() - startTime
+                val seconds = elapsed / 1000
+                val minutes = seconds / 60
+                val secs = seconds % 60
+                binding.tvTimer.text = String.format("%d:%02d", minutes, secs)
+            }
+        }
+    }
+    
+    private fun showQuestion() {
+        val question = questions[currentIndex]
+        
+        // 進捗更新
+        binding.tvProgress.text = "${currentIndex + 1} / ${questions.size}"
+        binding.progressBar.max = questions.size
+        binding.progressBar.progress = currentIndex + 1
+        binding.tvScore.text = "正解: $score"
+        
+        // 画像を読み込み
+        try {
+            val bitmap1 = BitmapFactory.decodeFile(question.image1Path)
+            val bitmap2 = BitmapFactory.decodeFile(question.image2Path)
+            binding.ivImage1.setImageBitmap(bitmap1)
+            binding.ivImage2.setImageBitmap(bitmap2)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        // ボタンを有効化
+        binding.btnSame.isEnabled = true
+        binding.btnDifferent.isEnabled = true
+    }
+    
+    private fun answer(answeredSame: Boolean) {
+        binding.btnSame.isEnabled = false
+        binding.btnDifferent.isEnabled = false
+        
+        val question = questions[currentIndex]
+        val isCorrect = (answeredSame == question.isSame)
+        
+        if (isCorrect) {
+            score++
+        }
+        
+        // 結果を記録
+        questionResults.add(QuestionResultData(
+            questionNumber = currentIndex + 1,
+            description = question.description,
+            isCorrect = isCorrect,
+            wasSame = question.isSame,
+            answeredSame = answeredSame
+        ))
+        
+        // フィードバック表示
+        showFeedback(isCorrect) {
+            if (currentIndex < questions.size - 1) {
+                currentIndex++
+                showQuestion()
+            } else {
+                finishQuiz()
+            }
+        }
+    }
+    
+    private fun showFeedback(isCorrect: Boolean, onComplete: () -> Unit) {
+        binding.layoutFeedback.visibility = View.VISIBLE
+        binding.tvFeedback.text = if (isCorrect) "○" else "×"
+        binding.tvFeedback.setTextColor(
+            if (isCorrect) getColor(android.R.color.holo_green_dark) 
+            else getColor(android.R.color.holo_red_dark)
+        )
+        
+        binding.layoutFeedback.postDelayed({
+            binding.layoutFeedback.visibility = View.GONE
+            onComplete()
+        }, 800)
+    }
+    
+    private fun finishQuiz() {
+        timer?.cancel()
+        
+        val totalTime = System.currentTimeMillis() - startTime
+        
+        // 履歴に保存
+        val historyId = System.currentTimeMillis().toString()
+        val historyData = mapOf(
+            "id" to historyId,
+            "genre" to testSetName,
+            "responderName" to responderName,
+            "score" to score,
+            "total" to questions.size,
+            "timeMillis" to totalTime,
+            "timestamp" to System.currentTimeMillis(),
+            "questionResults" to questionResults.map { it.toMap() }
+        )
+        
+        historyManager.addHistory(historyId, historyData)
+        
+        // 回答者名を履歴に追加
+        if (responderName.isNotEmpty()) {
+            historyManager.addResponderName(responderName)
+        }
+        
+        // Firebase同期
+        FirebaseSyncManager.getInstance(this).uploadHistory(historyData)
+        
+        // 結果画面へ
+        val intent = android.content.Intent(this, ResultActivity::class.java).apply {
+            putExtra("score", score)
+            putExtra("total", questions.size)
+            putExtra("time_millis", totalTime)
+            putExtra("genre", testSetName)
+            putExtra("responder_name", responderName)
+            putExtra("history_id", historyId)
+        }
+        startActivity(intent)
+        finish()
+    }
+    
+    private fun showExitConfirmDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("テスト中断")
+            .setMessage("テストを中断しますか？\n進捗は保存されません。")
+            .setPositiveButton("中断する") { _, _ -> 
+                timer?.cancel()
+                finish() 
+            }
+            .setNegativeButton("続ける", null)
+            .show()
+    }
+    
+    override fun onBackPressed() {
+        showExitConfirmDialog()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        timer?.cancel()
+    }
+}
