@@ -15,6 +15,7 @@ build/
 
 # Downloaded images
 downloaded_images/
+test_sets/
 
 # IDE
 .idea/

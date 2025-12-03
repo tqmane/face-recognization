@@ -95,3 +95,133 @@ $ python tools/image_downloader.py
 - インターネット接続が必要です
 - ダウンロードには時間がかかる場合があります
 - 画像の著作権にご注意ください（教育目的での使用を推奨）
+
+---
+
+# 信頼性の高い画像ダウンローダー（reliable_image_downloader.py）
+
+Androidアプリと同じ画像ソースを使用して、テストセット用の画像をダウンロードするツールです。
+
+## 特徴
+
+- **信頼性の高いAPI**を使用（Bingスクレイピングではなく）
+  - iNaturalist API（野生動物）
+  - GBIF API（生物多様性データ）
+  - The Dog API（犬種）
+  - The Cat API（猫種）
+  - Unsplash Source API（車など）
+  - Wikimedia Commons（ロゴ、フォールバック）
+
+## 実行方法
+
+```bash
+python tools/reliable_image_downloader.py
+```
+
+## メニュー
+
+### 1. 単一種の画像をダウンロード
+
+特定の種の画像のみをダウンロードします。
+
+```
+利用可能な種:
+  1. cheetah（チーター）
+  2. leopard（ヒョウ）
+  3. jaguar（ジャガー）
+  4. shiba_inu（柴犬）
+  ...
+```
+
+### 2. ジャンル全体をダウンロード
+
+ジャンル内のすべての種を一括ダウンロードします。
+
+```
+利用可能なジャンル:
+  1. SMALL_CATS - 小型ネコ科
+  2. DOGS - 犬種
+  3. WILD_DOGS - 野生のイヌ科
+  4. RACCOONS - アライグマ科
+  5. BIRDS - 鳥類
+  6. MARINE - 海洋動物
+  7. REPTILES - 爬虫類
+  8. BEARS - クマ科
+  9. PRIMATES - 霊長類
+  10. SIMILAR_PEOPLE - 似ている人
+  11. CARS - 車
+  12. LOGOS - ロゴ
+  13. INSECTS - 昆虫
+```
+
+### 3. すべてをダウンロード
+
+すべてのジャンル・種の画像をダウンロードします。
+
+### 4. 統計を表示
+
+ダウンロード済み画像の枚数を確認します。
+
+## 出力フォルダ構造
+
+ダウンロード後、手動で画像を選別してください。
+
+```
+test_sets/
+├── small_cats/
+│   ├── manifest.json
+│   ├── persian_cat/
+│   │   ├── 001.jpg
+│   │   ├── 002.jpg
+│   │   └── ...
+│   ├── british_shorthair/
+│   └── scottish_fold/
+├── dogs/
+│   ├── manifest.json
+│   ├── shiba/
+│   ├── akita/
+│   └── ...
+├── birds/
+│   ├── manifest.json
+│   ├── crow/
+│   ├── raven/
+│   └── ...
+└── ...
+```
+
+## API制限について
+
+- **iNaturalist**: レートリミットあり（0.3秒間隔で取得）
+- **Dog/Cat API**: 無料利用可能
+- **GBIF**: 無料利用可能
+- **Wikimedia**: フォールバック用
+
+## 例
+
+```bash
+$ python tools/reliable_image_downloader.py
+
+============================================================
+  テストセット画像ダウンローダー
+  (iNaturalist / GBIF / Dog API / Cat API / Wikimedia)
+============================================================
+
+【メニュー】
+1. ジャンル一覧を表示
+2. 特定のジャンルをダウンロード
+3. 全ジャンルをダウンロード
+4. 終了
+
+番号を入力: 2
+
+利用可能なジャンル:
+  small_cats      - ネコ科小型 (7 types)
+  dogs            - 犬種 (13 types)
+  wild_dogs       - 犬と野生 (11 types)
+  ...
+
+ジャンルIDを入力: dogs
+各タイプの画像数 (デフォルト: 20): 30
+
+ジャンル: 犬種 (dogs) の画像をダウンロード中...
+```
