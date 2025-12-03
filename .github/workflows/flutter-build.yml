@@ -395,8 +395,15 @@ jobs:
     - name: Configure Android build for desugaring
       working-directory: flutter-app
       run: |
+        # デバッグ: ファイル構造を確認
+        echo "Current directory: $(pwd)"
+        echo "Android directory contents:"
+        ls -la android/ || echo "android/ not found"
+        ls -la android/app/ || echo "android/app/ not found"
+        
         # app/build.gradle にcore library desugaring設定を追加
-        python3 -c "
+        if [ -f "android/app/build.gradle" ]; then
+          python3 -c "
         with open('android/app/build.gradle', 'r') as f:
             content = f.read()
         
@@ -430,14 +437,23 @@ jobs:
         
         with open('android/app/build.gradle', 'w') as f:
             f.write(content)
+        print('app/build.gradle updated successfully')
         "
+        else
+          echo "ERROR: android/app/build.gradle not found!"
+          exit 1
+        fi
         
         # settings.gradleのKotlinバージョンを更新
-        sed -i 's/org.jetbrains.kotlin.android\" version \"[0-9.]*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/' android/settings.gradle
+        if [ -f "android/settings.gradle" ]; then
+          sed -i 's/org.jetbrains.kotlin.android\" version \"[0-9.]*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/' android/settings.gradle
+          echo "settings.gradle updated"
+        fi
         
         # build.gradleのKotlinバージョンを更新
         if [ -f "android/build.gradle" ]; then
           sed -i "s/ext.kotlin_version = '[0-9.]*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
+          echo "build.gradle updated"
         fi
 
     - name: Get dependencies
