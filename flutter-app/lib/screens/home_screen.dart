@@ -245,9 +245,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     
     if (downloadedSets.isEmpty) {
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('テストセットがありません。まずダウンロードしてください。'),
+          duration: const Duration(milliseconds: 1500),
           action: SnackBarAction(
             label: 'ダウンロード',
             onPressed: () {
@@ -393,8 +395,12 @@ class _TestSetDownloadScreenState extends State<TestSetDownloadScreen> {
           _downloadedMap[testSet.id] = true;
           _downloadProgress.remove(testSet.id);
         });
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${testSet.displayName} をダウンロードしました')),
+          SnackBar(
+            content: Text('${testSet.displayName} をダウンロードしました'),
+            duration: const Duration(milliseconds: 1500),
+          ),
         );
       }
     } catch (e) {
@@ -402,8 +408,12 @@ class _TestSetDownloadScreenState extends State<TestSetDownloadScreen> {
         setState(() {
           _downloadProgress.remove(testSet.id);
         });
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ダウンロードエラー: $e')),
+          SnackBar(
+            content: Text('ダウンロードエラー: $e'),
+            duration: const Duration(milliseconds: 1500),
+          ),
         );
       }
     }
@@ -434,8 +444,12 @@ class _TestSetDownloadScreenState extends State<TestSetDownloadScreen> {
         _downloadedMap[testSet.id] = false;
       });
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${testSet.displayName} を削除しました')),
+          SnackBar(
+            content: Text('${testSet.displayName} を削除しました'),
+            duration: const Duration(milliseconds: 1500),
+          ),
         );
       }
     }
