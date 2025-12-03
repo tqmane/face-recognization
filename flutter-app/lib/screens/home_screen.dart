@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'quiz_screen.dart';
-import 'test_set_screen.dart';
+import 'zip_quiz_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
-import '../services/quiz_manager.dart';
+import '../services/zip_test_set_service.dart';
 import '../services/history_manager.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -182,14 +181,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 32),
                   
-                  // オンラインモードボタン
+                  // テストセット選択ボタン
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: FilledButton.icon(
-                      onPressed: () => _showQuizOptions(context),
-                      icon: const Icon(Icons.cloud_download),
-                      label: const Text('オンラインモード', style: TextStyle(fontSize: 17)),
+                      onPressed: () => _showTestSetSelection(context),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('テスト開始', style: TextStyle(fontSize: 17)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -203,17 +202,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const TestSetScreen(),
+                            builder: (context) => const TestSetDownloadScreen(),
                           ),
                         );
                       },
-                      icon: const Text('📦', style: TextStyle(fontSize: 20)),
-                      label: const Text('テストセット作成・管理', style: TextStyle(fontSize: 17)),
+                      icon: const Icon(Icons.download),
+                      label: const Text('テストセット管理', style: TextStyle(fontSize: 17)),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '事前ダウンロードで高速テスト',
+                    'テストセットをダウンロードして開始',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withOpacity(0.5),
                     ),
@@ -239,23 +238,68 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$secs秒';
   }
 
-  void _showQuizOptions(BuildContext context) {
+  void _showTestSetSelection(BuildContext context) async {
+    final service = ZipTestSetService();
+    final downloadedSets = await service.getDownloadedTestSets();
+    
+    if (!mounted) return;
+    
+    if (downloadedSets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('テストセットがありません。まずダウンロードしてください。'),
+          action: SnackBarAction(
+            label: 'ダウンロード',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TestSetDownloadScreen()),
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => _GenreSelectionDialog(
-        onSelected: (genre) {
-          Navigator.pop(context);
-          _showQuestionCountDialog(context, genre);
-        },
+      builder: (context) => AlertDialog(
+        title: const Text('テストセットを選択'),
+        content: SizedBox(
+          width: 300,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: downloadedSets.length,
+            itemBuilder: (context, index) {
+              final testSet = downloadedSets[index];
+              return ListTile(
+                leading: const Icon(Icons.folder),
+                title: Text(testSet.displayName),
+                subtitle: Text('${testSet.imageCount ?? 0}枚の画像'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showQuestionCountDialog(context, testSet);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+        ],
       ),
     );
   }
 
-  void _showQuestionCountDialog(BuildContext context, Genre genre) {
+  void _showQuestionCountDialog(BuildContext context, ZipTestSetInfo testSet) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('問題数を選択'),
+        title: Text('${testSet.displayName} - 問題数'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -272,8 +316,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => QuizScreen(
-                        genre: genre,
+                      builder: (context) => ZipQuizScreen(
+                        testSetId: testSet.id,
+                        testSetName: testSet.displayName,
                         questionCount: option.$2,
                       ),
                     ),
@@ -286,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _showQuizOptions(context);
+              _showTestSetSelection(context);
             },
             child: const Text('戻る'),
           ),
@@ -296,34 +341,170 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _GenreSelectionDialog extends StatelessWidget {
-  final Function(Genre) onSelected;
+/// テストセットダウンロード画面
+class TestSetDownloadScreen extends StatefulWidget {
+  const TestSetDownloadScreen({super.key});
 
-  const _GenreSelectionDialog({required this.onSelected});
+  @override
+  State<TestSetDownloadScreen> createState() => _TestSetDownloadScreenState();
+}
+
+class _TestSetDownloadScreenState extends State<TestSetDownloadScreen> {
+  final ZipTestSetService _service = ZipTestSetService();
+  Map<String, bool> _downloadedMap = {};
+  Map<String, double> _downloadProgress = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDownloadStatus();
+  }
+
+  Future<void> _checkDownloadStatus() async {
+    final downloaded = await _service.getDownloadedTestSets();
+    setState(() {
+      _downloadedMap = {
+        for (final set in downloaded) set.id: true,
+      };
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _downloadTestSet(ZipTestSetInfo testSet) async {
+    setState(() {
+      _downloadProgress[testSet.id] = 0.0;
+    });
+    
+    try {
+      await _service.downloadTestSet(
+        testSet,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _downloadProgress[testSet.id] = progress;
+            });
+          }
+        },
+      );
+      
+      if (mounted) {
+        setState(() {
+          _downloadedMap[testSet.id] = true;
+          _downloadProgress.remove(testSet.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${testSet.displayName} をダウンロードしました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _downloadProgress.remove(testSet.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ダウンロードエラー: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTestSet(ZipTestSetInfo testSet) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除確認'),
+        content: Text('${testSet.displayName} を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await _service.deleteTestSet(testSet.id);
+      setState(() {
+        _downloadedMap[testSet.id] = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${testSet.displayName} を削除しました')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('ジャンルを選択'),
-      content: SizedBox(
-        width: 300,
-        child: ListView(
-          shrinkWrap: true,
-          children: Genre.values.map((genre) {
-            return ListTile(
-              title: Text(genre.displayName),
-              subtitle: Text(genre.description, style: const TextStyle(fontSize: 12)),
-              onTap: () => onSelected(genre),
-            );
-          }).toList(),
-        ),
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('テストセット管理'),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('キャンセル'),
-        ),
-      ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: ZipTestSetService.availableTestSets.length,
+              itemBuilder: (context, index) {
+                final testSet = ZipTestSetService.availableTestSets[index];
+                final isDownloaded = _downloadedMap[testSet.id] ?? false;
+                final progress = _downloadProgress[testSet.id];
+                final isDownloading = progress != null;
+                
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isDownloaded
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
+                      child: Icon(
+                        isDownloaded ? Icons.check : Icons.download,
+                        color: isDownloaded
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                      ),
+                    ),
+                    title: Text(testSet.displayName),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(testSet.description),
+                        if (isDownloading)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: LinearProgressIndicator(value: progress),
+                          ),
+                      ],
+                    ),
+                    trailing: isDownloading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : isDownloaded
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _deleteTestSet(testSet),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.download),
+                                onPressed: () => _downloadTestSet(testSet),
+                              ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
