@@ -2,3 +2,6 @@
 requests>=2.28.0
 pillow>=9.0.0
 icrawler>=0.6.6
+
+# reliable_image_downloader.py用
+tqdm>=4.64.0
