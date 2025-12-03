@@ -25,7 +25,9 @@ import json
 import time
 import hashlib
 import requests
+import zipfile
 from pathlib import Path
+from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass, field, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -639,19 +641,281 @@ def download_genre(genre_id: str, images_per_type: int = IMAGES_PER_TYPE):
     print(f"✓ Genre '{genre_id}' complete!")
 
 
+def show_genre_stats(genre_id: str):
+    """ジャンルの画像統計を表示"""
+    if genre_id not in GENRES:
+        print(f"Unknown genre: {genre_id}")
+        return
+    
+    genre = GENRES[genre_id]
+    genre_dir = OUTPUT_DIR / genre_id
+    
+    if not genre_dir.exists():
+        print(f"ジャンルフォルダが存在しません: {genre_dir}")
+        return
+    
+    print(f"\n{'='*60}")
+    print(f"ジャンル: {genre.display_name} ({genre_id})")
+    print(f"{'='*60}")
+    
+    total_images = 0
+    min_count = float('inf')
+    max_count = 0
+    
+    for item in genre.items:
+        item_dir = genre_dir / item.id
+        if item_dir.exists():
+            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+        else:
+            count = 0
+        
+        total_images += count
+        min_count = min(min_count, count)
+        max_count = max(max_count, count)
+        
+        status = "✓" if count >= 10 else "△" if count > 0 else "✗"
+        print(f"  {status} {item.id:20} : {count:3} 枚  ({item.name_ja})")
+    
+    print(f"{'='*60}")
+    print(f"合計: {total_images} 枚")
+    print(f"最小: {min_count if min_count != float('inf') else 0} 枚, 最大: {max_count} 枚")
+    
+    return min_count if min_count != float('inf') else 0
+
+
+def refill_genre(genre_id: str, target_count: int):
+    """ジャンルの画像を目標枚数まで補填ダウンロード"""
+    if genre_id not in GENRES:
+        print(f"Unknown genre: {genre_id}")
+        return
+    
+    genre = GENRES[genre_id]
+    genre_dir = OUTPUT_DIR / genre_id
+    
+    if not genre_dir.exists():
+        print(f"ジャンルフォルダが存在しません。先にダウンロードを実行してください。")
+        return
+    
+    print(f"\n{'='*60}")
+    print(f"補填ダウンロード: {genre.display_name} ({genre_id})")
+    print(f"目標枚数: 各タイプ {target_count} 枚")
+    print(f"{'='*60}")
+    
+    for item in genre.items:
+        item_dir = genre_dir / item.id
+        item_dir.mkdir(exist_ok=True)
+        
+        # 既存の画像を確認
+        existing_files = sorted(item_dir.glob("*.jpg")) + sorted(item_dir.glob("*.png"))
+        current_count = len(existing_files)
+        
+        if current_count >= target_count:
+            print(f"\n  [{item.id}] {item.name_ja}: {current_count}枚 → スキップ")
+            continue
+        
+        needed = target_count - current_count
+        print(f"\n  [{item.id}] {item.name_ja}: {current_count}枚 → {needed}枚不足")
+        
+        # 既存のファイル名から次の番号を決定
+        max_num = 0
+        for f in existing_files:
+            try:
+                num = int(f.stem)
+                max_num = max(max_num, num)
+            except ValueError:
+                pass
+        
+        # 画像URLを取得（多めに取得）
+        urls = get_image_urls(item, max_results=needed * 3)
+        print(f"    Found {len(urls)} URLs")
+        
+        if not urls:
+            print(f"    WARNING: No URLs found!")
+            continue
+        
+        # 既存の画像のハッシュを取得（重複防止）
+        existing_hashes = set()
+        for f in existing_files:
+            try:
+                existing_hashes.add(hashlib.md5(f.read_bytes()).hexdigest()[:16])
+            except:
+                pass
+        
+        # ダウンロード
+        downloaded = 0
+        next_num = max_num + 1
+        
+        for url in urls:
+            if downloaded >= needed:
+                break
+            
+            # 一時的にダウンロードしてハッシュチェック
+            try:
+                response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+                if response.status_code != 200 or len(response.content) < 1000:
+                    continue
+                
+                # 重複チェック
+                content_hash = hashlib.md5(response.content).hexdigest()[:16]
+                if content_hash in existing_hashes:
+                    print(f"    スキップ（重複）: {url[:50]}...")
+                    continue
+                
+                # 保存
+                save_path = item_dir / f"{next_num:03d}.jpg"
+                save_path.write_bytes(response.content)
+                existing_hashes.add(content_hash)
+                
+                downloaded += 1
+                next_num += 1
+                print(f"    Downloaded: {save_path.name}")
+                
+            except Exception as e:
+                print(f"    Error: {e}")
+            
+            time.sleep(0.3)
+        
+        print(f"    補填完了: +{downloaded}枚 (計 {current_count + downloaded}枚)")
+    
+    # manifest.jsonを更新
+    update_manifest(genre_id)
+    print(f"\n✓ 補填ダウンロード完了!")
+
+
+def update_manifest(genre_id: str):
+    """manifest.jsonを現在の状態に更新"""
+    if genre_id not in GENRES:
+        return
+    
+    genre = GENRES[genre_id]
+    genre_dir = OUTPUT_DIR / genre_id
+    
+    manifest = {
+        "version": 1,
+        "genre": genre_id,
+        "display_name": genre.display_name,
+        "description": genre.description,
+        "types": {},
+        "similar_pairs": [{"id1": p.id1, "id2": p.id2} for p in genre.similar_pairs],
+    }
+    
+    for item in genre.items:
+        item_dir = genre_dir / item.id
+        if item_dir.exists():
+            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+        else:
+            count = 0
+        
+        manifest["types"][item.id] = {
+            "display_name": item.name_ja,
+            "count": count,
+        }
+    
+    manifest_path = genre_dir / "manifest.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+
 def list_genres():
-    """利用可能なジャンル一覧を表示"""
+    """利用可能なジャンル一覧を表示（番号付き）"""
     print("\n利用可能なジャンル:")
     print("-" * 50)
-    for genre_id, genre in GENRES.items():
-        print(f"  {genre_id:15} - {genre.display_name} ({len(genre.items)} types)")
+    genre_list = list(GENRES.items())
+    for i, (genre_id, genre) in enumerate(genre_list, 1):
+        print(f"  {i:2}. {genre_id:15} - {genre.display_name} ({len(genre.items)} types)")
     print("-" * 50)
+    return genre_list
+
+
+def select_genre():
+    """番号またはIDでジャンルを選択"""
+    genre_list = list_genres()
+    selection = input("\nジャンル番号またはIDを入力: ").strip()
+    
+    # 番号で選択
+    if selection.isdigit():
+        idx = int(selection) - 1
+        if 0 <= idx < len(genre_list):
+            return genre_list[idx][0]  # genre_id を返す
+        else:
+            print(f"無効な番号です（1-{len(genre_list)}の範囲で入力してください）")
+            return None
+    # IDで選択
+    elif selection in GENRES:
+        return selection
+    else:
+        print(f"無効な選択です: {selection}")
+        return None
 
 
 def download_all_genres(images_per_type: int = IMAGES_PER_TYPE):
     """全ジャンルをダウンロード"""
     for genre_id in GENRES.keys():
         download_genre(genre_id, images_per_type)
+
+
+def create_genre_zip(genre_id: str) -> Optional[Path]:
+    """ジャンルフォルダからZIPファイルを作成"""
+    if genre_id not in GENRES:
+        print(f"Unknown genre: {genre_id}")
+        return None
+    
+    genre = GENRES[genre_id]
+    genre_dir = OUTPUT_DIR / genre_id
+    
+    if not genre_dir.exists():
+        print(f"ジャンルフォルダが存在しません: {genre_dir}")
+        print("先にダウンロードを実行してください")
+        return None
+    
+    # 画像数をカウント
+    image_count = 0
+    for item_dir in genre_dir.iterdir():
+        if item_dir.is_dir():
+            image_count += len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+    
+    if image_count == 0:
+        print(f"画像がありません: {genre_dir}")
+        return None
+    
+    # ZIPファイル名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"{genre_id}_{timestamp}.zip"
+    zip_path = OUTPUT_DIR / zip_name
+    
+    print(f"\nZIP作成中: {zip_name}")
+    print(f"  画像数: {image_count}")
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # manifest.jsonを追加
+        manifest_path = genre_dir / "manifest.json"
+        if manifest_path.exists():
+            zf.write(manifest_path, "manifest.json")
+        
+        # 各タイプのフォルダと画像を追加
+        for item_dir in sorted(genre_dir.iterdir()):
+            if item_dir.is_dir():
+                item_id = item_dir.name
+                for img_file in sorted(item_dir.glob("*")):
+                    if img_file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+                        arcname = f"{item_id}/{img_file.name}"
+                        zf.write(img_file, arcname)
+                        print(f"    追加: {arcname}")
+    
+    print(f"\n✓ ZIP作成完了: {zip_path}")
+    print(f"  サイズ: {zip_path.stat().st_size / 1024 / 1024:.2f} MB")
+    
+    return zip_path
+
+
+def create_all_genre_zips():
+    """全ジャンルのZIPを作成"""
+    for genre_id in GENRES.keys():
+        genre_dir = OUTPUT_DIR / genre_id
+        if genre_dir.exists():
+            create_genre_zip(genre_id)
+        else:
+            print(f"スキップ（未ダウンロード）: {genre_id}")
 
 
 def main():
@@ -663,30 +927,55 @@ def main():
     
     OUTPUT_DIR.mkdir(exist_ok=True)
     
-    print("\n【メニュー】")
-    print("1. ジャンル一覧を表示")
-    print("2. 特定のジャンルをダウンロード")
-    print("3. 全ジャンルをダウンロード")
-    print("4. 終了")
-    
-    choice = input("\n番号を入力: ").strip()
-    
-    if choice == "1":
-        list_genres()
-    elif choice == "2":
-        list_genres()
-        genre_id = input("\nジャンルIDを入力: ").strip()
-        num = input(f"各タイプの画像数 (デフォルト: {IMAGES_PER_TYPE}): ").strip()
-        num = int(num) if num else IMAGES_PER_TYPE
-        download_genre(genre_id, num)
-    elif choice == "3":
-        num = input(f"各タイプの画像数 (デフォルト: {IMAGES_PER_TYPE}): ").strip()
-        num = int(num) if num else IMAGES_PER_TYPE
-        download_all_genres(num)
-    elif choice == "4":
-        print("終了します")
-    else:
-        print("無効な選択です")
+    while True:
+        print("\n【メニュー】")
+        print("1. ジャンル一覧を表示")
+        print("2. 特定のジャンルをダウンロード")
+        print("3. 全ジャンルをダウンロード")
+        print("4. 統計を表示（画像枚数確認）")
+        print("5. 補填ダウンロード（不足分を追加）")
+        print("6. 特定のジャンルをZIP化")
+        print("7. 全ジャンルをZIP化")
+        print("0. 終了")
+        
+        choice = input("\n番号を入力: ").strip()
+        
+        if choice == "1":
+            list_genres()
+        elif choice == "2":
+            genre_id = select_genre()
+            if genre_id:
+                num = input(f"各タイプの画像数 (デフォルト: {IMAGES_PER_TYPE}): ").strip()
+                num = int(num) if num else IMAGES_PER_TYPE
+                download_genre(genre_id, num)
+        elif choice == "3":
+            num = input(f"各タイプの画像数 (デフォルト: {IMAGES_PER_TYPE}): ").strip()
+            num = int(num) if num else IMAGES_PER_TYPE
+            download_all_genres(num)
+        elif choice == "4":
+            genre_id = select_genre()
+            if genre_id:
+                show_genre_stats(genre_id)
+        elif choice == "5":
+            genre_id = select_genre()
+            if genre_id:
+                # 現在の状態を表示
+                min_count = show_genre_stats(genre_id)
+                print(f"\n現在の最小枚数: {min_count}枚")
+                target = input(f"目標枚数を入力 (デフォルト: {IMAGES_PER_TYPE}): ").strip()
+                target = int(target) if target else IMAGES_PER_TYPE
+                refill_genre(genre_id, target)
+        elif choice == "6":
+            genre_id = select_genre()
+            if genre_id:
+                create_genre_zip(genre_id)
+        elif choice == "7":
+            create_all_genre_zips()
+        elif choice == "0":
+            print("終了します")
+            break
+        else:
+            print("無効な選択です")
 
 
 if __name__ == "__main__":
