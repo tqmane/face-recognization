@@ -6,6 +6,7 @@ import 'screens/home_screen.dart';
 import 'services/settings_service.dart';
 import 'services/firebase_sync_service.dart';
 import 'services/firebase_init.dart';
+import 'services/download_notification_service.dart';
 
 bool get _isMobile {
   if (kIsWeb) return false;
@@ -23,6 +24,9 @@ void main() async {
   if (_isMobile) {
     await initializeFirebase();
   }
+  
+  // 通知サービス初期化
+  await DownloadNotificationService.instance.initialize();
   
   await SettingsService.instance.init();
   
