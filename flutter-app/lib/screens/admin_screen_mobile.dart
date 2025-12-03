@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/firebase_sync_service.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -116,6 +117,56 @@ class _AdminScreenState extends State<AdminScreen> {
       });
     }
   }
+  
+  void _showCurrentUid() {
+    final uid = FirebaseSyncService.instance.currentUser?.uid ?? '不明';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('あなたのUID'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('このUIDを管理者として設定できます:'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      uid,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 20),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: uid));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('UIDをコピーしました'), duration: Duration(seconds: 1)),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,11 +176,18 @@ class _AdminScreenState extends State<AdminScreen> {
       appBar: AppBar(
         title: const Text('管理者画面'),
         actions: [
-          if (!_isLoading && _errorMessage == null)
+          if (!_isLoading && _errorMessage == null) ...[
             IconButton(
               icon: const Icon(Icons.refresh),
+              tooltip: '更新',
               onPressed: _loadAllUsersData,
             ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'あなたのUID',
+              onPressed: _showCurrentUid,
+            ),
+          ],
         ],
       ),
       body: _buildBody(colorScheme),
@@ -285,59 +343,129 @@ class _AdminScreenState extends State<AdminScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ジャンル別統計
+          // UID別全回答者平均（独立セクション）
+          if (user.histories.isNotEmpty) ...[
+            Text('UID別全回答者平均', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+            const SizedBox(height: 8),
+            _buildStatsTable({'全回答者平均': user.overallStats}, colorScheme),
+            const SizedBox(height: 16),
+          ],
+          // ジャンル別統計（テーブル形式）
           if (user.genreStats.isNotEmpty) ...[
-            Text('ジャンル別', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+            Text('ジャンル別統計', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
             const SizedBox(height: 8),
-            ...user.genreStats.entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${e.key}: ${e.value.plays}回 (${e.value.averageScore.toStringAsFixed(1)}%)',
-                style: const TextStyle(fontSize: 13),
-              ),
-            )),
-            const SizedBox(height: 12),
+            _buildStatsTable(user.genreStats, colorScheme),
+            const SizedBox(height: 16),
           ],
-          // 回答者別統計
+          // 回答者別統計（テーブル形式）
           if (user.responderStats.isNotEmpty) ...[
-            Text('回答者別', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+            Text('回答者別統計', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
             const SizedBox(height: 8),
-            ...user.responderStats.entries.take(5).map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '${e.key.isEmpty ? "(未入力)" : e.key}: ${e.value.plays}回 (${e.value.averageScore.toStringAsFixed(1)}%)',
-                style: const TextStyle(fontSize: 13),
-              ),
-            )),
-            const SizedBox(height: 8),
-            // 全回答者平均
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '📊 全回答者平均: ${user.averageScore.toStringAsFixed(1)}% (${user.totalPlays}回)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-            ),
+            _buildStatsTable(user.responderStats, colorScheme, isResponder: true),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 12),
           // 最近のプレイ履歴
-          Text('最近のプレイ', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
+          Text('最近のプレイ履歴', style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary)),
           const SizedBox(height: 8),
-          ...user.histories.take(5).map((h) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '${_formatDate(h.timestamp)} - ${h.genre}: ${h.score}/${h.total} (${h.responderName.isEmpty ? "-" : h.responderName})',
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
             ),
-          )),
+            child: Column(
+              children: [
+                // ヘッダー
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(7),
+                      topRight: Radius.circular(7),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(flex: 2, child: Text('日時', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                      const Expanded(flex: 2, child: Text('ジャンル', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                      const Expanded(flex: 2, child: Text('回答者', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                      const Expanded(flex: 1, child: Text('結果', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                      const Expanded(flex: 1, child: Text('時間', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                    ],
+                  ),
+                ),
+                // データ行
+                ...user.histories.take(10).map((h) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5))),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: Text(_formatDate(h.timestamp), style: const TextStyle(fontSize: 10, fontFamily: 'monospace'))),
+                      Expanded(flex: 2, child: Text(h.genre, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+                      Expanded(flex: 2, child: Text(h.responderName.isEmpty ? '-' : h.responderName, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+                      Expanded(flex: 1, child: Text('${h.score}/${h.total}', style: const TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(_formatTime(h.timeMillis), style: const TextStyle(fontSize: 10), textAlign: TextAlign.center)),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildStatsTable(Map<String, _GenreStats> stats, ColorScheme colorScheme, {bool isResponder = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // ヘッダー
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text(isResponder ? '回答者' : 'ジャンル', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                const Expanded(flex: 1, child: Text('回数', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                const Expanded(flex: 2, child: Text('正答率', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                const Expanded(flex: 1, child: Text('平均点', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                const Expanded(flex: 2, child: Text('平均時間', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+              ],
+            ),
+          ),
+          // データ行
+          ...stats.entries.map((e) {
+            final name = e.key.isEmpty ? '(未入力)' : e.key;
+            final stat = e.value;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: Text(name, style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis)),
+                  Expanded(flex: 1, child: Text('${stat.plays}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 2, child: Text('${stat.averageScore.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(stat.averagePoints.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 2, child: Text(stat.formattedAverageTime, style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -346,6 +474,13 @@ class _AdminScreenState extends State<AdminScreen> {
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
     return '${date.month}/${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+  
+  String _formatTime(int millis) {
+    final seconds = millis ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 }
 
@@ -358,12 +493,26 @@ class _UserData {
 
   int get totalPlays => histories.length;
   int get totalQuestions => histories.fold(0, (sum, h) => sum + h.total);
+  int get totalScore => histories.fold(0, (sum, h) => sum + h.score);
+  int get totalTimeMillis => histories.fold(0, (sum, h) => sum + h.timeMillis);
   
   double get averageScore {
     if (histories.isEmpty) return 0.0;
-    final totalScore = histories.fold(0, (sum, h) => sum + h.score);
-    final totalQ = histories.fold(0, (sum, h) => sum + h.total);
-    return totalQ > 0 ? (totalScore / totalQ) * 100 : 0.0;
+    return totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0.0;
+  }
+  
+  double get averagePoints {
+    if (histories.isEmpty) return 0.0;
+    return totalScore / histories.length;
+  }
+  
+  String get formattedAverageTime {
+    if (histories.isEmpty) return '0:00';
+    final avgMillis = totalTimeMillis ~/ histories.length;
+    final seconds = avgMillis ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 
   Map<String, _GenreStats> get genreStats {
@@ -378,6 +527,15 @@ class _UserData {
     final stats = <String, _GenreStats>{};
     for (final h in histories) {
       stats.putIfAbsent(h.responderName, () => _GenreStats()).add(h);
+    }
+    return stats;
+  }
+
+  // UID別全回答者平均
+  _GenreStats get overallStats {
+    final stats = _GenreStats();
+    for (final h in histories) {
+      stats.add(h);
     }
     return stats;
   }
@@ -407,13 +565,27 @@ class _GenreStats {
   int plays = 0;
   int totalScore = 0;
   int totalQuestions = 0;
+  int totalTimeMillis = 0;
 
   void add(_HistoryData h) {
     plays++;
     totalScore += h.score;
     totalQuestions += h.total;
+    totalTimeMillis += h.timeMillis;
   }
 
   double get averageScore => 
       totalQuestions > 0 ? (totalScore / totalQuestions) * 100 : 0.0;
+  
+  double get averagePoints => 
+      plays > 0 ? totalScore / plays : 0.0;
+  
+  String get formattedAverageTime {
+    if (plays == 0) return '0:00';
+    final avgMillis = totalTimeMillis ~/ plays;
+    final seconds = avgMillis ~/ 1000;
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
 }

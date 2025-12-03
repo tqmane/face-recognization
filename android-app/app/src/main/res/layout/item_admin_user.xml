@@ -90,6 +90,24 @@
                 android:background="@color/divider"
                 android:layout_marginBottom="12dp" />
 
+            <!-- UID別全回答者平均 -->
+            <TextView
+                android:id="@+id/tvOverallAverageLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="UID別全回答者平均:"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <LinearLayout
+                android:id="@+id/layoutOverallAverage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp" />
+
             <!-- ジャンル別統計 -->
             <TextView
                 android:id="@+id/tvGenreLabel"
