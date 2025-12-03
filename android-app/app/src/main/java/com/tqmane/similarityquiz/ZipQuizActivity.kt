@@ -63,7 +63,7 @@ class ZipQuizActivity : AppCompatActivity() {
     
     private fun showNameInputDialog() {
         val input = EditText(this).apply {
-            hint = "回答者名（任意）"
+            hint = "入力しなくても大丈夫です"
             setPadding(48, 32, 48, 32)
         }
         
@@ -72,7 +72,7 @@ class ZipQuizActivity : AppCompatActivity() {
         
         if (recentNames.isNotEmpty()) {
             MaterialAlertDialogBuilder(this)
-                .setTitle("回答者名を入力")
+                .setTitle("回答者名")
                 .setView(input)
                 .setPositiveButton("開始") { _, _ ->
                     responderName = input.text.toString().trim()
@@ -86,7 +86,7 @@ class ZipQuizActivity : AppCompatActivity() {
                 .show()
         } else {
             MaterialAlertDialogBuilder(this)
-                .setTitle("回答者名を入力")
+                .setTitle("回答者名")
                 .setView(input)
                 .setPositiveButton("開始") { _, _ ->
                     responderName = input.text.toString().trim()

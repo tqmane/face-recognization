@@ -309,6 +309,23 @@ class _AdminScreenState extends State<AdminScreen> {
                 style: const TextStyle(fontSize: 13),
               ),
             )),
+            const SizedBox(height: 8),
+            // 全回答者平均
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '📊 全回答者平均: ${user.averageScore.toStringAsFixed(1)}% (${user.totalPlays}回)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           // 最近のプレイ履歴

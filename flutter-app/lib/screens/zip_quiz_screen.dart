@@ -292,19 +292,28 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
               const SizedBox(height: 32),
               TextField(
                 decoration: const InputDecoration(
-                  labelText: '名前（任意）',
-                  hintText: '結果に名前を記録します',
+                  labelText: '名前',
+                  hintText: '入力しなくても大丈夫です',
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) => _responderName = value,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
                   onPressed: _startCountdown,
                   child: const Text('スタート', style: TextStyle(fontSize: 18)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('キャンセル', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],
