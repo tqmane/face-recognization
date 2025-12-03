@@ -1,5 +1,8 @@
 package com.tqmane.similarityquiz
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,6 +10,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -49,6 +54,38 @@ class AdminActivity : AppCompatActivity() {
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener { finish() }
         binding.btnRefresh.setOnClickListener { loadAllUsersData() }
+        
+        // UID情報メニューアイテムを追加
+        binding.toolbar.inflateMenu(R.menu.menu_admin)
+        binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_show_uid -> {
+                    showCurrentUidDialog()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
+    private fun showCurrentUidDialog() {
+        val currentUser = syncManager.currentUser
+        if (currentUser == null) {
+            Toast.makeText(this, "ログインしていません", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("現在のUID")
+            .setMessage(currentUser.uid)
+            .setPositiveButton("コピー") { _, _ ->
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("UID", currentUser.uid)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this, "UIDをコピーしました", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("閉じる", null)
+            .show()
     }
     
     private fun setupRecyclerView() {
@@ -198,6 +235,15 @@ class AdminActivity : AppCompatActivity() {
             }
             return stats
         }
+        
+        // UID別全回答者平均
+        val overallStats: GenreStats get() {
+            val stats = GenreStats()
+            for (h in histories) {
+                stats.add(h)
+            }
+            return stats
+        }
     }
     
     data class HistoryData(
@@ -295,6 +341,18 @@ class AdminActivity : AppCompatActivity() {
             }
             
             private fun bindDetails(user: UserData) {
+                // UID別全回答者平均
+                binding.layoutOverallAverage.removeAllViews()
+                if (user.histories.isNotEmpty()) {
+                    binding.tvOverallAverageLabel.visibility = View.VISIBLE
+                    binding.layoutOverallAverage.visibility = View.VISIBLE
+                    addStatsHeader(binding.layoutOverallAverage)
+                    addDetailedStatRow(binding.layoutOverallAverage, "全回答者平均", user.overallStats)
+                } else {
+                    binding.tvOverallAverageLabel.visibility = View.GONE
+                    binding.layoutOverallAverage.visibility = View.GONE
+                }
+                
                 // ジャンル別統計
                 binding.layoutGenreStats.removeAllViews()
                 if (user.genreStats.isEmpty()) {
@@ -326,7 +384,7 @@ class AdminActivity : AppCompatActivity() {
                 
                 // 最近のプレイ
                 binding.layoutRecentPlays.removeAllViews()
-                for (history in user.histories.take(5)) {
+                for (history in user.histories.take(10)) {
                     val label = if (history.responderName.isNotEmpty()) {
                         "${history.genre} (${history.responderName})"
                     } else {
