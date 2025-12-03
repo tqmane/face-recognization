@@ -139,6 +139,8 @@ jobs:
         Copy-Item lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart -Force
         # Firebase同期サービスをスタブに置き換え
         Copy-Item lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart -Force
+        # 管理者画面をスタブに置き換え
+        Copy-Item lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart -Force
 
     - name: Set Windows app icon
       working-directory: flutter-app
@@ -217,6 +219,8 @@ jobs:
         cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
         # Firebase同期サービスをスタブに置き換え
         cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+        # 管理者画面をスタブに置き換え
+        cp lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart
 
     - name: Clean and get dependencies
       working-directory: flutter-app
