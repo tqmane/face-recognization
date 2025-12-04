@@ -84,11 +84,8 @@ class ResultActivity : AppCompatActivity() {
             finish()
         }
 
-        // もう一度ボタン（オンラインモードのみ）
-        binding.btnRetry.setOnClickListener {
-            startActivity(android.content.Intent(this, OnlineQuizActivity::class.java))
-            finish()
-        }
+        // もう一度ボタンを非表示（オンラインモードは廃止）
+        binding.btnRetry.visibility = View.GONE
     }
 
     private fun formatTime(millis: Long): String {
