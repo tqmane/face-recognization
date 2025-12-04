@@ -1,0 +1,115 @@
+<resources>
+    <string name="app_name">판별 퀴즈</string>
+    
+    <!-- 홈 화면 -->
+    <string name="home">홈</string>
+    <string name="select_test_set">테스트 세트 선택</string>
+    <string name="no_test_sets">테스트 세트가 없습니다</string>
+    <string name="download_test_sets">테스트 세트를 다운로드하세요</string>
+    <string name="question_count">문제 수</string>
+    <string name="start">시작</string>
+    
+    <!-- 테스트 세트 -->
+    <string name="test_sets">테스트 세트</string>
+    <string name="download_test_set">테스트 세트 다운로드</string>
+    <string name="downloading">다운로드 중…</string>
+    <string name="downloaded">다운로드 완료</string>
+    <string name="download">다운로드</string>
+    <string name="delete">삭제</string>
+    <string name="delete_confirm">삭제하시겠습니까?</string>
+    <string name="cancel">취소</string>
+    
+    <!-- 퀴즈 화면 -->
+    <string name="quiz">퀴즈</string>
+    <string name="score">점수</string>
+    <string name="same">같음</string>
+    <string name="different">다름</string>
+    <string name="correct">정답!</string>
+    <string name="incorrect">오답</string>
+    <string name="image_a">이미지 A</string>
+    <string name="image_b">이미지 B</string>
+    <string name="quiz_question">A와 B는 같은 종류입니까?</string>
+    
+    <!-- 중단 -->
+    <string name="quit_quiz">퀴즈 중단</string>
+    <string name="quit_quiz_message">퀴즈를 중단하시겠습니까?\n진행 상황이 저장되지 않습니다.</string>
+    <string name="quit">중단</string>
+    <string name="continue_quiz">계속</string>
+    
+    <!-- 결과 화면 -->
+    <string name="result">결과</string>
+    <string name="excellent">훌륭합니다!</string>
+    <string name="good">잘했습니다!</string>
+    <string name="average">괜찮아요</string>
+    <string name="try_again">다시 도전!</string>
+    <string name="correct_answers">개 정답</string>
+    <string name="accuracy">정답률</string>
+    <string name="time">시간</string>
+    <string name="genre">장르</string>
+    <string name="question_results">문제별 결과</string>
+    <string name="back_to_home">홈으로</string>
+    <string name="correct_answer">정답</string>
+    <string name="your_answer">내 답</string>
+    
+    <!-- 기록 화면 -->
+    <string name="history">기록</string>
+    <string name="no_history">기록이 없습니다</string>
+    <string name="play_quiz_first">퀴즈를 플레이하세요</string>
+    <string name="delete_history">기록 삭제</string>
+    <string name="delete_history_confirm">이 기록을 삭제하시겠습니까?</string>
+    <string name="delete_all_history">모든 기록 삭제</string>
+    <string name="delete_all_history_confirm">모든 기록을 삭제하시겠습니까?</string>
+    
+    <!-- 설정 화면 -->
+    <string name="settings">설정</string>
+    <string name="cloud_sync">클라우드 동기화</string>
+    <string name="sign_in">로그인</string>
+    <string name="sign_out">로그아웃</string>
+    <string name="signed_in_as">로그인됨</string>
+    <string name="not_signed_in">로그인되지 않음</string>
+    <string name="admin">관리자 패널</string>
+    
+    <!-- 동기화 화면 -->
+    <string name="sync_title">클라우드 동기화</string>
+    <string name="sync_description">Google로 로그인하여 기록 동기화</string>
+    <string name="sign_in_with_google">Google로 로그인</string>
+    <string name="sync_now">지금 동기화</string>
+    <string name="last_sync">마지막 동기화</string>
+    <string name="never">없음</string>
+    
+    <!-- 관리자 패널 -->
+    <string name="admin_panel">관리자 패널</string>
+    <string name="users">사용자</string>
+    <string name="total_plays">총 플레이</string>
+    <string name="total_questions">총 문제</string>
+    <string name="refresh">새로고침</string>
+    <string name="no_permission">접근 권한이 없습니다</string>
+    <string name="not_logged_in">로그인되지 않음</string>
+    <string name="no_data">데이터가 없습니다</string>
+    <string name="uid_overall_average">UID별 전체 평균</string>
+    <string name="genre_stats">장르별 통계</string>
+    <string name="responder_stats">응답자별 통계</string>
+    <string name="recent_plays">최근 플레이</string>
+    <string name="plays">횟수</string>
+    <string name="avg_points">평균 점수</string>
+    <string name="avg_time">시간</string>
+    <string name="all_responder_avg">전체 응답자 평균</string>
+    <string name="your_uid">내 UID</string>
+    <string name="copy_uid">복사</string>
+    <string name="uid_copied">UID 복사됨</string>
+    <string name="close">닫기</string>
+    
+    <!-- 응답자 이름 -->
+    <string name="responder_name">이름</string>
+    <string name="responder_name_hint">선택사항</string>
+    <string name="select_from_history">기록에서 선택</string>
+    <string name="select_responder">응답자 선택</string>
+    <string name="back">뒤로</string>
+    <string name="unset">(미설정)</string>
+    
+    <!-- 오류 -->
+    <string name="error">오류</string>
+    <string name="load_error">로드 실패</string>
+    <string name="network_error">네트워크 오류</string>
+    <string name="ok">확인</string>
+</resources>

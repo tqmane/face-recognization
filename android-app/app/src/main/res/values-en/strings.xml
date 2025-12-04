@@ -1,0 +1,115 @@
+<resources>
+    <string name="app_name">Similarity Quiz</string>
+    
+    <!-- Home screen -->
+    <string name="home">Home</string>
+    <string name="select_test_set">Select Test Set</string>
+    <string name="no_test_sets">No test sets available</string>
+    <string name="download_test_sets">Please download test sets</string>
+    <string name="question_count">Questions</string>
+    <string name="start">Start</string>
+    
+    <!-- Test sets -->
+    <string name="test_sets">Test Sets</string>
+    <string name="download_test_set">Download Test Set</string>
+    <string name="downloading">Downloading…</string>
+    <string name="downloaded">Downloaded</string>
+    <string name="download">Download</string>
+    <string name="delete">Delete</string>
+    <string name="delete_confirm">Are you sure you want to delete?</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Quiz screen -->
+    <string name="quiz">Quiz</string>
+    <string name="score">Score</string>
+    <string name="same">Same</string>
+    <string name="different">Different</string>
+    <string name="correct">Correct!</string>
+    <string name="incorrect">Incorrect</string>
+    <string name="image_a">Image A</string>
+    <string name="image_b">Image B</string>
+    <string name="quiz_question">Are A and B the same type?</string>
+    
+    <!-- Quit -->
+    <string name="quit_quiz">Quit Quiz</string>
+    <string name="quit_quiz_message">Are you sure you want to quit?\nProgress will not be saved.</string>
+    <string name="quit">Quit</string>
+    <string name="continue_quiz">Continue</string>
+    
+    <!-- Result screen -->
+    <string name="result">Result</string>
+    <string name="excellent">Excellent!</string>
+    <string name="good">Good job!</string>
+    <string name="average">Not bad</string>
+    <string name="try_again">Try again!</string>
+    <string name="correct_answers">correct</string>
+    <string name="accuracy">Accuracy</string>
+    <string name="time">Time</string>
+    <string name="genre">Genre</string>
+    <string name="question_results">Question Results</string>
+    <string name="back_to_home">Back to Home</string>
+    <string name="correct_answer">Answer</string>
+    <string name="your_answer">Your answer</string>
+    
+    <!-- History screen -->
+    <string name="history">History</string>
+    <string name="no_history">No history</string>
+    <string name="play_quiz_first">Play a quiz first</string>
+    <string name="delete_history">Delete History</string>
+    <string name="delete_history_confirm">Delete this history?</string>
+    <string name="delete_all_history">Delete All History</string>
+    <string name="delete_all_history_confirm">Delete all history?</string>
+    
+    <!-- Settings screen -->
+    <string name="settings">Settings</string>
+    <string name="cloud_sync">Cloud Sync</string>
+    <string name="sign_in">Sign In</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="signed_in_as">Signed in as</string>
+    <string name="not_signed_in">Not signed in</string>
+    <string name="admin">Admin Panel</string>
+    
+    <!-- Sync screen -->
+    <string name="sync_title">Cloud Sync</string>
+    <string name="sync_description">Sign in with Google to sync history</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="sync_now">Sync Now</string>
+    <string name="last_sync">Last sync</string>
+    <string name="never">Never</string>
+    
+    <!-- Admin panel -->
+    <string name="admin_panel">Admin Panel</string>
+    <string name="users">Users</string>
+    <string name="total_plays">Total Plays</string>
+    <string name="total_questions">Total Questions</string>
+    <string name="refresh">Refresh</string>
+    <string name="no_permission">Access denied</string>
+    <string name="not_logged_in">Not logged in</string>
+    <string name="no_data">No data yet</string>
+    <string name="uid_overall_average">UID Overall Average</string>
+    <string name="genre_stats">Genre Statistics</string>
+    <string name="responder_stats">Responder Statistics</string>
+    <string name="recent_plays">Recent Plays</string>
+    <string name="plays">Plays</string>
+    <string name="avg_points">Avg Points</string>
+    <string name="avg_time">Time</string>
+    <string name="all_responder_avg">All Responder Avg</string>
+    <string name="your_uid">Your UID</string>
+    <string name="copy_uid">Copy</string>
+    <string name="uid_copied">UID copied</string>
+    <string name="close">Close</string>
+    
+    <!-- Responder name -->
+    <string name="responder_name">Your Name</string>
+    <string name="responder_name_hint">Optional</string>
+    <string name="select_from_history">Select from history</string>
+    <string name="select_responder">Select Responder</string>
+    <string name="back">Back</string>
+    <string name="unset">(Unset)</string>
+    
+    <!-- Error -->
+    <string name="error">Error</string>
+    <string name="load_error">Failed to load</string>
+    <string name="network_error">Network error</string>
+    <string name="ok">OK</string>
+</resources>
