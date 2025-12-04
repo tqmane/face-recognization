@@ -56,6 +56,8 @@ jobs:
         cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
         # Firebase同期サービスをスタブに置き換え
         cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+        # 管理者画面をスタブに置き換え
+        cp lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart
 
     - name: Set Linux app icon
       working-directory: flutter-app
