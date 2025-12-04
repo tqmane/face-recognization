@@ -225,6 +225,9 @@ class ZipQuizActivity : AppCompatActivity() {
     }
     
     private fun showFeedback(isCorrect: Boolean, onComplete: () -> Unit) {
+        // フィードバック中はタイマーを一時停止
+        timer?.cancel()
+        
         binding.layoutFeedback.visibility = View.VISIBLE
         binding.tvFeedback.text = if (isCorrect) "○" else "×"
         binding.tvFeedback.setTextColor(
@@ -234,6 +237,8 @@ class ZipQuizActivity : AppCompatActivity() {
         
         binding.layoutFeedback.postDelayed({
             binding.layoutFeedback.visibility = View.GONE
+            // タイマーを再開
+            startTimer()
             onComplete()
         }, 800)
     }

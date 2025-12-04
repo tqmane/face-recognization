@@ -160,9 +160,15 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
       _lastAnswerCorrect = isCorrect;
     });
     
+    // フィードバック中はタイマーを一時停止
+    _stopwatch.stop();
+    
     // 1秒後に次の問題へ
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
+      
+      // タイマーを再開
+      _stopwatch.start();
       
       if (_currentIndex < _questions.length - 1) {
         setState(() {
@@ -339,13 +345,56 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
     );
   }
 
+  Future<bool> _showExitConfirmDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('テスト中断'),
+        content: const Text('テストを中断しますか？\n進捗は保存されません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('続ける'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('中断する'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   Widget _buildQuizScreen(ColorScheme colorScheme) {
     final question = _questions[_currentIndex];
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${_currentIndex + 1} / ${_questions.length}'),
-        actions: [
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldExit = await _showExitConfirmDialog();
+        if (shouldExit && mounted) {
+          _timer?.cancel();
+          _stopwatch.stop();
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () async {
+              final shouldExit = await _showExitConfirmDialog();
+              if (shouldExit && mounted) {
+                _timer?.cancel();
+                _stopwatch.stop();
+                Navigator.pop(context);
+              }
+            },
+          ),
+          title: Text('${_currentIndex + 1} / ${_questions.length}'),
+          actions: [
           ValueListenableBuilder<String>(
             valueListenable: _timerNotifier,
             builder: (context, time, _) {
@@ -509,6 +558,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           ),
         ],
       ),
+      ),  // PopScopeの閉じ括弧
     );
   }
 
