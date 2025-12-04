@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- タブレット用クイズ画面 (sw600dp) - 横並びレイアウト -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -31,7 +32,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:textSize="120sp"
+            android:textSize="160sp"
             android:textStyle="bold"
             android:textColor="?attr/colorPrimary" />
 
@@ -52,21 +53,21 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:padding="12dp">
+            android:padding="16dp">
 
             <TextView
                 android:id="@+id/tvProgress"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:text="1 / 10" />
 
             <TextView
                 android:id="@+id/tvTimer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:fontFamily="monospace"
                 android:text="0:00" />
 
@@ -74,8 +75,8 @@
                 android:id="@+id/tvScore"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:layout_marginStart="24dp"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:textColor="?attr/colorPrimary"
                 android:text="正解: 0" />
 
@@ -85,28 +86,29 @@
             android:id="@+id/progressBar"
             style="@style/Widget.AppCompat.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
+            android:layout_height="6dp"
             android:max="10"
             android:progress="1" />
 
-        <!-- 2枚の画像表示エリア -->
+        <!-- 2枚の画像表示エリア - タブレットは横並び -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:padding="12dp">
+            android:orientation="horizontal"
+            android:padding="16dp">
 
+            <!-- 画像A -->
             <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginBottom="6dp">
+                android:layout_marginEnd="8dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="4dp">
 
                     <ImageView
@@ -120,29 +122,30 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="top|start"
-                        android:layout_margin="8dp"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
+                        android:layout_margin="12dp"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="8dp"
                         android:background="@drawable/label_background"
                         android:text="A"
                         android:textColor="@android:color/white"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.card.MaterialCardView>
 
             </FrameLayout>
 
+            <!-- 画像B -->
             <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_marginTop="6dp">
+                android:layout_marginStart="8dp">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="4dp">
 
                     <ImageView
@@ -156,13 +159,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="top|start"
-                        android:layout_margin="8dp"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
+                        android:layout_margin="12dp"
+                        android:paddingHorizontal="16dp"
+                        android:paddingVertical="8dp"
                         android:background="@drawable/label_background"
                         android:text="B"
                         android:textColor="@android:color/white"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.card.MaterialCardView>
@@ -176,41 +179,43 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="32dp"
+            android:paddingVertical="24dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/quiz_question"
                 android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:layout_marginBottom="16dp" />
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                android:layout_marginBottom="20dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSame"
                     android:layout_width="0dp"
-                    android:layout_height="56dp"
+                    android:layout_height="72dp"
                     android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="12dp"
                     android:text="@string/same"
-                    android:textSize="18sp"
-                    app:cornerRadius="16dp" />
+                    android:textSize="22sp"
+                    app:cornerRadius="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnDifferent"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="0dp"
-                    android:layout_height="56dp"
+                    android:layout_height="72dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="12dp"
                     android:text="@string/different"
-                    android:textSize="18sp"
-                    app:cornerRadius="16dp" />
+                    android:textSize="22sp"
+                    app:cornerRadius="20dp" />
 
             </LinearLayout>
 
@@ -231,7 +236,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:textSize="120sp"
+            android:textSize="160sp"
             android:textStyle="bold" />
 
     </FrameLayout>

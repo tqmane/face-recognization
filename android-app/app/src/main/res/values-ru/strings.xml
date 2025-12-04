@@ -1,0 +1,115 @@
+<resources>
+    <string name="app_name">Викторина</string>
+    
+    <!-- Главный экран -->
+    <string name="home">Главная</string>
+    <string name="select_test_set">Выберите тест</string>
+    <string name="no_test_sets">Нет тестов</string>
+    <string name="download_test_sets">Загрузите тесты</string>
+    <string name="question_count">Вопросов</string>
+    <string name="start">Начать</string>
+    
+    <!-- Тесты -->
+    <string name="test_sets">Тесты</string>
+    <string name="download_test_set">Загрузить тест</string>
+    <string name="downloading">Загрузка…</string>
+    <string name="downloaded">Загружено</string>
+    <string name="download">Загрузить</string>
+    <string name="delete">Удалить</string>
+    <string name="delete_confirm">Вы уверены, что хотите удалить?</string>
+    <string name="cancel">Отмена</string>
+    
+    <!-- Экран викторины -->
+    <string name="quiz">Викторина</string>
+    <string name="score">Счёт</string>
+    <string name="same">Одинаковые</string>
+    <string name="different">Разные</string>
+    <string name="correct">Правильно!</string>
+    <string name="incorrect">Неправильно</string>
+    <string name="image_a">Изображение A</string>
+    <string name="image_b">Изображение B</string>
+    <string name="quiz_question">A и B одного типа?</string>
+    
+    <!-- Выход -->
+    <string name="quit_quiz">Выйти из викторины</string>
+    <string name="quit_quiz_message">Вы уверены, что хотите выйти?\nПрогресс не будет сохранён.</string>
+    <string name="quit">Выйти</string>
+    <string name="continue_quiz">Продолжить</string>
+    
+    <!-- Экран результатов -->
+    <string name="result">Результат</string>
+    <string name="excellent">Отлично!</string>
+    <string name="good">Хорошо!</string>
+    <string name="average">Неплохо</string>
+    <string name="try_again">Попробуйте ещё!</string>
+    <string name="correct_answers">правильно</string>
+    <string name="accuracy">Точность</string>
+    <string name="time">Время</string>
+    <string name="genre">Жанр</string>
+    <string name="question_results">Результаты по вопросам</string>
+    <string name="back_to_home">На главную</string>
+    <string name="correct_answer">Ответ</string>
+    <string name="your_answer">Ваш ответ</string>
+    
+    <!-- История -->
+    <string name="history">История</string>
+    <string name="no_history">Нет истории</string>
+    <string name="play_quiz_first">Сначала сыграйте в викторину</string>
+    <string name="delete_history">Удалить историю</string>
+    <string name="delete_history_confirm">Удалить эту запись?</string>
+    <string name="delete_all_history">Удалить всю историю</string>
+    <string name="delete_all_history_confirm">Удалить всю историю?</string>
+    
+    <!-- Настройки -->
+    <string name="settings">Настройки</string>
+    <string name="cloud_sync">Облачная синхронизация</string>
+    <string name="sign_in">Войти</string>
+    <string name="sign_out">Выйти</string>
+    <string name="signed_in_as">Вы вошли как</string>
+    <string name="not_signed_in">Не авторизован</string>
+    <string name="admin">Админ-панель</string>
+    
+    <!-- Синхронизация -->
+    <string name="sync_title">Облачная синхронизация</string>
+    <string name="sync_description">Войдите через Google для синхронизации</string>
+    <string name="sign_in_with_google">Войти через Google</string>
+    <string name="sync_now">Синхронизировать</string>
+    <string name="last_sync">Последняя синхронизация</string>
+    <string name="never">Никогда</string>
+    
+    <!-- Админ-панель -->
+    <string name="admin_panel">Админ-панель</string>
+    <string name="users">Пользователи</string>
+    <string name="total_plays">Всего игр</string>
+    <string name="total_questions">Всего вопросов</string>
+    <string name="refresh">Обновить</string>
+    <string name="no_permission">Нет доступа</string>
+    <string name="not_logged_in">Не авторизован</string>
+    <string name="no_data">Нет данных</string>
+    <string name="uid_overall_average">Общая статистика UID</string>
+    <string name="genre_stats">Статистика по жанрам</string>
+    <string name="responder_stats">Статистика по участникам</string>
+    <string name="recent_plays">Недавние игры</string>
+    <string name="plays">Игры</string>
+    <string name="avg_points">Ср. баллы</string>
+    <string name="avg_time">Время</string>
+    <string name="all_responder_avg">Общее среднее</string>
+    <string name="your_uid">Ваш UID</string>
+    <string name="copy_uid">Копировать</string>
+    <string name="uid_copied">UID скопирован</string>
+    <string name="close">Закрыть</string>
+    
+    <!-- Имя участника -->
+    <string name="responder_name">Ваше имя</string>
+    <string name="responder_name_hint">Необязательно</string>
+    <string name="select_from_history">Выбрать из истории</string>
+    <string name="select_responder">Выберите участника</string>
+    <string name="back">Назад</string>
+    <string name="unset">(Не задано)</string>
+    
+    <!-- Ошибки -->
+    <string name="error">Ошибка</string>
+    <string name="load_error">Не удалось загрузить</string>
+    <string name="network_error">Ошибка сети</string>
+    <string name="ok">ОК</string>
+</resources>

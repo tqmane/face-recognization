@@ -1,3 +1,115 @@
 <resources>
     <string name="app_name">判別クイズ</string>
+    
+    <!-- ホーム画面 -->
+    <string name="home">ホーム</string>
+    <string name="select_test_set">テストセットを選択</string>
+    <string name="no_test_sets">テストセットがありません</string>
+    <string name="download_test_sets">テストセットをダウンロードしてください</string>
+    <string name="question_count">問題数</string>
+    <string name="start">スタート</string>
+    
+    <!-- テストセット -->
+    <string name="test_sets">テストセット</string>
+    <string name="download_test_set">テストセットをダウンロード</string>
+    <string name="downloading">ダウンロード中…</string>
+    <string name="downloaded">ダウンロード済み</string>
+    <string name="download">ダウンロード</string>
+    <string name="delete">削除</string>
+    <string name="delete_confirm">削除しますか？</string>
+    <string name="cancel">キャンセル</string>
+    
+    <!-- クイズ画面 -->
+    <string name="quiz">クイズ</string>
+    <string name="score">スコア</string>
+    <string name="same">同じ</string>
+    <string name="different">違う</string>
+    <string name="correct">正解！</string>
+    <string name="incorrect">不正解</string>
+    <string name="image_a">画像 A</string>
+    <string name="image_b">画像 B</string>
+    <string name="quiz_question">AとBは同じ種類？</string>
+    
+    <!-- 中断 -->
+    <string name="quit_quiz">テスト中断</string>
+    <string name="quit_quiz_message">テストを中断しますか？\n進捗は保存されません。</string>
+    <string name="quit">中断する</string>
+    <string name="continue_quiz">続ける</string>
+    
+    <!-- 結果画面 -->
+    <string name="result">結果</string>
+    <string name="excellent">素晴らしい！</string>
+    <string name="good">よくできました！</string>
+    <string name="average">まずまず</string>
+    <string name="try_again">もう一度挑戦！</string>
+    <string name="correct_answers">問正解</string>
+    <string name="accuracy">正答率</string>
+    <string name="time">タイム</string>
+    <string name="genre">ジャンル</string>
+    <string name="question_results">問題ごとの結果</string>
+    <string name="back_to_home">ホームに戻る</string>
+    <string name="correct_answer">正解</string>
+    <string name="your_answer">回答</string>
+    
+    <!-- 履歴画面 -->
+    <string name="history">履歴</string>
+    <string name="no_history">履歴がありません</string>
+    <string name="play_quiz_first">クイズをプレイしてください</string>
+    <string name="delete_history">履歴を削除</string>
+    <string name="delete_history_confirm">この履歴を削除しますか？</string>
+    <string name="delete_all_history">すべての履歴を削除</string>
+    <string name="delete_all_history_confirm">すべての履歴を削除しますか？</string>
+    
+    <!-- 設定画面 -->
+    <string name="settings">設定</string>
+    <string name="cloud_sync">クラウド同期</string>
+    <string name="sign_in">ログイン</string>
+    <string name="sign_out">ログアウト</string>
+    <string name="signed_in_as">ログイン中</string>
+    <string name="not_signed_in">未ログイン</string>
+    <string name="admin">管理者画面</string>
+    
+    <!-- 同期画面 -->
+    <string name="sync_title">クラウド同期</string>
+    <string name="sync_description">Googleでログインして履歴を同期</string>
+    <string name="sign_in_with_google">Googleでログイン</string>
+    <string name="sync_now">今すぐ同期</string>
+    <string name="last_sync">最終同期</string>
+    <string name="never">未同期</string>
+    
+    <!-- 管理者画面 -->
+    <string name="admin_panel">管理者画面</string>
+    <string name="users">ユーザー</string>
+    <string name="total_plays">総プレイ数</string>
+    <string name="total_questions">総問題数</string>
+    <string name="refresh">更新</string>
+    <string name="no_permission">アクセス権限がありません</string>
+    <string name="not_logged_in">ログインしていません</string>
+    <string name="no_data">まだデータがありません</string>
+    <string name="uid_overall_average">UID別全回答者平均</string>
+    <string name="genre_stats">ジャンル別統計</string>
+    <string name="responder_stats">回答者別統計</string>
+    <string name="recent_plays">最近のプレイ履歴</string>
+    <string name="plays">回数</string>
+    <string name="avg_points">平均点</string>
+    <string name="avg_time">時間</string>
+    <string name="all_responder_avg">全回答者平均</string>
+    <string name="your_uid">あなたのUID</string>
+    <string name="copy_uid">コピー</string>
+    <string name="uid_copied">UIDをコピーしました</string>
+    <string name="close">閉じる</string>
+    
+    <!-- 回答者名 -->
+    <string name="responder_name">回答者名</string>
+    <string name="responder_name_hint">入力しなくても大丈夫です</string>
+    <string name="select_from_history">履歴から選択</string>
+    <string name="select_responder">回答者を選択</string>
+    <string name="back">戻る</string>
+    <string name="unset">(未設定)</string>
+    
+    <!-- エラー -->
+    <string name="error">エラー</string>
+    <string name="load_error">読み込みに失敗しました</string>
+    <string name="network_error">ネットワークエラー</string>
+    <string name="ok">OK</string>
 </resources>
