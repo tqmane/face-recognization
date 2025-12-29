@@ -182,11 +182,12 @@ class HistoryManager private constructor(context: Context) {
      * 回答者名を履歴に追加
      */
     fun addResponderName(name: String) {
-        if (name.isEmpty()) return
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
         
         // 既に存在する場合は削除して先頭に追加
-        responderNames.remove(name)
-        responderNames.add(0, name)
+        responderNames.remove(trimmed)
+        responderNames.add(0, trimmed)
         
         // 最大8件まで保持
         while (responderNames.size > MAX_RESPONDER_NAMES) {

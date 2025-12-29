@@ -5,6 +5,16 @@ import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+class ZipTestSetException implements Exception {
+  final String userMessage;
+  final Object? cause;
+
+  ZipTestSetException(this.userMessage, [this.cause]);
+
+  @override
+  String toString() => userMessage;
+}
+
 /// ZIPテストセットの情報
 class ZipTestSetInfo {
   final String id;
@@ -213,6 +223,35 @@ class ZipTestSetService {
   
   final Random _random = Random();
   Directory? _cacheDir;
+
+  String _normalizeZipEntryPath(String entryName) {
+    final normalized = entryName.replaceAll('\\', '/');
+    if (normalized.startsWith('/') || normalized.startsWith('\\')) {
+      throw ZipTestSetException('ZIPの内容が不正です（絶対パス）');
+    }
+    if (normalized.contains(':')) {
+      throw ZipTestSetException('ZIPの内容が不正です（ドライブ指定）');
+    }
+
+    final parts = normalized.split('/');
+    final safeParts = <String>[];
+    for (final part in parts) {
+      if (part.isEmpty || part == '.') continue;
+      if (part == '..') {
+        if (safeParts.isEmpty) {
+          throw ZipTestSetException('ZIPの内容が不正です（パスの遡り）');
+        }
+        safeParts.removeLast();
+        continue;
+      }
+      safeParts.add(part);
+    }
+
+    if (safeParts.isEmpty) {
+      throw ZipTestSetException('ZIPの内容が不正です（空パス）');
+    }
+    return safeParts.join('/');
+  }
   
   /// キャッシュディレクトリを取得
   Future<Directory> get cacheDir async {
@@ -268,45 +307,75 @@ class ZipTestSetService {
   }) async {
     final dir = await cacheDir;
     final testSetDir = Directory('${dir.path}/${testSet.id}');
-    
-    // 既存のディレクトリを削除
-    if (await testSetDir.exists()) {
-      await testSetDir.delete(recursive: true);
-    }
-    await testSetDir.create(recursive: true);
-    
-    // ZIPをダウンロード
-    onProgress?.call(0.0);
-    
-    final response = await http.get(Uri.parse(testSet.zipUrl));
-    if (response.statusCode != 200) {
-      throw Exception('ダウンロードに失敗しました: ${response.statusCode}');
-    }
-    
-    onProgress?.call(0.5);
-    
-    // ZIPを解凍
-    final archive = ZipDecoder().decodeBytes(response.bodyBytes);
-    
-    final totalFiles = archive.files.length;
-    int extractedFiles = 0;
-    
-    for (final file in archive.files) {
-      final filename = file.name;
-      if (file.isFile) {
-        final data = file.content as List<int>;
-        final outFile = File('${testSetDir.path}/$filename');
-        await outFile.parent.create(recursive: true);
-        await outFile.writeAsBytes(data);
-      } else {
-        await Directory('${testSetDir.path}/$filename').create(recursive: true);
+
+    Future<void> cleanup() async {
+      if (await testSetDir.exists()) {
+        await testSetDir.delete(recursive: true);
       }
-      
-      extractedFiles++;
-      onProgress?.call(0.5 + 0.5 * extractedFiles / totalFiles);
     }
-    
-    onProgress?.call(1.0);
+
+    try {
+      // 既存のディレクトリを削除
+      await cleanup();
+      await testSetDir.create(recursive: true);
+
+      // ZIPをダウンロード
+      onProgress?.call(0.0);
+
+      http.Response response;
+      try {
+        response = await http.get(Uri.parse(testSet.zipUrl));
+      } on SocketException catch (e) {
+        throw ZipTestSetException('ネットワークに接続できませんでした。接続を確認して再試行してください。', e);
+      } on HttpException catch (e) {
+        throw ZipTestSetException('通信に失敗しました。時間をおいて再試行してください。', e);
+      } catch (e) {
+        throw ZipTestSetException('ダウンロードに失敗しました。時間をおいて再試行してください。', e);
+      }
+
+      if (response.statusCode != 200) {
+        throw ZipTestSetException('ダウンロードに失敗しました（${response.statusCode}）。時間をおいて再試行してください。');
+      }
+
+      onProgress?.call(0.5);
+
+      // ZIPを解凍
+      final archive = ZipDecoder().decodeBytes(response.bodyBytes);
+      if (archive.files.isEmpty) {
+        throw ZipTestSetException('ダウンロードしたデータが空でした。時間をおいて再試行してください。');
+      }
+
+      final totalFiles = archive.files.length;
+      int extractedFiles = 0;
+
+      for (final file in archive.files) {
+        final safeRelativePath = _normalizeZipEntryPath(file.name);
+        final outPath = '${testSetDir.path}/$safeRelativePath';
+
+        if (file.isFile) {
+          final data = file.content as List<int>;
+          final outFile = File(outPath);
+          await outFile.parent.create(recursive: true);
+          await outFile.writeAsBytes(data);
+        } else {
+          await Directory(outPath).create(recursive: true);
+        }
+
+        extractedFiles++;
+        onProgress?.call(0.5 + 0.5 * extractedFiles / totalFiles);
+      }
+
+      final manifestFile = File('${testSetDir.path}/manifest.json');
+      if (!await manifestFile.exists()) {
+        throw ZipTestSetException('テストセットの形式が不正です（manifest.json が見つかりません）。');
+      }
+
+      onProgress?.call(1.0);
+    } catch (e) {
+      await cleanup();
+      if (e is ZipTestSetException) rethrow;
+      throw ZipTestSetException('ダウンロード処理に失敗しました。時間をおいて再試行してください。', e);
+    }
   }
   
   /// テストセットを削除
@@ -340,7 +409,7 @@ class ZipTestSetService {
     final manifest = await loadManifest(testSetId);
     
     if (manifest == null) {
-      throw Exception('manifest.json が見つかりません');
+      throw ZipTestSetException('テストセットが見つかりません。ダウンロードし直してください。');
     }
     
     // 各タイプの画像パスを収集
@@ -362,33 +431,68 @@ class ZipTestSetService {
     }
     
     if (imagesByType.isEmpty) {
-      throw Exception('画像が見つかりません');
+      throw ZipTestSetException('画像が見つかりません。ダウンロードし直してください。');
     }
-    
+
+    final typeIds = imagesByType.keys.toList();
+
+    List<String> pickTwoDistinct(List<String> images) {
+      if (images.length < 2) {
+        throw ZipTestSetException('同じ種類の問題を作る画像が不足しています。');
+      }
+      final idx1 = _random.nextInt(images.length);
+      var idx2 = _random.nextInt(images.length);
+      while (idx2 == idx1) {
+        idx2 = _random.nextInt(images.length);
+      }
+      return [images[idx1], images[idx2]];
+    }
+
     // 問題を生成
     final questions = <ZipQuizQuestion>[];
-    final typeIds = imagesByType.keys.toList();
-    
-    // 同じタイプと違うタイプの問題を半々で生成
-    final sameCount = count ~/ 2;
-    final diffCount = count - sameCount;
-    
-    // 同じタイプの問題
-    for (int i = 0; i < sameCount; i++) {
-      final typeId = typeIds[_random.nextInt(typeIds.length)];
-      final images = imagesByType[typeId]!;
-      if (images.length < 2) continue;
-      
-      images.shuffle(_random);
-      questions.add(ZipQuizQuestion(
-        image1Path: images[0],
-        image2Path: images[1],
-        type1: typeId,
-        type2: typeId,
-        type1DisplayName: manifest.types[typeId]?.displayName ?? typeId,
-        type2DisplayName: manifest.types[typeId]?.displayName ?? typeId,
-        isSame: true,
-      ));
+
+    final sameTarget = count ~/ 2;
+    final typesWithMultipleImages = typeIds.where((t) => (imagesByType[t]?.length ?? 0) >= 2).toList();
+
+    if (typeIds.length == 1) {
+      final onlyType = typeIds.single;
+      final images = imagesByType[onlyType]!;
+      if (images.length < 2) {
+        throw ZipTestSetException('テストセットの画像が不足しています。ダウンロードし直してください。');
+      }
+      for (int i = 0; i < count; i++) {
+        final pair = pickTwoDistinct(images);
+        questions.add(ZipQuizQuestion(
+          image1Path: pair[0],
+          image2Path: pair[1],
+          type1: onlyType,
+          type2: onlyType,
+          type1DisplayName: manifest.types[onlyType]?.displayName ?? onlyType,
+          type2DisplayName: manifest.types[onlyType]?.displayName ?? onlyType,
+          isSame: true,
+        ));
+      }
+      return questions;
+    }
+
+    // 同じタイプの問題（可能な範囲で）
+    if (typesWithMultipleImages.isNotEmpty) {
+      int attempts = 0;
+      while (questions.where((q) => q.isSame).length < sameTarget && attempts < sameTarget * 20) {
+        attempts++;
+        final typeId = typesWithMultipleImages[_random.nextInt(typesWithMultipleImages.length)];
+        final images = imagesByType[typeId]!;
+        final pair = pickTwoDistinct(images);
+        questions.add(ZipQuizQuestion(
+          image1Path: pair[0],
+          image2Path: pair[1],
+          type1: typeId,
+          type2: typeId,
+          type1DisplayName: manifest.types[typeId]?.displayName ?? typeId,
+          type2DisplayName: manifest.types[typeId]?.displayName ?? typeId,
+          isSame: true,
+        ));
+      }
     }
     
     // 違うタイプの問題（similar_pairsを優先）
@@ -419,18 +523,19 @@ class ZipTestSetService {
     }
     
     // まだ足りない場合はランダムなペアを追加
-    while (questions.length < count && typeIds.length >= 2) {
-      final idx1 = _random.nextInt(typeIds.length);
-      int idx2 = _random.nextInt(typeIds.length);
-      while (idx2 == idx1) {
-        idx2 = _random.nextInt(typeIds.length);
+    int randomAttempts = 0;
+    while (questions.length < count && randomAttempts < count * 50) {
+      randomAttempts++;
+      final type1 = typeIds[_random.nextInt(typeIds.length)];
+      var type2 = typeIds[_random.nextInt(typeIds.length)];
+      while (type2 == type1) {
+        type2 = typeIds[_random.nextInt(typeIds.length)];
       }
-      
-      final type1 = typeIds[idx1];
-      final type2 = typeIds[idx2];
-      final images1 = imagesByType[type1]!;
-      final images2 = imagesByType[type2]!;
-      
+
+      final images1 = imagesByType[type1];
+      final images2 = imagesByType[type2];
+      if (images1 == null || images1.isEmpty || images2 == null || images2.isEmpty) continue;
+
       questions.add(ZipQuizQuestion(
         image1Path: images1[_random.nextInt(images1.length)],
         image2Path: images2[_random.nextInt(images2.length)],
@@ -445,6 +550,9 @@ class ZipTestSetService {
     // シャッフル
     questions.shuffle(_random);
     
+    if (questions.length < count) {
+      throw ZipTestSetException('問題を${count}問分作れませんでした（${questions.length}問）。問題数を減らすか、テストセットをダウンロードし直してください。');
+    }
     return questions.take(count).toList();
   }
   

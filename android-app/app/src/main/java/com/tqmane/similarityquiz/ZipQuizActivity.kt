@@ -1,12 +1,15 @@
 package com.tqmane.similarityquiz
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.tqmane.similarityquiz.databinding.ActivityZipQuizBinding
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
@@ -34,6 +37,41 @@ class ZipQuizActivity : AppCompatActivity() {
     private var responderName: String = ""
     
     private val questionResults = mutableListOf<QuestionResultData>()
+
+    private fun calculateInSampleSize(
+        options: BitmapFactory.Options,
+        reqWidth: Int,
+        reqHeight: Int
+    ): Int {
+        val (height, width) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            var halfHeight = height / 2
+            var halfWidth = width / 2
+
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+
+        return inSampleSize.coerceAtLeast(1)
+    }
+
+    private fun decodeScaledBitmap(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = calculateInSampleSize(bounds, reqWidth, reqHeight)
+            inPreferredConfig = Bitmap.Config.RGB_565
+            inDither = true
+        }
+        return BitmapFactory.decodeFile(path, options)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,9 +101,12 @@ class ZipQuizActivity : AppCompatActivity() {
     }
     
     private fun showNameInputDialog() {
+        val density = resources.displayMetrics.density
+        val paddingH = (16 * density).toInt()
+        val paddingV = (12 * density).toInt()
         val input = EditText(this).apply {
             hint = "入力しなくても大丈夫です"
-            setPadding(48, 32, 48, 32)
+            setPadding(paddingH, paddingV, paddingH, paddingV)
         }
         
         // 履歴から候補を取得
@@ -180,10 +221,13 @@ class ZipQuizActivity : AppCompatActivity() {
         
         // 画像を読み込み
         try {
-            val bitmap1 = BitmapFactory.decodeFile(question.image1Path)
-            val bitmap2 = BitmapFactory.decodeFile(question.image2Path)
-            binding.ivImage1.setImageBitmap(bitmap1)
-            binding.ivImage2.setImageBitmap(bitmap2)
+            val w1 = binding.ivImage1.width.takeIf { it > 0 } ?: 900
+            val h1 = binding.ivImage1.height.takeIf { it > 0 } ?: 900
+            val w2 = binding.ivImage2.width.takeIf { it > 0 } ?: 900
+            val h2 = binding.ivImage2.height.takeIf { it > 0 } ?: 900
+
+            binding.ivImage1.setImageBitmap(decodeScaledBitmap(question.image1Path, w1, h1))
+            binding.ivImage2.setImageBitmap(decodeScaledBitmap(question.image2Path, w2, h2))
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -264,7 +308,7 @@ class ZipQuizActivity : AppCompatActivity() {
         historyManager.saveHistory(historyData)
         
         // Firebase同期
-        kotlinx.coroutines.GlobalScope.launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             FirebaseSyncManager.getInstance(this@ZipQuizActivity).uploadHistory(historyData)
         }
         

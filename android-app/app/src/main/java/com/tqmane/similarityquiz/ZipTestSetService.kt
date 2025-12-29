@@ -81,6 +81,51 @@ class ZipTestSetService(private val context: Context) {
     
     private val testSetsDir: File
         get() = File(context.filesDir, "test_sets")
+
+    data class DownloadResult(
+        val success: Boolean,
+        val errorMessage: String? = null
+    )
+
+    private fun normalizeZipEntryPath(entryName: String): String {
+        val normalized = entryName.replace('\\', '/')
+        if (normalized.startsWith("/") || normalized.startsWith("\\")) {
+            throw IllegalArgumentException("Invalid zip entry path (absolute)")
+        }
+        if (normalized.contains(":")) {
+            throw IllegalArgumentException("Invalid zip entry path (drive)")
+        }
+
+        val parts = normalized.split("/")
+        val safeParts = mutableListOf<String>()
+        for (part in parts) {
+            if (part.isEmpty() || part == ".") continue
+            if (part == "..") {
+                if (safeParts.isEmpty()) {
+                    throw IllegalArgumentException("Invalid zip entry path (traversal)")
+                }
+                safeParts.removeAt(safeParts.lastIndex)
+                continue
+            }
+            safeParts.add(part)
+        }
+        if (safeParts.isEmpty()) {
+            throw IllegalArgumentException("Invalid zip entry path (empty)")
+        }
+        return safeParts.joinToString("/")
+    }
+
+    private fun safeResolveZipEntry(extractDir: File, entryName: String): File {
+        val safeRelative = normalizeZipEntryPath(entryName)
+        val outFile = File(extractDir, safeRelative)
+        val canonicalBase = extractDir.canonicalFile
+        val canonicalOut = outFile.canonicalFile
+        val basePath = canonicalBase.path.trimEnd(File.separatorChar) + File.separator
+        if (!canonicalOut.path.startsWith(basePath)) {
+            throw IllegalArgumentException("Invalid zip entry path (escape)")
+        }
+        return canonicalOut
+    }
     
     /**
      * ダウンロード済みのテストセット一覧を取得
@@ -123,20 +168,33 @@ class ZipTestSetService(private val context: Context) {
     suspend fun downloadTestSet(
         testSet: TestSetInfo,
         onProgress: (Float) -> Unit
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): DownloadResult = withContext(Dispatchers.IO) {
+        var tempFile: File? = null
+        var extractDir: File? = null
         try {
             val url = URL("$BASE_URL/${testSet.id}.zip")
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = 30000
             connection.readTimeout = 60000
+
+            val responseCode = connection.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                return@withContext DownloadResult(
+                    success = false,
+                    errorMessage = "ダウンロードに失敗しました（$responseCode）"
+                )
+            }
             
             val totalSize = connection.contentLength
             var downloadedSize = 0
             
-            val tempFile = File(context.cacheDir, "${testSet.id}.zip")
+            withContext(Dispatchers.Main) {
+                onProgress(0f)
+            }
+            tempFile = File(context.cacheDir, "${testSet.id}.zip")
             
             connection.inputStream.use { input ->
-                FileOutputStream(tempFile).use { output ->
+                FileOutputStream(tempFile!!).use { output ->
                     val buffer = ByteArray(8192)
                     var bytesRead: Int
                     while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -152,13 +210,16 @@ class ZipTestSetService(private val context: Context) {
             }
             
             // ZIPを展開
-            val extractDir = File(testSetsDir, testSet.id)
-            extractDir.mkdirs()
+            extractDir = File(testSetsDir, testSet.id)
+            if (extractDir!!.exists()) {
+                extractDir!!.deleteRecursively()
+            }
+            extractDir!!.mkdirs()
             
-            ZipInputStream(tempFile.inputStream()).use { zip ->
+            ZipInputStream(tempFile!!.inputStream()).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
-                    val file = File(extractDir, entry.name)
+                    val file = safeResolveZipEntry(extractDir!!, entry.name)
                     if (entry.isDirectory) {
                         file.mkdirs()
                     } else {
@@ -172,13 +233,23 @@ class ZipTestSetService(private val context: Context) {
                 }
             }
             
-            // 一時ファイルを削除
-            tempFile.delete()
-            
-            true
+            // manifest.json があるか確認
+            val manifestFile = File(extractDir!!, "manifest.json")
+            if (!manifestFile.exists()) {
+                extractDir!!.deleteRecursively()
+                return@withContext DownloadResult(
+                    success = false,
+                    errorMessage = "テストセットの形式が不正です（manifest.json がありません）"
+                )
+            }
+
+            DownloadResult(success = true)
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            extractDir?.deleteRecursively()
+            DownloadResult(success = false, errorMessage = "ダウンロード処理に失敗しました")
+        } finally {
+            tempFile?.delete()
         }
     }
     
@@ -260,7 +331,6 @@ class ZipTestSetService(private val context: Context) {
         
         val questions = mutableListOf<QuizQuestion>()
         val sameCount = count / 2
-        val diffCount = count - sameCount
         
         // 同じ種類の問題を生成
         val typesWithMultipleImages = imagesByType.filter { it.value.size >= 2 }
