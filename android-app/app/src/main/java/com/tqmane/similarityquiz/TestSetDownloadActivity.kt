@@ -55,14 +55,14 @@ class TestSetDownloadActivity : AppCompatActivity() {
         adapter.notifyDataSetChanged()
         
         lifecycleScope.launch {
-            val success = zipService.downloadTestSet(testSet) { progress ->
+            val result = zipService.downloadTestSet(testSet) { progress ->
                 downloadingIds[testSet.id] = progress
                 adapter.notifyDataSetChanged()
             }
             
             downloadingIds.remove(testSet.id)
             
-            if (success) {
+            if (result.success) {
                 downloadedIds.add(testSet.id)
                 Toast.makeText(
                     this@TestSetDownloadActivity, 
@@ -72,7 +72,7 @@ class TestSetDownloadActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(
                     this@TestSetDownloadActivity, 
-                    "ダウンロードに失敗しました", 
+                    result.errorMessage ?: "ダウンロードに失敗しました",
                     Toast.LENGTH_SHORT
                 ).show()
             }

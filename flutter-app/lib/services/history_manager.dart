@@ -136,11 +136,12 @@ class HistoryManager {
   
   /// 回答者名を履歴に追加
   Future<void> addResponderName(String name) async {
-    if (name.isEmpty) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
     
     // 既に存在する場合は削除して先頭に追加
-    _responderNames.remove(name);
-    _responderNames.insert(0, name);
+    _responderNames.remove(trimmed);
+    _responderNames.insert(0, trimmed);
     
     // 最大8件まで保持
     if (_responderNames.length > _maxResponderNames) {

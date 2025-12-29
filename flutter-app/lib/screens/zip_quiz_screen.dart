@@ -33,6 +33,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   // 名前入力
   bool _showNameInput = false;
   String _responderName = '';
+  final TextEditingController _nameController = TextEditingController();
   
   // カウントダウン
   bool _showCountdown = false;
@@ -64,6 +65,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   void dispose() {
     _timer?.cancel();
     _timerNotifier.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -79,6 +81,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           _questions = questions;
           _isLoading = false;
           _showNameInput = true;
+          _nameController.text = _responderName;
         });
       }
     } catch (e) {
@@ -92,6 +95,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   }
 
   void _startCountdown() {
+    _responderName = _nameController.text.trim();
     setState(() {
       _showNameInput = false;
       _showCountdown = true;
@@ -164,7 +168,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
     _stopwatch.stop();
     
     // 1秒後に次の問題へ
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 800), () async {
       if (!mounted) return;
       
       // タイマーを再開
@@ -177,12 +181,12 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           _isAnswering = false;
         });
       } else {
-        _finishQuiz();
+        await _finishQuiz();
       }
     });
   }
 
-  void _finishQuiz() {
+  Future<void> _finishQuiz() async {
     _stopwatch.stop();
     _timer?.cancel();
     
@@ -200,7 +204,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
       questionResults: _questionResults,
     );
     
-    HistoryManager.instance.saveHistory(history);
+    await HistoryManager.instance.saveHistory(history);
     
     // 結果画面へ
     Navigator.pushReplacement(
@@ -271,6 +275,8 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   }
 
   Widget _buildNameInputScreen(ColorScheme colorScheme) {
+    final recentNames = HistoryManager.instance.recentResponderNames;
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.testSetName)),
       body: Center(
@@ -297,13 +303,43 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
               ),
               const SizedBox(height: 32),
               TextField(
+                controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: '名前',
                   hintText: '入力しなくても大丈夫です',
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (value) => _responderName = value,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _startCountdown(),
               ),
+              if (recentNames.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '最近の名前',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final name in recentNames)
+                      ActionChip(
+                        label: Text(name),
+                        onPressed: () {
+                          setState(() {
+                            _nameController.text = name;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
