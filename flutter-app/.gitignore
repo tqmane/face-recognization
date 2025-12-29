@@ -27,6 +27,12 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Platform-specific ephemeral files
+android/local.properties
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+
 # Symbolication related
 app.*.symbols
 
