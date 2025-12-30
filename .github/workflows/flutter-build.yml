@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
+      DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET }}
 
     steps:
     - name: Checkout
@@ -86,7 +87,7 @@ jobs:
 
     - name: Build Linux
       working-directory: flutter-app
-      run: flutter build linux --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID
+      run: flutter build linux --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET=$DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET
 
     - name: Package Linux build
       run: |
@@ -103,6 +104,7 @@ jobs:
     runs-on: windows-latest
     env:
       DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
+      DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET }}
 
     steps:
     - name: Checkout
@@ -172,7 +174,7 @@ jobs:
 
     - name: Build Windows
       working-directory: flutter-app
-      run: flutter build windows --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$env:DESKTOP_GOOGLE_OAUTH_CLIENT_ID
+      run: flutter build windows --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$env:DESKTOP_GOOGLE_OAUTH_CLIENT_ID --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET=$env:DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET
 
     - name: Package Windows build
       run: |
@@ -188,6 +190,7 @@ jobs:
     runs-on: macos-latest
     env:
       DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
+      DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET }}
 
     steps:
     - name: Checkout
@@ -238,7 +241,7 @@ jobs:
 
     - name: Build macOS
       working-directory: flutter-app
-      run: flutter build macos --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID
+      run: flutter build macos --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET=$DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET
 
     - name: Package macOS build
       run: |
