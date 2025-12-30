@@ -113,7 +113,7 @@
                         android:id="@+id/ivImage1"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
+                        android:scaleType="fitCenter"
                         android:contentDescription="@string/image_a" />
 
                     <TextView
@@ -149,7 +149,7 @@
                         android:id="@+id/ivImage2"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
+                        android:scaleType="fitCenter"
                         android:contentDescription="@string/image_b" />
 
                     <TextView

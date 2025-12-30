@@ -25,9 +25,17 @@ class ResultActivity : AppCompatActivity() {
         binding = ActivityResultBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        val mode = intent.getStringExtra("mode") ?: "online"
+
         val score = intent.getIntExtra("score", 0)
-        val totalQuestions = intent.getIntExtra("total_questions", 0)
-        val totalTime = intent.getLongExtra("total_time", 0L)
+        val totalQuestions = intent.getIntExtra(
+            "total_questions",
+            intent.getIntExtra("total", 0)
+        )
+        val totalTime = intent.getLongExtra(
+            "total_time",
+            intent.getLongExtra("time_millis", 0L)
+        )
         val responderName = intent.getStringExtra("responder_name") ?: ""
         
         // Serializable取得（互換性のある方法）
@@ -49,11 +57,26 @@ class ResultActivity : AppCompatActivity() {
             android.util.Log.d("ResultActivity", "Result[$index]: Q${result.questionNumber}, correct=${result.isCorrect}")
         }
 
+        val correctCountFromScore = when (mode) {
+            "online" -> score / 10 // オンラインは10点刻み
+            else -> score
+        }
+
         // スコア表示
-        binding.tvFinalScore.text = "$score"
+        if (mode == "online") {
+            binding.tvFinalScore.text = "$score"
+            binding.tvScoreUnit.text = "点"
+        } else {
+            binding.tvFinalScore.text = "$correctCountFromScore"
+            binding.tvScoreUnit.text = "問正解"
+        }
         
         // 正解率
-        val correctCount = results.count { it.isCorrect }
+        val correctCount = if (results.isNotEmpty()) {
+            results.count { it.isCorrect }
+        } else {
+            correctCountFromScore
+        }
         val accuracy = if (totalQuestions > 0) (correctCount * 100) / totalQuestions else 0
         binding.tvAccuracy.text = "$accuracy% ($correctCount/$totalQuestions)"
 
@@ -64,12 +87,16 @@ class ResultActivity : AppCompatActivity() {
         val avgTime = if (results.isNotEmpty()) results.map { it.responseTimeMs }.average().toLong() else 0L
         binding.tvAverageTime.text = formatTime(avgTime)
 
-        // ベストスコアかどうか
-        val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
-        val bestScore = prefs.getInt("best_score_online", 0)
-        if (score >= bestScore && score > 0) {
-            binding.tvNewRecord.visibility = View.VISIBLE
-            binding.tvNewRecord.text = "🎉 新記録！"
+        // ベストスコアかどうか（オンラインのみ）
+        if (mode == "online") {
+            val prefs = getSharedPreferences("quiz_prefs", MODE_PRIVATE)
+            val bestScore = prefs.getInt("best_score_online", 0)
+            if (score >= bestScore && score > 0) {
+                binding.tvNewRecord.visibility = View.VISIBLE
+                binding.tvNewRecord.text = "🎉 新記録！"
+            } else {
+                binding.tvNewRecord.visibility = View.GONE
+            }
         } else {
             binding.tvNewRecord.visibility = View.GONE
         }

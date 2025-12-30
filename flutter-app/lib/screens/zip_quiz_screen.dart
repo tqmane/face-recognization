@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/zip_test_set_service.dart';
 import '../services/history_manager.dart';
@@ -55,6 +56,22 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   // タイマー表示
   final ValueNotifier<String> _timerNotifier = ValueNotifier('0:00');
 
+  void _schedulePrecacheAround(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _precacheQuestionImages(index);
+      await _precacheQuestionImages(index + 1);
+    });
+  }
+
+  Future<void> _precacheQuestionImages(int index) async {
+    if (kIsWeb) return;
+    if (index < 0 || index >= _questions.length) return;
+    final q = _questions[index];
+    await precacheImage(FileImage(File(q.image1Path)), context);
+    await precacheImage(FileImage(File(q.image2Path)), context);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,6 +100,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           _showNameInput = true;
           _nameController.text = _responderName;
         });
+        _schedulePrecacheAround(0);
       }
     } catch (e) {
       if (mounted) {
@@ -180,6 +198,7 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           _showFeedback = false;
           _isAnswering = false;
         });
+        _schedulePrecacheAround(_currentIndex);
       } else {
         await _finishQuiz();
       }
@@ -601,40 +620,54 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
   Widget _buildImageCard(String imagePath, String label, ColorScheme colorScheme) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.file(
-            File(imagePath),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: colorScheme.surfaceContainerHighest,
-                child: const Center(
-                  child: Icon(Icons.broken_image, size: 48),
-                ),
-              );
-            },
-          ),
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final dpr = MediaQuery.of(context).devicePixelRatio;
+          final cacheWidth = constraints.maxWidth.isFinite
+              ? (constraints.maxWidth * dpr).round()
+              : null;
+          final cacheHeight = constraints.maxHeight.isFinite
+              ? (constraints.maxHeight * dpr).round()
+              : null;
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: colorScheme.surfaceContainerHighest),
+              Image.file(
+                File(imagePath),
+                fit: BoxFit.contain,
+                cacheWidth: cacheWidth,
+                cacheHeight: cacheHeight,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(Icons.broken_image, size: 48),
+                  );
+                },
               ),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
