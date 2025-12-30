@@ -12,6 +12,8 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
 
     steps:
     - name: Checkout
@@ -84,7 +86,7 @@ jobs:
 
     - name: Build Linux
       working-directory: flutter-app
-      run: flutter build linux --release
+      run: flutter build linux --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID
 
     - name: Package Linux build
       run: |
@@ -99,6 +101,8 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
 
     steps:
     - name: Checkout
@@ -168,7 +172,7 @@ jobs:
 
     - name: Build Windows
       working-directory: flutter-app
-      run: flutter build windows --release
+      run: flutter build windows --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$env:DESKTOP_GOOGLE_OAUTH_CLIENT_ID
 
     - name: Package Windows build
       run: |
@@ -182,6 +186,8 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    env:
+      DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
 
     steps:
     - name: Checkout
@@ -232,7 +238,7 @@ jobs:
 
     - name: Build macOS
       working-directory: flutter-app
-      run: flutter build macos --release
+      run: flutter build macos --release --dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=$DESKTOP_GOOGLE_OAUTH_CLIENT_ID
 
     - name: Package macOS build
       run: |
