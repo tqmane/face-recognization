@@ -291,7 +291,7 @@ class FirebaseSyncService {
 
       if (_syncGeneration != generation || _session == null) return;
       await Future.delayed(Duration(milliseconds: backoffMs));
-      backoffMs = min(backoffMs * 2, 30_000);
+      backoffMs = min(backoffMs * 2, 30000);
     }
   }
 
