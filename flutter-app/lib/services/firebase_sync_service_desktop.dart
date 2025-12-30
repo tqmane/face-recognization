@@ -101,6 +101,7 @@ class FirebaseSyncService {
   Future<DesktopUser?> signInWithGoogle() async {
     await ensureInitialized();
     final clientId = FirebaseRestConfig.googleDesktopClientId;
+    final clientSecret = FirebaseRestConfig.googleDesktopClientSecret;
     if (clientId.isEmpty) {
       throw Exception(
         'DESKTOP_GOOGLE_OAUTH_CLIENT_ID が未設定です（--dart-define で指定してください）',
@@ -169,8 +170,9 @@ class FirebaseSyncService {
     final tokenResponse = await http.post(
       Uri.https('oauth2.googleapis.com', '/token'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
+      body: <String, String>{
         'client_id': clientId,
+        if (clientSecret.isNotEmpty) 'client_secret': clientSecret,
         'code': code,
         'code_verifier': pkce.codeVerifier,
         'redirect_uri': redirectUri.toString(),
@@ -178,7 +180,28 @@ class FirebaseSyncService {
       },
     );
     if (tokenResponse.statusCode != 200) {
-      throw Exception('トークン取得に失敗しました（${tokenResponse.statusCode}）');
+      var message = 'トークン取得に失敗しました（${tokenResponse.statusCode}）';
+      try {
+        final err = jsonDecode(tokenResponse.body);
+        if (err is Map) {
+          final error = err['error']?.toString();
+          final desc = err['error_description']?.toString();
+          final combined = [
+            if (error != null && error.isNotEmpty) error,
+            if (desc != null && desc.isNotEmpty) desc,
+          ].join(': ');
+          if (combined.isNotEmpty) {
+            message = '$message: $combined';
+          }
+        } else if (tokenResponse.body.isNotEmpty) {
+          message = '$message: ${tokenResponse.body}';
+        }
+      } catch (_) {
+        if (tokenResponse.body.isNotEmpty) {
+          message = '$message: ${tokenResponse.body}';
+        }
+      }
+      throw Exception(message);
     }
     final tokenJson = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
     final googleIdToken = tokenJson['id_token'] as String?;

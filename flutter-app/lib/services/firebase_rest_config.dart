@@ -15,5 +15,15 @@ class FirebaseRestConfig {
   /// Set via: `--dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_ID=...`
   static const String googleDesktopClientId =
       String.fromEnvironment('DESKTOP_GOOGLE_OAUTH_CLIENT_ID', defaultValue: '');
-}
 
+  /// Google OAuth client secret for "Desktop app" credentials.
+  ///
+  /// Googleの「Desktop app」OAuthは token 交換時に `client_secret` が必要になるケースがあるため、
+  /// 任意指定できるようにしています。
+  ///
+  /// Set via: `--dart-define=DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET=...`
+  static const String googleDesktopClientSecret = String.fromEnvironment(
+    'DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET',
+    defaultValue: '',
+  );
+}
