@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/zip_test_set_service.dart';
 import '../services/history_manager.dart';
+import '../services/firebase_sync_service.dart';
 import 'result_screen.dart';
 
 /// ZIPテストセット用のクイズ画面
@@ -224,6 +225,12 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
     );
     
     await HistoryManager.instance.saveHistory(history);
+
+    // スマホ版と同様に、サインイン済みなら自動でアップロード
+    if (FirebaseSyncService.instance.isSignedIn) {
+      // 画面遷移をブロックしない
+      FirebaseSyncService.instance.uploadHistory(history);
+    }
     
     // 結果画面へ
     Navigator.pushReplacement(

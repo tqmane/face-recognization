@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'services/firebase_sync_service.dart';
 import 'services/firebase_init.dart';
 import 'services/download_notification_service.dart';
+import 'services/history_manager.dart';
 import 'l10n/app_localizations.dart';
 
 bool get _isMobile {
@@ -29,8 +30,14 @@ void main() async {
   // 通知サービス初期化
   await DownloadNotificationService.instance.initialize();
   
-  // サインイン済みなら同期を開始（モバイルのみ）
-  if (_isMobile && FirebaseSyncService.instance.isSignedIn) {
+  // 履歴を先に読み込み（同期マージの整合性のため）
+  await HistoryManager.instance.loadHistories();
+
+  // 認証状態を復元（デスクトップはREST実装がここで復元される）
+  await FirebaseSyncService.instance.ensureInitialized();
+
+  // サインイン済みなら同期を開始
+  if (!kIsWeb && FirebaseSyncService.instance.isSignedIn) {
     FirebaseSyncService.instance.setupRealtimeSync();
   }
   

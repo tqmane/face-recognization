@@ -190,6 +190,7 @@ class FirebaseSyncService {
     _session = firebaseSession;
     await _persistSession(firebaseSession);
     _authChanges.add(null);
+    setupRealtimeSync();
     return currentUser;
   }
 
