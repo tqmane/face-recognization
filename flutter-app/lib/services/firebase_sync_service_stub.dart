@@ -16,6 +16,8 @@ class FirebaseSyncService {
   static FirebaseSyncService get instance => _instance;
   
   FirebaseSyncService._internal();
+
+  Future<void> ensureInitialized() async {}
   
   // 常にサインアウト状態
   bool get isSignedIn => false;

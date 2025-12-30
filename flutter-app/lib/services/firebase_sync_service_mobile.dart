@@ -37,6 +37,8 @@ class FirebaseSyncService {
   
   User? get currentUser => _auth?.currentUser;
   bool get isSignedIn => isFirebaseInitialized && currentUser != null;
+
+  Future<void> ensureInitialized() async {}
   
   /// ユーザー表示名を取得
   String? get userDisplayName => currentUser?.displayName;
