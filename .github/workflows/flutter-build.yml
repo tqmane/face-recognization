@@ -54,8 +54,8 @@ jobs:
         sed -i '/google_sign_in:/d' pubspec.yaml
         # Firebase初期化ファイルをデスクトップ用スタブに置き換え
         cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
-        # Firebase同期サービスをスタブに置き換え
-        cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+        # Firebase同期サービス（デスクトップREST版）に置き換え
+        cp lib/services/firebase_sync_service_desktop.dart lib/services/firebase_sync_service_platform.dart
         # 管理者画面をスタブに置き換え
         cp lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart
 
@@ -139,8 +139,8 @@ jobs:
         Set-Content pubspec.yaml $content
         # Firebase初期化ファイルをデスクトップ用スタブに置き換え
         Copy-Item lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart -Force
-        # Firebase同期サービスをスタブに置き換え
-        Copy-Item lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart -Force
+        # Firebase同期サービス（デスクトップREST版）に置き換え
+        Copy-Item lib/services/firebase_sync_service_desktop.dart lib/services/firebase_sync_service_platform.dart -Force
         # 管理者画面をスタブに置き換え
         Copy-Item lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart -Force
 
@@ -219,8 +219,8 @@ jobs:
         sed -i '' '/google_sign_in:/d' pubspec.yaml
         # Firebase初期化ファイルをデスクトップ用スタブに置き換え
         cp lib/services/firebase_init_desktop.dart lib/services/firebase_init_io.dart
-        # Firebase同期サービスをスタブに置き換え
-        cp lib/services/firebase_sync_service_stub.dart lib/services/firebase_sync_service_platform.dart
+        # Firebase同期サービス（デスクトップREST版）に置き換え
+        cp lib/services/firebase_sync_service_desktop.dart lib/services/firebase_sync_service_platform.dart
         # 管理者画面をスタブに置き換え
         cp lib/screens/admin_screen_stub.dart lib/screens/admin_screen_mobile.dart
 

@@ -1,16 +1,6 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../services/firebase_sync_service.dart';
-
-bool get _isMobile {
-  if (kIsWeb) return false;
-  try {
-    return Platform.isAndroid || Platform.isIOS;
-  } catch (e) {
-    return false;
-  }
-}
 
 /// クラウド同期設定画面
 class SyncScreen extends StatefulWidget {
@@ -27,16 +17,26 @@ class _SyncScreenState extends State<SyncScreen> {
   @override
   void initState() {
     super.initState();
-    // サインイン済みなら同期を開始
-    if (_isMobile && _syncService.isSignedIn) {
-      _syncService.setupRealtimeSync();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    setState(() => _isLoading = true);
+    try {
+      await _syncService.ensureInitialized();
+      if (mounted && _syncService.isSignedIn) {
+        _syncService.setupRealtimeSync();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
   
   @override
   Widget build(BuildContext context) {
-    // デスクトップでは非対応メッセージを表示
-    if (!_isMobile) {
+    if (kIsWeb) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('クラウド同期'),
@@ -50,7 +50,7 @@ class _SyncScreenState extends State<SyncScreen> {
                 Icon(Icons.desktop_windows, size: 64, color: Colors.grey),
                 SizedBox(height: 16),
                 Text(
-                  'クラウド同期はモバイルアプリ\n（Android/iOS）でのみ利用可能です',
+                  'Webではクラウド同期は利用できません',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
