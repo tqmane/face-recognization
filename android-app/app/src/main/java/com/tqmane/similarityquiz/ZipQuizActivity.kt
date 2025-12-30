@@ -37,6 +37,8 @@ class ZipQuizActivity : AppCompatActivity() {
     private var responderName: String = ""
     
     private val questionResults = mutableListOf<QuestionResultData>()
+    private val resultsForUi = mutableListOf<QuizResult>()
+    private var questionStartTimeMs: Long = 0L
 
     private fun calculateInSampleSize(
         options: BitmapFactory.Options,
@@ -231,6 +233,8 @@ class ZipQuizActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        questionStartTimeMs = System.currentTimeMillis()
         
         // ボタンを有効化
         binding.btnSame.isEnabled = true
@@ -243,6 +247,7 @@ class ZipQuizActivity : AppCompatActivity() {
         
         val question = questions[currentIndex]
         val isCorrect = (answeredSame == question.isSame)
+        val responseTimeMs = (System.currentTimeMillis() - questionStartTimeMs).coerceAtLeast(0L)
         
         if (isCorrect) {
             score++
@@ -256,6 +261,16 @@ class ZipQuizActivity : AppCompatActivity() {
             wasSame = question.isSame,
             answeredSame = answeredSame
         ))
+        resultsForUi.add(
+            QuizResult(
+                questionNumber = currentIndex + 1,
+                imagePath = question.description,
+                isSame = question.isSame,
+                userAnswer = answeredSame,
+                isCorrect = isCorrect,
+                responseTimeMs = responseTimeMs,
+            )
+        )
         
         // フィードバック表示
         showFeedback(isCorrect) {
@@ -314,9 +329,11 @@ class ZipQuizActivity : AppCompatActivity() {
         
         // 結果画面へ
         val intent = android.content.Intent(this, ResultActivity::class.java).apply {
+            putExtra("mode", "zip")
             putExtra("score", score)
-            putExtra("total", questions.size)
-            putExtra("time_millis", totalTime)
+            putExtra("total_questions", questions.size)
+            putExtra("total_time", totalTime)
+            putExtra("results", ArrayList(resultsForUi))
             putExtra("genre", testSetName)
             putExtra("responder_name", responderName)
             putExtra("history_id", historyId)
