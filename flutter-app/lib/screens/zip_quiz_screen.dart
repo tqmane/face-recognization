@@ -633,9 +633,6 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
           final cacheWidth = constraints.maxWidth.isFinite
               ? (constraints.maxWidth * dpr).round()
               : null;
-          final cacheHeight = constraints.maxHeight.isFinite
-              ? (constraints.maxHeight * dpr).round()
-              : null;
 
           return Stack(
             fit: StackFit.expand,
@@ -645,7 +642,6 @@ class _ZipQuizScreenState extends State<ZipQuizScreen> {
                 File(imagePath),
                 fit: BoxFit.contain,
                 cacheWidth: cacheWidth,
-                cacheHeight: cacheHeight,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
                 errorBuilder: (context, error, stackTrace) {
