@@ -49,6 +49,7 @@
             android:textColor="@color/text_primary" />
 
         <TextView
+            android:id="@+id/tvScoreUnit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="点"
