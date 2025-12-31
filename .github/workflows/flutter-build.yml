@@ -572,24 +572,32 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Dart
-      uses: dart-lang/setup-dart@v1
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
       with:
-        sdk: stable
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Create Android app for engine-test
+      run: |
+        flutter create --platforms=android --project-name engine_test_app --org com.tqmane engine-test-app
+        # 上書き: テンプレpubspecとmain.dartを適用
+        cp engine-test/app_template/pubspec.yaml engine-test-app/pubspec.yaml
+        cp engine-test/app_template/main.dart engine-test-app/lib/main.dart
 
     - name: Get dependencies
-      working-directory: engine-test
-      run: dart pub get
+      working-directory: engine-test-app
+      run: flutter pub get
 
-    - name: Compile engine-test CLI (Linux)
-      working-directory: engine-test
-      run: dart compile exe bin/engine_test.dart -o engine_test
+    - name: Build engine-test APK
+      working-directory: engine-test-app
+      run: flutter build apk --release
 
-    - name: Upload engine-test binary
+    - name: Upload engine-test APK
       uses: actions/upload-artifact@v4
       with:
-        name: engine-test
-        path: engine-test/engine_test
+        name: engine-test-apk
+        path: engine-test-app/build/app/outputs/flutter-apk/app-release.apk
 
   # リリースジョブ
   release:
@@ -615,7 +623,7 @@ jobs:
           artifacts/macos-build/*.zip
           artifacts/ios-build/*.ipa
           artifacts/android-apk/*.apk
-          artifacts/engine-test/*
+          artifacts/engine-test-apk/*.apk
         generate_release_notes: true
         name: "Flutter App ${{ github.ref_name }}"
         body: |
