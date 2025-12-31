@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "id": "sample-cat",
+      "path": "path/to/cat.jpg",
+      "label": "cat"
+    },
+    {
+      "id": "sample-dog",
+      "path": "path/to/dog.jpg",
+      "label": "dog"
+    }
+  ]
+}

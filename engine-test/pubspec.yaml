@@ -1,0 +1,14 @@
+name: engine_test
+description: CLI to run inference engines on a shared image set and sync results to Firebase.
+version: 0.1.0
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  args: ^2.5.0
+  http: ^1.2.1
+  path: ^1.9.0
+  archive: ^3.6.1
+
+dev_dependencies:
+  lints: ^3.0.0
