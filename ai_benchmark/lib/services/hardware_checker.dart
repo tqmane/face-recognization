@@ -11,7 +11,6 @@ class HardwareChecker {
     
     final file = File(modelPath);
     if (!await file.exists()) {
-      // Cannot check without a model
       return status;
     }
 
@@ -35,19 +34,21 @@ class HardwareChecker {
       status['GPU'] = false;
     }
 
-    // Check NNAPI (Android only)
+    // Check NNAPI (Android only) - Disabled due to API instability
+    /*
     if (Platform.isAndroid) {
       try {
         final options = InterpreterOptions();
-        options.useNnApi = true;
-        final interpreter = await Interpreter.fromFile(file, options: options);
-        interpreter.close();
-        status['NNAPI'] = true;
+        // options.useNnApi = true; // Not supported in 0.10.4
+        // final interpreter = await Interpreter.fromFile(file, options: options);
+        // interpreter.close();
+        // status['NNAPI'] = true;
       } catch (e) {
         print('NNAPI Check failed: $e');
         status['NNAPI'] = false;
       }
     }
+    */
 
     return status;
   }
