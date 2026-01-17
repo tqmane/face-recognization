@@ -1,4 +1,4 @@
-# 🎯 判別クイズ - Similarity Quiz
+# 🎯 判別クイズ - Similarity Quiz Project
 
 <div align="center">
 
@@ -13,143 +13,93 @@
 
 ## 📖 概要
 
-このプロジェクトは、**AIと人間の画像判別能力を比較する研究**のために開発されたクイズアプリです。
+このプロジェクトは、**AIと人間の画像判別能力を比較する研究**のために開発されたアプリケーション群です。
 
-双子、そっくりさん、似ている動物（チーターとヒョウなど）、似ている車種など、
-非常に似たものの画像を表示し、「同じもの」か「違うもの」かを判断させます。
+双子、そっくりさん、似ている動物（チーターとヒョウなど）、似ている車種など、非常に似たものの画像を表示し、「同じもの」か「違うもの」かを判断させます。
 
 ### 研究目的
 
-- AIと人間、どちらがより正確に「似ているもの」を判別できるか
-- 判別にかかる時間の比較
-- ジャンル（動物、人物、車など）による正答率の違い
+- **精度比較**: 人間とAI（Deep Learning）の正答率の比較
+- **速度比較**: 人間の反応速度と、デバイス（CPU/GPU/NPU）上でのAI推論速度の比較
+- **特性分析**: ジャンル（生物、人工物）による得意・不得意の傾向分析
 
 ## 🚀 プロジェクト構成
 
+| ディレクトリ | アプリ名 | 用途 | 対象プラットフォーム |
+|:---|:---|:---|:---|
+| `android-app/` | **人間用クイズアプリ** | 被験者（人間）によるデータ収集 | Android (スマホ/タブレット) |
+| `flutter-app/` | **人間用テストアプリ** | デスクトップでの精密なテスト実施 | Windows / Mac / Linux |
+| `ai_benchmark/` | **AIベンチマーク** | **AIモデルによる自動テスト・速度計測** | Android / iOS / Desktop |
+| `tools/` | 画像収集ツール | 研究用データセットの作成 | Python (CLI) |
+
+## 🤖 AI ベンチマーク機能
+
+新しく実装された **AI Benchmark Runner** (`ai_benchmark/`) は、人間と同じテストセットをAIに解かせるためのツールです。
+
+### 搭載AIモデル (推論エンジン)
+以下のモデルを使用して、画像の特徴量を比較・判別します。
+
+| モデル名 | 特徴 | 出典/ライセンス |
+|---|---|---|
+| **MobileNet V2** | 軽量かつ高精度な標準モデル | [Google / TensorFlow Hub](https://tfhub.dev/google/tf2-preview/mobilenet_v2/classification/4) (Apache 2.0) |
+| **MobileNet V1** | 初期の軽量モデル（ベースライン） | [Google](https://github.com/tensorflow/models) (Apache 2.0) |
+| **Inception V3** | 高解像度・高精度モデル | [Google](https://arxiv.org/abs/1512.00567) (Apache 2.0) |
+| **SqueezeNet** | 超軽量・高速モデル | [DeepScale](https://arxiv.org/abs/1602.07360) (BSD) |
+| **Color Histogram** | AIを使用しない色分布比較（対照実験用） | - |
+
+### ハードウェアアクセラレーション
+デバイスの性能を最大限に引き出すため、以下のアクセラレータに対応しています。
+- **GPU Delegate**: モバイルGPUを使用した高速推論
+- **NNAPI (Android)**: NPU (Neural Processing Unit) を使用した省電力・高速推論
+- **CPU**: フォールバック用（マルチスレッド対応）
+
+## 🌐 使用データ・クレジット
+
+本研究では、以下のオープンデータおよびAPIを使用しています。
+これらは教育・研究目的で利用されています。
+
+### 画像データソース
+| サービス | 提供内容 | ライセンス/権利 |
+|---|---|---|
+| **iNaturalist** | 野生動物の研究グレード写真 | [CC BY-NC](https://creativecommons.org/licenses/by-nc/4.0/) 等 |
+| **GBIF** | 生物多様性データ | 各データ提供者に準拠 |
+| **The Dog API** | 犬種データセット | 無料利用枠 |
+| **The Cat API** | 猫種データセット | 無料利用枠 |
+| **Unsplash** | 高品質な一般写真 | [Unsplash License](https://unsplash.com/license) |
+| **Wikimedia Commons** | パブリックドメイン画像 | PD, CC BY-SA 等 |
+
+### 使用ライブラリ・技術
+- **Flutter & Dart**: Google (BSD 3-Clause)
+- **TensorFlow Lite**: Google (Apache 2.0)
+- **Android Jetpack**: Google (Apache 2.0)
+- **OkHttp**: Square, Inc. (Apache 2.0)
+- **Jsoup**: Jonathan Hedley (MIT License)
+
+## 🔧 実行方法
+
+### 1. AIベンチマークの実行
+```bash
+cd ai_benchmark
+flutter pub get
+flutter run --release
 ```
-similarity-quiz/
-├── android-app/          # Android版アプリ（Kotlin）
-│   └── README.md         # Androidアプリの詳細説明
-│
-├── flutter-app/          # Flutter版アプリ（デスクトップ向け）
-│   └── README.md         # Flutterアプリの詳細説明
-│
-├── tools/                # Python画像収集ツール
-│   └── README.md         # ツールの使い方
-│
-└── .github/workflows/    # GitHub Actions（自動ビルド）
-```
+1. アプリを起動し、エンジン（モデル）とデバイス（CPU/GPU）を選択
+2. テストセット（ZIPまたはフォルダ）をロード
+3. `START` で計測開始
 
-### 各アプリの用途
-
-| アプリ | プラットフォーム | 主な用途 |
-|--------|------------------|----------|
-| Android版 | スマートフォン・タブレット | モバイルでのクイズ・テスト |
-| Flutter版 | Windows / Mac / Linux | デスクトップでの研究用テスト |
-
-## 📱 機能
-
-### 共通機能
-
-- 🎮 **オンラインモード**: リアルタイムで画像を取得してクイズ
-- 📁 **テストセットモード**: 事前ダウンロードでオフラインテスト
-- 📊 **詳細な結果表示**: 正答率、回答時間、問題別結果
-- 🌙 **ダークモード対応**
-
-### ジャンル（17種類）
-
-| カテゴリ | ジャンル |
-|----------|----------|
-| 🐱 ネコ科 | 大型（ライオン、チーター等）、小型（猫種） |
-| 🐕 イヌ科 | 犬種、野生（オオカミ、キツネ等） |
-| 🦝 その他哺乳類 | アライグマ系、クマ科、霊長類 |
-| 🦅 その他動物 | 鳥類、海洋動物、爬虫類、昆虫 |
-| 👥 人物 | 双子、そっくりさん |
-| 🚗 その他 | 車、ロゴ |
-
-## 🔧 クイックスタート
-
-### Android版
-
+### 2. 人間用アプリ（Android）
 ```bash
 cd android-app
 ./gradlew assembleDebug
-# APK: app/build/outputs/apk/debug/app-debug.apk
 ```
+生成されたAPKをインストールして使用。
 
-または [GitHub Actions](../../actions) からビルド済みAPKをダウンロード
+## 📄 ライセンスと免責
 
-### Flutter版（デスクトップ）
-
-```bash
-cd flutter-app
-flutter pub get
-flutter run -d windows  # または macos, linux
-```
-
-## 🌐 使用している外部サービス・API
-
-このアプリは以下の外部サービスを使用して画像を取得しています。
-すべて無料のAPIを教育目的で使用しています。
-
-### 画像ソース
-
-| サービス | 用途 | ライセンス |
-|----------|------|------------|
-| [iNaturalist](https://www.inaturalist.org/) | 野生動物の研究グレード写真 | CC BY-NC |
-| [GBIF](https://www.gbif.org/) | 自然史博物館等の生物多様性データ | 各データ提供者による |
-| [The Dog API](https://thedogapi.com/) | 犬種ごとの写真 | 無料利用可 |
-| [The Cat API](https://thecatapi.com/) | 猫種ごとの写真 | 無料利用可 |
-| [Unsplash](https://unsplash.com/) | 高品質な写真（車等） | Unsplash License |
-| [Wikimedia Commons](https://commons.wikimedia.org/) | ロゴ等 | 各ファイルによる |
-| [Bing Images](https://www.bing.com/images) | フォールバック | - |
-
-### 謝辞
-
-- **iNaturalist** - 市民科学プロジェクトとして、世界中の研究者・愛好家が提供する高品質な野生動物写真
-- **GBIF (Global Biodiversity Information Facility)** - 世界中の自然史博物館・研究機関からの生物多様性データ
-- **The Dog API / The Cat API** - 犬種・猫種の正確な写真データベース
-
-## 📊 研究での使い方
-
-### 1. テストセットの作成
-事前に画像をダウンロードして、同じ条件でテストを実施できます。
-
-### 2. テストの実施
-- 問題数を選択（5〜50問）
-- クイズに回答
-- 回答時間を自動計測
-
-### 3. 結果の分析
-Flutter版ではCSVエクスポート機能で以下のデータを取得できます：
-- 問題ごとの正誤
-- 回答時間（ミリ秒）
-- ジャンル別の正答率
-
-## 🛠 技術スタック
-
-### Android版
-- **言語**: Kotlin
-- **UI**: Material Design 3
-- **非同期処理**: Kotlin Coroutines
-- **ネットワーク**: OkHttp, Jsoup
-
-### Flutter版
-- **言語**: Dart 3.0+
-- **フレームワーク**: Flutter 3.0+
-- **プラットフォーム**: Windows, macOS, Linux
-
-## 📄 ライセンス
-
-このプロジェクトは**教育目的**で開発されています。
-研究・教育目的での使用を歓迎します。
+このプロジェクトは日本の高等学校における教育活動の一環として作成されました。
+ソースコードは **MIT License** の下で公開されていますが、含まれるモデルファイルや収集された画像データについては、それぞれの権利者のライセンスに従ってください。
 
 ---
-
 <div align="center">
-
-**🏫 日本の高等学校 総合探究プロジェクト**
-
-*2024-2025年度*
-
+Created by tqmane for High School Inquiry Project (2024-2026)
 </div>
