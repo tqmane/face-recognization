@@ -82,7 +82,7 @@ jobs:
             
             # アイコン設定コード
             icon_code = '''
-          # アプリアイコンを設定
+          // アプリアイコンを設定
           GError *error = NULL;
           gchar *icon_path = g_build_filename(g_get_current_dir(), "data", "flutter_assets", "assets", "icon", "app_icon.png", NULL);
           if (g_file_test(icon_path, G_FILE_TEST_EXISTS)) {
@@ -522,7 +522,7 @@ jobs:
             if 'dependencies {' in content:
                 content = content.replace(
                     'dependencies {',
-                    \"dependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'"
+                    'dependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'
                 )
             else:
                 content += \"\n\ndependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'\n}\n\"        
