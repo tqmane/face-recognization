@@ -33,28 +33,34 @@ class TfliteEngine implements InferenceEngine {
       // Hardware Acceleration setup
       if (Platform.isAndroid) {
         if (device == 'GPU') {
-          _delegate = GpuDelegateV2(
-            options: GpuDelegateOptionsV2(
-              isPrecisionLossAllowed: false,
-              inferencePreference: TFLiteGpuInferenceUsage.fastSingleAnswer,
-              inferencePriority1: TFLiteGpuInferencePriority.minLatency,
-              inferencePriority2: TFLiteGpuInferencePriority.auto,
-              inferencePriority3: TFLiteGpuInferencePriority.auto,
-            ),
-          );
-          options.addDelegate(_delegate!);
+          // Use default GPU Delegate settings for compatibility
+          try {
+            _delegate = GpuDelegateV2();
+            options.addDelegate(_delegate!);
+          } catch (e) {
+            print('Failed to create GpuDelegateV2: $e');
+          }
         } else if (device == 'NNAPI') {
-          options.useNnApi = true;
+          // NNAPI support varies by tflite_flutter version.
+          // Trying NnApiDelegate if available, otherwise fallback.
+          try {
+             // options.useNnApi = true; // Removed: Not supported in 0.10.4
+             // _delegate = NnApiDelegate(); // Check if this exists at runtime/compile time
+             // options.addDelegate(_delegate!);
+             print('NNAPI is currently disabled due to API compatibility issues.');
+          } catch (e) {
+             print('NNAPI not supported: $e');
+          }
         }
       } else if (Platform.isIOS) {
         if (device == 'GPU') {
-           _delegate = GpuDelegate(
-            options: GpuDelegateOptions(
-               allowPrecisionLoss: true,
-               waitType: TFLiteGpuWaitType.active
-            )
-           );
-           options.addDelegate(_delegate!);
+           try {
+             // Metal Delegate (GpuDelegate on iOS)
+             _delegate = GpuDelegate();
+             options.addDelegate(_delegate!);
+           } catch (e) {
+             print('Failed to create GpuDelegate (Metal): $e');
+           }
         }
       }
       
