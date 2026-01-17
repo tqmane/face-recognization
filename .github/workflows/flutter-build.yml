@@ -82,7 +82,7 @@ jobs:
             
             # アイコン設定コード
             icon_code = '''
-          // アプリアイコンを設定
+          # アプリアイコンを設定
           GError *error = NULL;
           gchar *icon_path = g_build_filename(g_get_current_dir(), "data", "flutter_assets", "assets", "icon", "app_icon.png", NULL);
           if (g_file_test(icon_path, G_FILE_TEST_EXISTS)) {
@@ -525,7 +525,8 @@ jobs:
                     'dependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'
                 )
             else:
-                content += \"\n\ndependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'\n}\n\"        
+                content += \"\n\ndependencies {\n    coreLibraryDesugaring \'com.android.tools:desugar_jdk_libs:2.0.4\'\n}\n\"
+        
         with open('$BUILD_FILE', 'w') as f:
             f.write(content)
         print('build.gradle updated successfully')
@@ -613,6 +614,19 @@ jobs:
       with:
         flutter-version: '3.38.3'
         channel: 'stable'
+
+    - name: Fix Android Build Config
+      working-directory: ai_benchmark
+      run: |
+        # AGPバージョンを更新
+        sed -i 's/id "com.android.application" version \"[0-9.]*\"/id "com.android.application" version "8.3.2"/' android/settings.gradle
+        # Gradle Wrapperを更新
+        mkdir -p android/gradle/wrapper
+        echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties
+        echo "distributionPath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+        echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties
+        echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-all.zip" >> android/gradle/wrapper/gradle-wrapper.properties
 
     - name: Get dependencies
       working-directory: ai_benchmark
