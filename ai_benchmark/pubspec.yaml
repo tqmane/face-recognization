@@ -10,11 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # AI Inference (Using a maintained fork compatible with Dart 3)
-  tflite_flutter:
-    git:
-      url: https://github.com/znjameswu/tflite_flutter_plugin.git
-      ref: main
+  # AI Inference (Using plus version from pub.dev)
+  tflite_flutter_plus: ^0.1.0
   
   # Image Processing
   image: ^4.1.3

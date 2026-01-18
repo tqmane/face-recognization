@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:tflite_flutter_plus/tflite_flutter_plus.dart';
 
 class HardwareChecker {
   Future<Map<String, bool>> checkAvailability(String modelPath) async {
