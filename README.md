@@ -73,7 +73,7 @@
 ### 使用ライブラリ・技術
 - **Flutter & Dart**: Google (BSD 3-Clause)
 - **TensorFlow Lite**: Google (Apache 2.0)
-- **tflite_flutter**: [am15h](https://github.com/am15h/tflite_flutter) (Apache 2.0)
+- **tflite_flutter**: [pub.dev](https://pub.dev/packages/tflite_flutter) (Apache 2.0)
 - **image**: [Simon Lightfoot](https://pub.dev/packages/image) (BSD)
 - **Android Jetpack**: Google (Apache 2.0)
 - **OkHttp**: Square, Inc. (Apache 2.0)
