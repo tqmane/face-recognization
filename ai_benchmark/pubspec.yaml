@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # AI Inference (Using plus version from pub.dev)
-  tflite_flutter_plus: ^0.1.0
+  # AI Inference (Official updated version 2024)
+  tflite_flutter: ^0.11.0
   
   # Image Processing
   image: ^4.1.3
