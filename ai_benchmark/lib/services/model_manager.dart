@@ -25,45 +25,42 @@ class ModelManager {
     ModelItem(
       key: 'mobilenet_v1',
       name: 'MobileNet V1',
-      url: 'http://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_2018_02_22/mobilenet_v1_1.0_224_quant.tgz',
+      url: 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_2018_02_22/mobilenet_v1_1.0_224_quant.tgz',
       fileNameInArchive: 'mobilenet_v1_1.0_224_quant.tflite',
     ),
     ModelItem(
       key: 'mobilenet_v2',
       name: 'MobileNet V2',
-      url: 'http://storage.googleapis.com/download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224_quant.tgz',
+      url: 'https://storage.googleapis.com/download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224_quant.tgz',
       fileNameInArchive: 'mobilenet_v2_1.0_224_quant.tflite',
     ),
-    ModelItem(
-      key: 'mobilenet_v3',
-      name: 'MobileNet V3 (Large)',
-      url: 'https://huggingface.co/qualcomm/MobileNet-v3-Large/resolve/main/MobileNet-v3-Large.tflite',
-      fileNameInArchive: 'MobileNet-v3-Large.tflite',
-    ),
+    // Note: MobileNet V3 Large - currently unavailable via direct download
+    // The Qualcomm HuggingFace model requires authentication/script-based download
+    // Consider using MobileNet V2 or V4 as alternatives
     ModelItem(
       key: 'mobilenet_v4',
       name: 'MobileNet V4 (Medium)',
-      url: 'https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_256/resolve/main/MobileNetV4_Conv_Medium_256_F32.tflite',
-      fileNameInArchive: 'MobileNetV4_Conv_Medium_256_F32.tflite',
-      inputSize: 256,
+      url: 'https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_224/resolve/main/mobilenetv4_conv_medium.e500_r224_in1k_float32.tflite?download=true',
+      fileNameInArchive: 'mobilenetv4_conv_medium.e500_r224_in1k_float32.tflite',
+      inputSize: 224,
     ),
     ModelItem(
       key: 'inception_v3',
       name: 'Inception V3',
-      url: 'http://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/inception_v3_2018_04_27.tgz',
+      url: 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/inception_v3_2018_04_27.tgz',
       fileNameInArchive: 'inception_v3.tflite',
       inputSize: 299,
     ),
     ModelItem(
       key: 'squeezenet',
       name: 'SqueezeNet',
-      url: 'http://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/squeezenet_2018_04_27.tgz',
+      url: 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/squeezenet_2018_04_27.tgz',
       fileNameInArchive: 'squeezenet.tflite',
     ),
     ModelItem(
       key: 'densenet',
       name: 'DenseNet',
-      url: 'http://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/densenet_2018_04_27.tgz',
+      url: 'https://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/densenet_2018_04_27.tgz',
       fileNameInArchive: 'densenet.tflite',
     ),
   ];
@@ -98,8 +95,8 @@ class ModelManager {
     final model = models.firstWhere((m) => m.key == key);
     final saveDir = await _localPath;
     
-    // Check if direct download or archive
-    bool isDirectTflite = model.url.endsWith('.tflite');
+    // Check if direct download or archive (check before query parameters)
+    bool isDirectTflite = model.url.contains('.tflite');
     
     final tempPath = p.join(saveDir, isDirectTflite ? '$key.tflite' : '$key.temp_archive');
 
