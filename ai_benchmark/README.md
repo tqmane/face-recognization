@@ -1,14 +1,15 @@
-# AI Benchmark Runner
+# Flutter判別クイズアプリ
 
-AIモデルによる画像類似度ベンチマークツールです。人間と同じテストセットをAIに解かせ、精度と速度を測定します。
+Windows/Mac/Linux/Android/iOS対応のクロスプラットフォーム版「判別クイズ」アプリです。
+このアプリは主に**デスクトップ（Windows/Mac/Linux）での研究用テスト**を目的として開発されました。
 
 ## 機能
 
-- 🤖 **複数のAIモデル**: MobileNet V1/V2/V4、Inception V3、SqueezeNet、DenseNet
-- 🚀 **ハードウェアアクセラレーション**: GPU Delegate、NNAPI（Android）、CPU
-- 📊 **詳細な結果**: CSV形式で推論時間、類似度スコア、正答率をエクスポート
-- 📦 **モデル自動ダウンロード**: アプリ起動時に必要なモデルを自動ダウンロード
-- 🎯 **柔軟なテストセット**: ZIPまたはフォルダからテストデータを読み込み
+- 🎮 **オンラインモード**: リアルタイムで画像を取得してクイズ
+- 📦 **テストセットモード**: 事前ダウンロードした画像でオフラインテスト
+- 📊 **結果のエクスポート**: CSV形式でテスト結果を出力
+- 🎯 **17種類のジャンル**: ネコ科、犬種、車、ロゴなど
+- 🌙 **ダークモード対応**: システム設定に連動
 
 ## セットアップ
 
@@ -19,20 +20,14 @@ AIモデルによる画像類似度ベンチマークツールです。人間と
 ### インストール
 
 ```bash
-cd ai_benchmark
+cd flutter-app
 flutter pub get
 ```
 
 ### 実行
 
 ```bash
-# Android
-flutter run -d android
-
-# iOS
-flutter run -d ios
-
-# Windows
+# Windows（推奨）
 flutter run -d windows
 
 # Mac
@@ -45,113 +40,126 @@ flutter run -d linux
 ### ビルド
 
 ```bash
-# Android (Release APK)
-flutter build apk --release
-
-# iOS
-flutter build ios --release
-
 # Windows
-flutter build windows --release
+flutter build windows
 
 # Mac
-flutter build macos --release
+flutter build macos
 
 # Linux
-flutter build linux --release
+flutter build linux
 ```
-
-## 搭載AIモデル
-
-| モデル名 | 特徴 | 入力サイズ | 出典 |
-|---|---|---|---|
-| **MobileNet V1** | 軽量ベースライン | 224 | [TensorFlow](https://github.com/tensorflow/models) |
-| **MobileNet V2** | 標準軽量モデル | 224 | [TensorFlow](https://github.com/tensorflow/models) |
-| **MobileNet V4** | 最新モデル（2024） | 224 | [byoussef/HuggingFace](https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_224) |
-| **Inception V3** | 高精度モデル | 299 | [Google](https://arxiv.org/abs/1512.00567) |
-| **SqueezeNet** | 超軽量モデル | 224 | [DeepScale](https://arxiv.org/abs/1602.07360) |
-| **DenseNet** | 密結構造ネットワーク | 224 | [Huang et al.](https://arxiv.org/abs/1608.06993) |
-| **Color Histogram** | AI不使用（対照実験用） | - | - |
-
-## ハードウェアアクセラレーション
-
-| アクセラレータ | 対応プラットフォーム | 説明 |
-|---|---|---|
-| **GPU Delegate** | Android, iOS | OpenGL/Metalによる高速推論 |
-| **NNAPI** | Android | NPUを使用した省電力推論 |
-| **CPU** | 全プラットフォーム | フォールバック（マルチスレッド） |
 
 ## ディレクトリ構造
 
 ```
-ai_benchmark/
+flutter-app/
 ├── lib/
-│   ├── main.dart                      # エントリポイント
-│   ├── engines/
-│   │   ├── inference_engine.dart      # 推論エンジン基底クラス
-│   │   ├── tflite_engine.dart         # TFLite推論エンジン
-│   │   └── histogram_engine.dart      # ヒストグラムエンジン
+│   ├── main.dart                    # エントリポイント
+│   ├── screens/
+│   │   ├── home_screen.dart         # ホーム画面
+│   │   ├── online_quiz_screen.dart  # オンラインクイズ画面
+│   │   ├── test_set_screen.dart     # テストセット管理画面
+│   │   └── quiz_screen.dart         # クイズ実行画面
+│   │
 │   ├── services/
-│   │   ├── model_manager.dart         # モデルダウンロード管理
-│   │   ├── hardware_checker.dart      # ハードウェア対応チェック
-│   │   └── test_set_loader.dart       # テストセット読み込み
-│   └── models/
-│       └── quiz_question.dart         # 問題データモデル
-├── pubspec.yaml                       # 依存関係
-└── README.md                          # 本ファイル
+│   │   ├── image_search_service.dart # 画像検索サービス
+│   │   ├── inaturalist_service.dart  # iNaturalist API
+│   │   ├── gbif_service.dart         # GBIF API
+│   │   ├── dog_api_service.dart      # Dog API
+│   │   ├── cat_api_service.dart      # Cat API
+│   │   ├── wikimedia_service.dart    # Wikimedia Commons API
+│   │   └── test_set_service.dart     # テストセット管理
+│   │
+│   ├── models/
+│   │   ├── quiz_question.dart        # 問題データモデル
+│   │   ├── quiz_result.dart          # 結果データモデル
+│   │   └── genre.dart                # ジャンル定義
+│   │
+│   └── widgets/                      # 再利用可能なUIコンポーネント
+│
+├── assets/                           # アイコン等のアセット
+├── windows/                          # Windows固有の設定
+├── macos/                            # macOS固有の設定
+├── linux/                            # Linux固有の設定
+└── pubspec.yaml                      # 依存関係の定義
 ```
 
-## 使用ライブラリ
+## 主要コンポーネント
 
-| ライブラリ | 用途 | ライセンス |
-|---|---|---|
-| [tflite_flutter](https://pub.dev/packages/tflite_flutter) | TensorFlow Lite推論 | Apache 2.0 |
-| [image](https://pub.dev/packages/image) | 画像処理 | BSD |
-| [path_provider](https://pub.dev/packages/path_provider) | ローカルストレージパス取得 | BSD |
-| [csv](https://pub.dev/packages/csv) | CSVエクスポート | BSD |
-| [permission_handler](https://pub.dev/packages/permission_handler) | 権限管理 | MIT |
-| [archive](https://pub.dev/packages/archive) | ZIP解凍 | Apache 2.0 |
+### ImageSearchService
+複数のAPIソースから画像を取得する統合サービス。
 
-## 使い方
+**使用API（優先順）:**
+1. **iNaturalist** - 野生動物の研究グレード写真
+2. **GBIF** - 自然史博物館等の生物多様性データ
+3. **The Dog API** - 犬種ごとの写真
+4. **The Cat API** - 猫種ごとの写真
+5. **Wikimedia Commons** - その他（ロゴなど）
+6. **Bing画像検索** - フォールバック
 
-1. **初回起動**: モデルが自動ダウンロードされます
-2. **エンジン選択**: 使用するAIモデルを選択
-3. **デバイス選択**: CPU/GPU/NNAPIから選択
-4. **テストセット読み込み**: ZIPファイルまたはフォルダを選択
-5. **ベンチマーク開始**: STARTボタンで計測開始
-6. **結果確認**: 自動的にCSVファイルがエクスポートされます
+### TestSetService
+テストセットの作成・保存・読み込みを管理。
 
-## テストセット形式
+- 画像をローカルに保存
+- JSON形式でメタデータ管理
+- 結果のCSVエクスポート機能
 
-### ZIP形式
+### Genre
+17種類のジャンルを定義。
+
+- ネコ科大型・小型
+- 犬種・野生イヌ科
+- アライグマ系・鳥類・海洋動物
+- 爬虫類・クマ科・霊長類
+- 昆虫・似ている人・車・ロゴ
+
+## データフロー
+
 ```
-testset.zip
-├── category/
-│   ├── 001/
-│   │   ├── image_a.jpg
-│   │   ├── image_b.jpg
-│   │   └── metadata.json  {"is_same": true/false}
-│   ├── 002/
-│   │   ├── image_a.jpg
-│   │   ├── image_b.jpg
-│   │   └── metadata.json
-│   └── ...
-```
-
-### CSV結果形式
-```csv
-Question ID,Genre,Actual Match,Predicted Match,Correct,Similarity Score,Time (ms),Model,Device
-1,Cat,True,True,Yes,0.9234,45,MobileNet V2,GPU
-2,Cat,False,True,No,0.8654,38,MobileNet V2,GPU
-...
+[ユーザー操作]
+      ↓
+[HomeScreen] → ジャンル選択
+      ↓
+[OnlineQuizScreen] または [TestSetScreen]
+      ↓
+[ImageSearchService] → 複数APIから画像取得
+      ↓
+[QuizScreen] → クイズ実行
+      ↓
+[結果表示 + CSVエクスポート]
 ```
 
 ## 技術スタック
 
 - **言語**: Dart 3.0+
 - **フレームワーク**: Flutter 3.0+
-- **AIフレームワーク**: TensorFlow Lite
-- **アーキテクチャ**: Clean Architecture + Repository Pattern
+- **HTTP**: http パッケージ
+- **ローカルストレージ**: path_provider, shared_preferences
+- **ファイル操作**: dart:io
+
+## 研究での使い方
+
+### テストセットの作成
+1. ホーム画面で「テストセット」を選択
+2. ジャンルと問題数を選択
+3. 「ダウンロード」をクリック
+4. 画像がローカルに保存される
+
+### テストの実施
+1. 保存されたテストセットを選択
+2. 「開始」をクリック
+3. クイズに回答
+4. 終了後、結果がCSVでエクスポート可能
+
+### 結果の分析
+CSVファイルには以下の情報が含まれます：
+- 問題番号
+- ジャンル
+- 正解（同じ/違う）
+- 回答（同じ/違う）
+- 正誤
+- 回答時間（ミリ秒）
 
 ---
 
