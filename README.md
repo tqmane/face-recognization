@@ -41,10 +41,12 @@
 
 | モデル名 | 特徴 | 出典/ライセンス |
 |---|---|---|
-| **MobileNet V2** | 軽量かつ高精度な標準モデル | [Google / TensorFlow Hub](https://tfhub.dev/google/tf2-preview/mobilenet_v2/classification/4) (Apache 2.0) |
+| **MobileNet V2** | 軽量かつ高精度な標準モデル | [Google / TensorFlow](https://github.com/tensorflow/models) (Apache 2.0) |
 | **MobileNet V1** | 初期の軽量モデル（ベースライン） | [Google](https://github.com/tensorflow/models) (Apache 2.0) |
+| **MobileNet V4** | 最新の軽量モデル（2024） | [byoussef/HuggingFace](https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_224) (Apache 2.0) |
 | **Inception V3** | 高解像度・高精度モデル | [Google](https://arxiv.org/abs/1512.00567) (Apache 2.0) |
 | **SqueezeNet** | 超軽量・高速モデル | [DeepScale](https://arxiv.org/abs/1602.07360) (BSD) |
+| **DenseNet** | 密結構造ネットワーク | [Huang et al.](https://arxiv.org/abs/1608.06993) (BSD) |
 | **Color Histogram** | AIを使用しない色分布比較（対照実験用） | - |
 
 ### ハードウェアアクセラレーション
@@ -71,6 +73,8 @@
 ### 使用ライブラリ・技術
 - **Flutter & Dart**: Google (BSD 3-Clause)
 - **TensorFlow Lite**: Google (Apache 2.0)
+- **tflite_flutter**: [am15h](https://github.com/am15h/tflite_flutter) (Apache 2.0)
+- **image**: [Simon Lightfoot](https://pub.dev/packages/image) (BSD)
 - **Android Jetpack**: Google (Apache 2.0)
 - **OkHttp**: Square, Inc. (Apache 2.0)
 - **Jsoup**: Jonathan Hedley (MIT License)
