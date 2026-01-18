@@ -41,6 +41,13 @@ class ModelManager {
       fileNameInArchive: 'MobileNet-v3-Large.tflite',
     ),
     ModelItem(
+      key: 'mobilenet_v4',
+      name: 'MobileNet V4 (Medium)',
+      url: 'https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_256/resolve/main/MobileNetV4_Conv_Medium_256_F32.tflite',
+      fileNameInArchive: 'MobileNetV4_Conv_Medium_256_F32.tflite',
+      inputSize: 256,
+    ),
+    ModelItem(
       key: 'inception_v3',
       name: 'Inception V3',
       url: 'http://storage.googleapis.com/download.tensorflow.org/models/tflite/model_zoo/upload_20180427/inception_v3_2018_04_27.tgz',
