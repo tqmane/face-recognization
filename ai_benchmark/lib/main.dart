@@ -44,20 +44,21 @@ class BenchmarkHomeScreen extends StatefulWidget {
 }
 
 class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
-  String _selectedModelKey = 'Histogram';
+  String _selectedModelKey = 'MobileNet V2';
   String _selectedDevice = 'CPU';
   String? _testSetPath;
   bool _isRunning = false;
   double _progress = 0.0;
   String _statusMessage = 'Checking hardware...';
-  
+
   // Hardware status
   Map<String, bool> _hardwareStatus = {'CPU': true, 'GPU': false, 'NNAPI': false};
   List<String> _availableDevices = ['CPU'];
 
-  // Models status
-  bool _modelsReady = false;
+  // Models status - individual download tracking
+  Map<String, bool> _modelsDownloaded = {};
   Map<String, double> _downloadProgress = {};
+  bool _isLoadingModels = true;
 
   // Stats
   int _totalImages = 0;
@@ -66,8 +67,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   int _elapsedTimeMs = 0;
   List<InferenceResult> _results = [];
 
-  final List<String> _devices = ['CPU', 'GPU'];
-
   @override
   void initState() {
     super.initState();
@@ -75,22 +74,34 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   }
 
   Future<void> _checkSystem() async {
-    // 1. Model Check
-    final modelManager = ModelManager();
-    final ready = await modelManager.areAllModelsDownloaded();
+    // Initialize model download status
+    final manager = ModelManager();
+    final downloadedStatus = <String, bool>{};
+    for (final model in ModelManager.models) {
+      downloadedStatus[model.key] = await manager.isModelDownloaded(model.key);
+    }
 
-    if (!ready) {
+    setState(() {
+      _modelsDownloaded = downloadedStatus;
+      _isLoadingModels = false;
+    });
+
+    // Check if at least one model is downloaded
+    final hasAnyModel = _modelsDownloaded.values.any((downloaded) => downloaded);
+    if (!hasAnyModel) {
       setState(() {
-        _modelsReady = false;
-        _statusMessage = 'Models need to be downloaded.';
+        _statusMessage = 'モデルをダウンロードしてください';
       });
       return;
     }
 
-    // 2. Hardware Check (only if models exist)
+    // Hardware Check
     final checker = HardwareChecker();
-    // Use the first model for checking
-    final modelFile = await modelManager.getModelFile(ModelManager.models.first.key);
+    final firstModelKey = _modelsDownloaded.entries.firstWhere(
+      (e) => e.value,
+      orElse: () => MapEntry(ModelManager.models.first.key, true),
+    ).key;
+    final modelFile = await manager.getModelFile(firstModelKey);
     final status = await checker.checkAvailability(modelFile.path);
 
     setState(() {
@@ -99,7 +110,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
           .where((e) => e.value)
           .map((e) => e.key)
           .toList();
-      
+
       if (_availableDevices.contains('GPU')) {
         _selectedDevice = 'GPU';
       } else if (_availableDevices.contains('NNAPI')) {
@@ -107,34 +118,98 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       } else {
         _selectedDevice = 'CPU';
       }
-      
-      _modelsReady = true;
-      _statusMessage = 'Ready. Hardware: ${_availableDevices.join(", ")}';
+
+      _statusMessage = '準備完了: ${_availableDevices.join(", ")}';
     });
+
+    // Set default selected model to first downloaded one
+    final downloadedModels = ModelManager.models.where((m) => _modelsDownloaded[m.key] == true).toList();
+    if (downloadedModels.isNotEmpty) {
+      setState(() {
+        _selectedModelKey = downloadedModels.first.name;
+      });
+    }
   }
 
-  Future<void> _downloadModels() async {
+  Future<void> _downloadModel(ModelItem model) async {
     final manager = ModelManager();
-    
-    for (var model in ModelManager.models) {
-      if (await manager.isModelDownloaded(model.key)) continue;
 
-      setState(() => _statusMessage = 'Downloading ${model.name}...');
-      
-      try {
-        await manager.downloadModel(model.key, (progress) {
+    try {
+      await manager.downloadModel(model.key, (progress) {
+        if (mounted) {
           setState(() {
             _downloadProgress[model.key] = progress;
           });
+        }
+      });
+
+      if (mounted) {
+        setState(() {
+          _modelsDownloaded[model.key] = true;
+          _downloadProgress.remove(model.key);
         });
-      } catch (e) {
-        setState(() => _statusMessage = 'Failed to download ${model.name}: $e');
-        return;
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${model.name} をダウンロードしました'),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _downloadProgress.remove(model.key);
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ダウンロードエラー: $e'),
+            duration: const Duration(milliseconds: 2000),
+          ),
+        );
       }
     }
+  }
 
-    // Re-check system now that models are available
-    await _checkSystem();
+  Future<void> _deleteModel(ModelItem model) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除確認'),
+        content: Text('${model.name} を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final manager = ModelManager();
+      final file = await manager.getModelFile(model.key);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      setState(() {
+        _modelsDownloaded[model.key] = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${model.name} を削除しました'),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickTestSet() async {
@@ -148,7 +223,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       type: FileType.custom,
       allowedExtensions: ['zip'],
     );
-    
+
     if (result != null) {
       path = result.files.single.path;
     } else if (!Platform.isAndroid && !Platform.isIOS) {
@@ -158,7 +233,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     if (path != null) {
       setState(() {
         _testSetPath = path;
-        _statusMessage = 'Selected: ${p.basename(path!)}';
+        _statusMessage = '選択中: ${p.basename(path!)}';
       });
     }
   }
@@ -167,18 +242,17 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     if (key == 'Histogram') {
       return HistogramEngine();
     }
-    
-    // Find model info
+
     final modelInfo = ModelManager.models.firstWhere(
-      (m) => m.name == key, 
+      (m) => m.name == key,
       orElse: () => ModelManager.models.first
     );
-    
+
     final manager = ModelManager();
     final file = await manager.getModelFile(modelInfo.key);
-    
+
     if (!await file.exists()) {
-      setState(() => _statusMessage = 'Model file not found: ${file.path}');
+      setState(() => _statusMessage = 'モデルが見つかりません: ${file.path}');
       return null;
     }
 
@@ -192,7 +266,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
 
   Future<void> _runBenchmark() async {
     if (_testSetPath == null) return;
-    
+
     final engine = await _createEngine(_selectedModelKey, _selectedDevice);
     if (engine == null) return;
 
@@ -201,22 +275,22 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       _progress = 0.0;
       _processedImages = 0;
       _results = [];
-      _statusMessage = 'Initializing ${engine.name}...';
+      _statusMessage = '${engine.name} を初期化中...';
     });
 
     try {
       await engine.initialize();
 
-      setState(() => _statusMessage = 'Loading test set...');
+      setState(() => _statusMessage = 'テストセットを読み込み中...');
       final loader = TestSetLoader();
       List<QuizQuestion> questions;
-      
+
       if (_testSetPath!.endsWith('.zip')) {
         questions = await loader.loadFromZip(_testSetPath!);
       } else {
         questions = await loader.loadFromDirectory(_testSetPath!);
       }
-      
+
       _totalImages = questions.length;
 
       int correctCount = 0;
@@ -224,20 +298,20 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
 
       for (int i = 0; i < questions.length; i++) {
         if (!mounted) break;
-        
+
         final q = questions[i];
         final start = DateTime.now();
-        
+
         double similarity = 0.0;
         try {
           similarity = await engine.compareImages(q.image1Url, q.image2Url);
         } catch (e) {
           print('Inference error at index $i: $e');
         }
-        
+
         final elapsed = DateTime.now().difference(start).inMilliseconds;
-        
-        bool predictedSame = similarity > 0.85; 
+
+        bool predictedSame = similarity > 0.85;
         bool isCorrect = (predictedSame == q.isMatch);
         if (isCorrect) correctCount++;
 
@@ -255,23 +329,23 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
           _progress = _processedImages / _totalImages;
           _currentAccuracy = correctCount / _processedImages;
           _elapsedTimeMs = stopwatch.elapsedMilliseconds;
-          _statusMessage = 'Processing ${i+1}/$_totalImages...';
+          _statusMessage = '処理中 ${i+1}/$_totalImages...';
         });
-        
+
         await Future.delayed(Duration.zero);
       }
-      
+
       stopwatch.stop();
       engine.dispose();
       await _exportResults();
 
       setState(() {
-        _statusMessage = 'Complete! Accuracy: ${(_currentAccuracy * 100).toStringAsFixed(1)}%';
+        _statusMessage = '完了！精度: ${(_currentAccuracy * 100).toStringAsFixed(1)}%';
       });
 
     } catch (e) {
       setState(() {
-        _statusMessage = 'Error: $e';
+        _statusMessage = 'エラー: $e';
       });
       print(e);
     } finally {
@@ -282,155 +356,333 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       }
     }
   }
-  
+
   Future<void> _exportResults() async {
     List<List<dynamic>> rows = [];
     rows.add([
       'Question ID', 'Genre', 'Actual Match', 'Predicted Match', 'Correct', 'Similarity Score', 'Time (ms)',
       'Model', 'Device'
     ]);
-    
+
     for (var r in _results) {
       rows.add([
-        r.questionId, r.genre, r.isSameActual, r.isSamePredicted, 
+        r.questionId, r.genre, r.isSameActual, r.isSamePredicted,
         r.isSameActual == r.isSamePredicted, r.similarityScore, r.inferenceTimeMs,
         _selectedModelKey, _selectedDevice
       ]);
     }
 
     String csvData = const ListToCsvConverter().convert(rows);
-    
+
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/benchmark_${_selectedModelKey.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv');
     await file.writeAsString(csvData);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to: ${file.path}')),
+        SnackBar(content: Text('保存しました: ${file.path}')),
       );
     }
   }
 
+  void _showModelManagement() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasAnyModel = _modelsDownloaded.values.any((downloaded) => downloaded);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('モデル管理'),
+          content: SizedBox(
+            width: 400,
+            height: 500,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: ModelManager.models.length,
+                    itemBuilder: (context, index) {
+                      final model = ModelManager.models[index];
+                      final isDownloaded = _modelsDownloaded[model.key] ?? false;
+                      final progress = _downloadProgress[model.key];
+                      final isDownloading = progress != null;
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isDownloaded
+                                ? colorScheme.primaryContainer
+                                : colorScheme.surfaceContainerHighest,
+                            child: Icon(
+                              isDownloaded ? Icons.check : Icons.cloud_download,
+                              color: isDownloaded
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                            ),
+                          ),
+                          title: Text(model.name),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${model.inputSize}x${model.inputSize}'),
+                              if (isDownloading)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: LinearProgressIndicator(value: progress),
+                                ),
+                            ],
+                          ),
+                          trailing: isDownloading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : isDownloaded
+                                  ? IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _deleteModel(model);
+                                      },
+                                    )
+                                  : IconButton(
+                                      icon: const Icon(Icons.download),
+                                      onPressed: () async {
+                                        await _downloadModel(model);
+                                        if (mounted) {
+                                          setDialogState(() {});
+                                        }
+                                      },
+                                    ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+            if (!hasAnyModel)
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _checkSystem();
+                },
+                child: const Text('再チェック'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_modelsReady && !_isRunning) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Download Models')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.cloud_download, size: 64, color: Colors.teal),
-              const SizedBox(height: 20),
-              const Text('AI Models need to be downloaded first.'),
-              const SizedBox(height: 20),
-              ...ModelManager.models.map((m) {
-                double p = _downloadProgress[m.key] ?? 0.0;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [Text(m.name), Text('${(p * 100).toInt()}%')],
-                      ),
-                      LinearProgressIndicator(value: p),
-                    ],
-                  ),
-                );
-              }),
-              const SizedBox(height: 30),
-              FilledButton(
-                onPressed: _downloadModels,
-                child: const Text('Download All Models'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasAnyModel = _modelsDownloaded.values.any((downloaded) => downloaded);
+    final downloadedModels = ModelManager.models.where((m) => _modelsDownloaded[m.key] == true).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Benchmark Runner')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      backgroundColor: colorScheme.surface,
+      body: SafeArea(
+        child: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              color: Colors.blueGrey.withOpacity(0.1),
-              child: Row(
-                children: [
-                  const Icon(Icons.hardware, size: 20),
-                  const SizedBox(width: 8),
-                  Text('Detected: ${_availableDevices.join(", ")}'),
-                ],
+            // 設定/モデル管理ボタン（右上）
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: 'モデル管理',
+                onPressed: () => _showModelManagement(),
               ),
             ),
-            const SizedBox(height: 10),
+            // メインコンテンツ
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // アイコン
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '🤖',
+                            style: TextStyle(fontSize: 48),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Engine'),
-                      value: _selectedModelKey,
-                      items: ['Histogram', ...ModelManager.models.map((m) => m.name)]
-                          .map((k) => DropdownMenuItem(value: k, child: Text(k))).toList(),
-                      onChanged: _isRunning ? null : (v) => setState(() => _selectedModelKey = v!),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(labelText: 'Device'),
-                      value: _selectedDevice,
-                      items: _availableDevices.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-                      onChanged: _isRunning ? null : (v) => setState(() => _selectedDevice = v!),
-                    ),
-                  ],
+                      // タイトル
+                      Text(
+                        'AI Benchmark',
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'AIモデルの性能を測定',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ハードウェアステータス
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.hardware, size: 16, color: colorScheme.primary),
+                            const SizedBox(width: 8),
+                            Text(
+                              _availableDevices.join(", "),
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // モデルとデバイス選択
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  labelText: 'モデル',
+                                  border: OutlineInputBorder(),
+                                ),
+                                value: hasAnyModel ? _selectedModelKey : null,
+                                items: downloadedModels.isEmpty
+                                    ? null
+                                    : downloadedModels
+                                        .map((m) => DropdownMenuItem(
+                                            value: m.name,
+                                            child: Text(m.name),
+                                          ))
+                                        .toList(),
+                                onChanged: (hasAnyModel && !_isRunning)
+                                    ? (v) => setState(() => _selectedModelKey = v!)
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  labelText: 'デバイス',
+                                  border: OutlineInputBorder(),
+                                ),
+                                value: _selectedDevice,
+                                items: _availableDevices
+                                    .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                    .toList(),
+                                onChanged: _isRunning ? null : (v) => setState(() => _selectedDevice = v!),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // テストセット選択ボタン
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton.icon(
+                          onPressed: (_isRunning || !hasAnyModel) ? null : _pickTestSet,
+                          icon: const Icon(Icons.folder_zip),
+                          label: Text(_testSetPath == null ? 'テストセットを選択' : 'テストセットを変更'),
+                        ),
+                      ),
+                      if (_testSetPath != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            p.basename(_testSetPath!),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      if (_processedImages > 0) ...[
+                        const SizedBox(height: 24),
+                        LinearProgressIndicator(value: _progress),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _StatBox(label: '処理数', value: '$_processedImages/$_totalImages'),
+                            _StatBox(label: '精度', value: '${(_currentAccuracy * 100).toStringAsFixed(1)}%'),
+                            _StatBox(label: '時間', value: '${(_elapsedTimeMs / 1000).toStringAsFixed(1)}s'),
+                          ],
+                        ),
+                      ],
+
+                      const Spacer(),
+
+                      Text(
+                        _statusMessage,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton.icon(
+                          onPressed: (_isRunning || _testSetPath == null || !hasAnyModel) ? null : _runBenchmark,
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(_isRunning ? '実行中...' : 'ベンチマーク開始'),
+                        ),
+                      ),
+                      if (!hasAnyModel)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            '右上の設定ボタンからモデルをダウンロードしてください',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            ElevatedButton.icon(
-              onPressed: _isRunning ? null : _pickTestSet,
-              icon: const Icon(Icons.folder_zip),
-              label: Text(_testSetPath == null ? 'Select Test Set (ZIP/Folder)' : 'Change Test Set'),
-            ),
-            if (_testSetPath != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(p.basename(_testSetPath!)),
-              ),
-              
-            const Spacer(),
-            
-            if (_processedImages > 0) ...[
-              LinearProgressIndicator(value: _progress),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _StatBox(label: 'Count', value: '$_processedImages / $_totalImages'),
-                  _StatBox(label: 'Accuracy', value: '${(_currentAccuracy * 100).toStringAsFixed(1)}%'),
-                  _StatBox(label: 'Time', value: '${(_elapsedTimeMs / 1000).toStringAsFixed(1)}s'),
-                ],
-              ),
-            ],
-            
-            const SizedBox(height: 20),
-            Text(_statusMessage, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton(
-                onPressed: _isRunning || _testSetPath == null ? null : _runBenchmark,
-                child: const Text('START BENCHMARK'),
               ),
             ),
           ],
@@ -449,8 +701,18 @@ class _StatBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(value, style: const TextStyle(fontSize: 18)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
