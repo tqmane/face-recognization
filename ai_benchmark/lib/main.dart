@@ -755,131 +755,126 @@ class _ModelDownloadScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // アイコン
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            '🤖',
-                            style: TextStyle(fontSize: 48),
-                          ),
-                        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // アイコン
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '🤖',
+                        style: TextStyle(fontSize: 48),
                       ),
-                      const SizedBox(height: 24),
-
-                      // タイトル
-                      Text(
-                        'AI Benchmark',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'AIモデルの性能を測定',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 48),
-
-                      // モデルリスト
-                      Text(
-                        'モデルをダウンロード',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Expanded(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: ModelManager.models.length,
-                          itemBuilder: (context, index) {
-                            final model = ModelManager.models[index];
-                            final isDownloaded = modelsDownloaded[model.key] ?? false;
-                            final progress = downloadProgress[model.key];
-                            final isDownloading = progress != null;
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: isDownloaded
-                                      ? colorScheme.primaryContainer
-                                      : colorScheme.surfaceContainerHighest,
-                                  child: Icon(
-                                    isDownloaded ? Icons.check : Icons.cloud_download,
-                                    color: isDownloaded
-                                        ? colorScheme.primary
-                                        : colorScheme.onSurface,
-                                  ),
-                                ),
-                                title: Text(model.name),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('${model.inputSize}x${model.inputSize}'),
-                                    if (isDownloading)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: LinearProgressIndicator(value: progress),
-                                      ),
-                                  ],
-                                ),
-                                trailing: isDownloading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : isDownloaded
-                                        ? const Icon(Icons.check_circle, color: Colors.green)
-                                        : IconButton(
-                                            icon: const Icon(Icons.download),
-                                            onPressed: () => onDownloadModel(model),
-                                          ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // 完了ボタン（いずれかのモデルがダウンロード済みの場合）
-                      if (modelsDownloaded.values.any((d) => d))
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: FilledButton.icon(
-                            onPressed: onDownloadComplete,
-                            icon: const Icon(Icons.check),
-                            label: const Text('完了', style: TextStyle(fontSize: 17)),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+
+                  // タイトル
+                  Text(
+                    'AI Benchmark',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'AIモデルの性能を測定',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+
+                  // モデルリスト見出し
+                  Text(
+                    'モデルをダウンロード',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // モデルリスト
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: ModelManager.models.length,
+                      itemBuilder: (context, index) {
+                        final model = ModelManager.models[index];
+                        final isDownloaded = modelsDownloaded[model.key] ?? false;
+                        final progress = downloadProgress[model.key];
+                        final isDownloading = progress != null;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isDownloaded
+                                  ? colorScheme.primaryContainer
+                                  : colorScheme.surfaceContainerHighest,
+                              child: Icon(
+                                isDownloaded ? Icons.check : Icons.cloud_download,
+                                color: isDownloaded
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurface,
+                              ),
+                            ),
+                            title: Text(model.name),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${model.inputSize}x${model.inputSize}'),
+                                if (isDownloading)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: LinearProgressIndicator(value: progress),
+                                  ),
+                              ],
+                            ),
+                            trailing: isDownloading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : isDownloaded
+                                    ? const Icon(Icons.check_circle, color: Colors.green)
+                                    : IconButton(
+                                        icon: const Icon(Icons.download),
+                                        onPressed: () => onDownloadModel(model),
+                                      ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 完了ボタン（いずれかのモデルがダウンロード済みの場合）
+                  if (modelsDownloaded.values.any((d) => d))
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: FilledButton.icon(
+                        onPressed: onDownloadComplete,
+                        icon: const Icon(Icons.check),
+                        label: const Text('完了', style: TextStyle(fontSize: 17)),
+                      ),
+                    ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
