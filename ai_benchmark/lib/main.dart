@@ -495,10 +495,10 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // 設定/モデル管理ボタン（右上）
+            // 設定ボタン（左上）
             Positioned(
               top: 8,
-              right: 8,
+              left: 8,
               child: IconButton(
                 icon: const Icon(Icons.settings),
                 tooltip: 'モデル管理',
@@ -545,42 +545,33 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                           color: colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 48),
 
-                      // ハードウェアステータス
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.hardware, size: 16, color: colorScheme.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              _availableDevices.join(", "),
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // モデルとデバイス選択
+                      // モデル・デバイス選択カード
                       Card(
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    '⚙️ エンジン設定',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: colorScheme.onSurface.withOpacity(0.6),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
                               DropdownButtonFormField<String>(
                                 decoration: const InputDecoration(
                                   labelText: 'モデル',
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                 ),
                                 value: hasAnyModel ? _selectedModelKey : null,
                                 items: downloadedModels.isEmpty
@@ -600,6 +591,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'デバイス',
                                   border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                 ),
                                 value: _selectedDevice,
                                 items: _availableDevices
@@ -611,7 +603,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 32),
 
                       // テストセット選択ボタン
                       SizedBox(
@@ -620,66 +612,105 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                         child: FilledButton.icon(
                           onPressed: (_isRunning || !hasAnyModel) ? null : _pickTestSet,
                           icon: const Icon(Icons.folder_zip),
-                          label: Text(_testSetPath == null ? 'テストセットを選択' : 'テストセットを変更'),
+                          label: const Text('テストセットを選択', style: TextStyle(fontSize: 17)),
                         ),
                       ),
+                      const SizedBox(height: 12),
+
+                      // ベンチマーク開始ボタン
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: OutlinedButton.icon(
+                          onPressed: (_isRunning || _testSetPath == null || !hasAnyModel) ? null : _runBenchmark,
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(_isRunning ? '実行中...' : 'ベンチマーク開始', style: const TextStyle(fontSize: 17)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // 選択中のファイル名
                       if (_testSetPath != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            p.basename(_testSetPath!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                            textAlign: TextAlign.center,
+                        Text(
+                          p.basename(_testSetPath!),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.5),
                           ),
+                          textAlign: TextAlign.center,
+                        )
+                      else
+                        Text(
+                          hasAnyModel ? 'テストセットを選択して開始' : '右上の設定からモデルをダウンロードしてください',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                          textAlign: TextAlign.center,
                         ),
 
                       if (_processedImages > 0) ...[
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
                         LinearProgressIndicator(value: _progress),
                         const SizedBox(height: 16),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _StatBox(label: '処理数', value: '$_processedImages/$_totalImages'),
-                            _StatBox(label: '精度', value: '${(_currentAccuracy * 100).toStringAsFixed(1)}%'),
-                            _StatBox(label: '時間', value: '${(_elapsedTimeMs / 1000).toStringAsFixed(1)}s'),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '処理数',
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                  ),
+                                  Text(
+                                    '$_processedImages/$_totalImages',
+                                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '精度',
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                  ),
+                                  Text(
+                                    '${(_currentAccuracy * 100).toStringAsFixed(1)}%',
+                                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '時間',
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                  ),
+                                  Text(
+                                    '${(_elapsedTimeMs / 1000).toStringAsFixed(1)}s',
+                                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ],
 
-                      const Spacer(),
-
+                      const SizedBox(height: 16),
                       Text(
                         _statusMessage,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.6),
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: FilledButton.icon(
-                          onPressed: (_isRunning || _testSetPath == null || !hasAnyModel) ? null : _runBenchmark,
-                          icon: const Icon(Icons.play_arrow),
-                          label: Text(_isRunning ? '実行中...' : 'ベンチマーク開始'),
-                        ),
-                      ),
-                      if (!hasAnyModel)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Text(
-                            '右上の設定ボタンからモデルをダウンロードしてください',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.5),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -688,32 +719,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String label;
-  final String value;
-  const _StatBox({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-      ],
     );
   }
 }
