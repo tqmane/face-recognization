@@ -29,6 +29,7 @@ migrate_working_dir/
 
 # Platform-specific ephemeral files
 android/local.properties
+android/.gradle/
 ios/Flutter/ephemeral/
 macos/Flutter/ephemeral/
 linux/flutter/ephemeral/

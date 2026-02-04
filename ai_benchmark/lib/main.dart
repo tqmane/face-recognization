@@ -14,13 +14,16 @@ import 'services/test_set_loader.dart';
 import 'services/hardware_checker.dart';
 import 'services/model_manager.dart';
 import 'models/quiz_question.dart';
+import 'screens/performance_check_screen.dart';
 
 void main() {
   runApp(const AiBenchmarkApp());
 }
 
 class AiBenchmarkApp extends StatelessWidget {
-  const AiBenchmarkApp({super.key});
+  const AiBenchmarkApp({super.key, this.enableAutoInit = true});
+
+  final bool enableAutoInit;
 
   @override
   Widget build(BuildContext context) {
@@ -32,13 +35,15 @@ class AiBenchmarkApp extends StatelessWidget {
       ),
       darkTheme: ThemeData.dark(useMaterial3: true),
       themeMode: ThemeMode.system,
-      home: const BenchmarkHomeScreen(),
+      home: BenchmarkHomeScreen(enableAutoInit: enableAutoInit),
     );
   }
 }
 
 class BenchmarkHomeScreen extends StatefulWidget {
-  const BenchmarkHomeScreen({super.key});
+  const BenchmarkHomeScreen({super.key, this.enableAutoInit = true});
+
+  final bool enableAutoInit;
 
   @override
   State<BenchmarkHomeScreen> createState() => _BenchmarkHomeScreenState();
@@ -75,7 +80,12 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkSystem();
+    if (widget.enableAutoInit) {
+      _checkSystem();
+    } else {
+      _isLoadingModels = false;
+      _statusMessage = 'Test mode';
+    }
   }
 
   Future<void> _checkSystem() async {
@@ -729,15 +739,30 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                 onPressed: () => _showModelManagement(),
               ),
             ),
+            // 性能チェック（右上）
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.speed),
+                tooltip: '性能チェック',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PerformanceCheckScreen()),
+                  );
+                },
+              ),
+            ),
             // メインコンテンツ
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
                       // アイコン
                       Container(
                         width: 100,
@@ -783,8 +808,8 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                   Text(
                                     '⚙️ エンジン設定',
                                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                      color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
-                                    ),
+                                          color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+                                        ),
                                   ),
                                   const Spacer(),
                                   Icon(Icons.chevron_right, color: colorScheme.onSurface.withAlpha((0.4 * 255).round())),
@@ -833,8 +858,8 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                               Text(
                                 '判定しきい値: ${_similarityThreshold.toStringAsFixed(2)}',
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
-                                ),
+                                      color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
+                                    ),
                               ),
                               Slider(
                                 value: _similarityThreshold,
@@ -842,15 +867,12 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                 max: 1.0,
                                 divisions: 100,
                                 label: _similarityThreshold.toStringAsFixed(2),
-                                onChanged: _isRunning
-                                    ? null
-                                    : (v) => setState(() => _similarityThreshold = v),
+                                onChanged: _isRunning ? null : (v) => setState(() => _similarityThreshold = v),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 32),
 
                       // テストセット選択ボタン
                       SizedBox(
@@ -962,6 +984,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                   ),
                 ),
               ),
+            ),
             ),
           ],
         ),
