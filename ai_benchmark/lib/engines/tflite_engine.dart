@@ -5,12 +5,14 @@ import 'package:image/image.dart' as img;
 import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'inference_engine.dart';
+import '../services/performance_benchmark.dart';
 
 class TfliteEngine implements InferenceEngine {
   final String _modelName;
   final String _modelPath;
   final int _inputSize;
   final String device;
+  final int threads;
   Interpreter? _interpreter;
   Delegate? _delegate;
 
@@ -22,7 +24,9 @@ class TfliteEngine implements InferenceEngine {
     required String modelName, 
     required String modelPath,
     int inputSize = 224,
-    this.device = 'CPU', bool useGpu = false
+    this.device = 'CPU',
+    this.threads = 4,
+    bool useGpu = false
   }) : _modelName = modelName,
        _modelPath = modelPath,
        _inputSize = inputSize;
@@ -69,7 +73,7 @@ class TfliteEngine implements InferenceEngine {
         }
       }
       
-      options.threads = 4;
+      options.threads = threads;
 
       // Load from Asset or File
       if (File(_modelPath).isAbsolute) {
@@ -236,5 +240,55 @@ class TfliteEngine implements InferenceEngine {
       // ignore
     }
     return rawVec.map((e) => (e as num).toDouble()).toList(growable: false);
+  }
+
+  /// Synthetic benchmark (no file I/O): measures pure interpreter latency.
+  /// Intended for "max performance" checks.
+  Future<BenchmarkStats> runSyntheticBenchmark({
+    int warmupRuns = 20,
+    int runs = 200,
+  }) async {
+    if (_interpreter == null) {
+      await initialize();
+    }
+    if (_interpreter == null) {
+      return computeBenchmarkStats(const []);
+    }
+
+    final input = _createZeroInput();
+    if (input == null) {
+      return computeBenchmarkStats(const []);
+    }
+
+    final outputTensor = _interpreter!.getOutputTensor(0);
+    final outputShape = outputTensor.shape;
+    int outputSize = 1;
+    for (final s in outputShape) {
+      outputSize *= s;
+    }
+
+    dynamic output;
+    final type = _outputTensorType ?? outputTensor.type;
+    if (type == TensorType.float32) {
+      output = List.filled(outputSize, 0.0).reshape(outputShape);
+    } else {
+      output = List.filled(outputSize, 0).reshape(outputShape);
+    }
+
+    // Warmup
+    for (int i = 0; i < warmupRuns; i++) {
+      _interpreter!.run(input, output);
+    }
+
+    final samplesMs = <double>[];
+    final clock = Stopwatch()..start();
+    for (int i = 0; i < runs; i++) {
+      final t0 = clock.elapsedMicroseconds;
+      _interpreter!.run(input, output);
+      final t1 = clock.elapsedMicroseconds;
+      samplesMs.add((t1 - t0) / 1000.0);
+    }
+
+    return computeBenchmarkStats(samplesMs);
   }
 }

@@ -3,7 +3,7 @@ import 'package:ai_benchmark/main.dart';
 
 void main() {
   testWidgets('App should start without errors', (WidgetTester tester) async {
-    await tester.pumpWidget(const AiBenchmarkApp());
+    await tester.pumpWidget(const AiBenchmarkApp(enableAutoInit: false));
     
     // タイトルが表示されることを確認
     expect(find.text('AI Benchmark'), findsWidgets);
