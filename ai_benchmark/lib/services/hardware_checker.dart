@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
@@ -20,13 +21,17 @@ class HardwareChecker {
       if (Platform.isAndroid) {
         final options = InterpreterOptions();
         options.addDelegate(GpuDelegateV2());
-        final interpreter = await Interpreter.fromFile(file, options: options);
+        final interpreter = await Future.sync(
+          () => Interpreter.fromFile(file, options: options),
+        );
         interpreter.close();
         status['GPU'] = true;
       } else if (Platform.isIOS) {
         final options = InterpreterOptions();
         options.addDelegate(GpuDelegate());
-        final interpreter = await Interpreter.fromFile(file, options: options);
+        final interpreter = await Future.sync(
+          () => Interpreter.fromFile(file, options: options),
+        );
         interpreter.close();
         status['GPU'] = true;
       }
