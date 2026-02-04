@@ -18,6 +18,8 @@ on:
 env:
   # Keep these in sync across jobs to avoid header/schema mismatches.
   TFLITE_C_BUILD_SHARED_LIBS: 'ON'
+  TENSORFLOW_REF: ${{ github.event.inputs.tensorflow_ref || 'v2.19.0' }}
+  ENABLE_XNNPACK: ${{ (github.event.inputs.enable_xnnpack == 'false') && 'OFF' || 'ON' }}
 
 jobs:
   linux-x64:
@@ -34,14 +36,14 @@ jobs:
 
       - name: Clone TensorFlow
         run: |
-          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+          git clone --depth 1 --branch "${TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
 
       - name: Configure
         run: |
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=ON \
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
 
@@ -70,13 +72,13 @@ jobs:
 
       - name: Clone TensorFlow
         run: |
-          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+          git clone --depth 1 --branch "${env:TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
 
       - name: Configure
         run: |
           cmake -S tensorflow_src\tensorflow\lite\c -B tflite_build_c `
             -DTFLITE_C_BUILD_SHARED_LIBS=ON `
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} `
+            -DTFLITE_ENABLE_XNNPACK=${env:ENABLE_XNNPACK} `
             -DTF_SOURCE_DIR="$PWD\tensorflow_src" `
             -DTENSORFLOW_SOURCE_DIR="$PWD\tensorflow_src" `
             -DCMAKE_BUILD_TYPE=Release
@@ -115,14 +117,14 @@ jobs:
 
       - name: Clone TensorFlow
         run: |
-          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+          git clone --depth 1 --branch "${TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
 
       - name: Configure
         run: |
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=ON \
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
 
@@ -169,7 +171,21 @@ jobs:
 
       - name: Clone TensorFlow
         run: |
-          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+          git clone --depth 1 --branch "${TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Build host flatc (required for cross-compile)
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_host_tools \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
+          cmake --build tflite_build_host_tools --target flatc -- -j4
+          FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
+          test -f "$FLATC"
+          echo "TFLITE_HOST_TOOLS_DIR=$(dirname "$FLATC")" >> $GITHUB_ENV
 
       - name: Configure (${{ matrix.abi }})
         run: |
@@ -177,9 +193,10 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=ON \
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTFLITE_HOST_TOOLS_DIR="$TFLITE_HOST_TOOLS_DIR" \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=${{ matrix.abi }} \
             -DANDROID_PLATFORM=android-21
@@ -217,16 +234,30 @@ jobs:
 
       - name: Clone TensorFlow
         run: |
-          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+          git clone --depth 1 --branch "${TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Build host flatc (required for cross-compile)
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_host_tools \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
+          cmake --build tflite_build_host_tools --target flatc -- -j4
+          FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
+          test -f "$FLATC"
+          echo "TFLITE_HOST_TOOLS_DIR=$(dirname "$FLATC")" >> $GITHUB_ENV
 
       - name: Configure (iphoneos arm64)
         run: |
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_device \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTFLITE_HOST_TOOLS_DIR="$TFLITE_HOST_TOOLS_DIR" \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=iphoneos \
             -DCMAKE_OSX_ARCHITECTURES=arm64
@@ -239,9 +270,10 @@ jobs:
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_sim \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
-            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTFLITE_HOST_TOOLS_DIR="$TFLITE_HOST_TOOLS_DIR" \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=iphonesimulator \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
