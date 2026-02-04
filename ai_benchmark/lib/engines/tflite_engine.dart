@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:math';
 import 'package:image/image.dart' as img;
 import 'package:flutter/foundation.dart';
@@ -72,9 +73,13 @@ class TfliteEngine implements InferenceEngine {
 
       // Load from Asset or File
       if (File(_modelPath).isAbsolute) {
-        _interpreter = await Interpreter.fromFile(File(_modelPath), options: options);
+        _interpreter = await Future.sync(
+          () => Interpreter.fromFile(File(_modelPath), options: options),
+        );
       } else {
-        _interpreter = await Interpreter.fromAsset(_modelPath, options: options);
+        _interpreter = await Future.sync(
+          () => Interpreter.fromAsset(_modelPath, options: options),
+        );
       }
       
       debugPrint('Loaded TFLite model: $_modelName from $_modelPath on $device');
