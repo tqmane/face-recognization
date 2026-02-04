@@ -99,6 +99,22 @@ AIベンチマークは 1 回の実行で、アプリのドキュメントフォ
 - `*.jsonl`（1行=1問の詳細ログ）
 - `*.summary.json`（実行メタデータとサマリ）
 
+### Desktop (Windows/macOS/Linux) の注意: libtensorflowlite_c
+
+`ai_benchmark/` はデスクトップで `tflite_flutter` を使うために、ネイティブライブラリ `libtensorflowlite_c` が必要です。
+
+- Linux: `ai_benchmark/blobs/libtensorflowlite_c-linux.so`
+- Windows: `ai_benchmark/blobs/libtensorflowlite_c-win.dll`
+- macOS: `ai_benchmark/blobs/libtensorflowlite_c-mac.dylib`
+
+ローカルでビルドする場合は、[ai_benchmark/tools/native/README.md](ai_benchmark/tools/native/README.md) のスクリプトを使用してください。
+
+GitHub Actions で各OS向けにビルドしてArtifactsとして取得したい場合は、ワークフロー
+[.github/workflows/tflite-c-build.yml](.github/workflows/tflite-c-build.yml)
+を `workflow_dispatch` で実行してください。
+
+※ Android / iOS は通常 `tflite_flutter` が依存を同梱するため、アプリ利用者がこのCライブラリを手動配置する必要はありません。
+
 ### 2. 人間用アプリ（Android）
 ```bash
 cd android-app

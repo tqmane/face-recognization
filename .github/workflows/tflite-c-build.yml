@@ -1,0 +1,266 @@
+name: Build libtensorflowlite_c (desktop/mobile)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tensorflow_ref:
+        description: 'TensorFlow git ref (tag/branch/sha) to build from'
+        required: true
+        default: 'v2.19.0'
+      enable_xnnpack:
+        description: 'Enable XNNPACK (recommended)'
+        required: true
+        default: 'true'
+  push:
+    tags:
+      - 'tflite-c-v*'
+
+env:
+  # Keep these in sync across jobs to avoid header/schema mismatches.
+  TFLITE_C_BUILD_SHARED_LIBS: 'ON'
+
+jobs:
+  linux-x64:
+    name: linux x64 (.so)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config
+
+      - name: Clone TensorFlow
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=ON \
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
+
+      - name: Build
+        run: cmake --build tflite_build_c --target tensorflowlite_c -- -j4
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          SO=$(find tflite_build_c -maxdepth 3 -name 'libtensorflowlite_c.so' -print -quit)
+          test -f "$SO"
+          cp -f "$SO" out/libtensorflowlite_c-linux.so
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtensorflowlite_c-linux-x64
+          path: out/libtensorflowlite_c-linux.so
+
+  windows-x64:
+    name: windows x64 (.dll)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone TensorFlow
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure
+        run: |
+          cmake -S tensorflow_src\tensorflow\lite\c -B tflite_build_c `
+            -DTFLITE_C_BUILD_SHARED_LIBS=ON `
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} `
+            -DTF_SOURCE_DIR="$PWD\tensorflow_src" `
+            -DTENSORFLOW_SOURCE_DIR="$PWD\tensorflow_src" `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build tflite_build_c --target tensorflowlite_c --config Release
+
+      - name: Collect
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $dll = Get-ChildItem -Path tflite_build_c -Recurse -File -Filter '*tensorflowlite_c*.dll' | Select-Object -First 1
+          if (-not $dll) { throw 'tensorflowlite_c dll not found' }
+          Copy-Item -Force $dll.FullName (Join-Path 'out' 'libtensorflowlite_c-win.dll')
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtensorflowlite_c-windows-x64
+          path: out/libtensorflowlite_c-win.dll
+
+  macos-universal:
+    name: macOS (.dylib)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure CMake
+        run: |
+          if ! command -v cmake >/dev/null 2>&1; then
+            brew update
+            brew install cmake
+          fi
+          cmake --version
+
+      - name: Clone TensorFlow
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=ON \
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
+
+      - name: Build
+        run: cmake --build tflite_build_c --target tensorflowlite_c -- -j4
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          DYLIB=$(find tflite_build_c -maxdepth 3 -name 'libtensorflowlite_c.dylib' -print -quit)
+          test -f "$DYLIB"
+          cp -f "$DYLIB" out/libtensorflowlite_c-mac.dylib
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtensorflowlite_c-macos
+          path: out/libtensorflowlite_c-mac.dylib
+
+  android:
+    name: Android (NDK) (.so)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK + CMake
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "ndk;26.1.10909125" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Clone TensorFlow
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure (${{ matrix.abi }})
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c_${{ matrix.abi }} \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=ON \
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-21
+
+      - name: Build (${{ matrix.abi }})
+        run: cmake --build tflite_build_c_${{ matrix.abi }} --target tensorflowlite_c -- -j4
+
+      - name: Collect (${{ matrix.abi }})
+        run: |
+          mkdir -p out
+          SO=$(find tflite_build_c_${{ matrix.abi }} -maxdepth 4 -name 'libtensorflowlite_c.so' -print -quit)
+          test -f "$SO"
+          cp -f "$SO" out/libtensorflowlite_c-android-${{ matrix.abi }}.so
+
+      - name: Upload (${{ matrix.abi }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtensorflowlite_c-android-${{ matrix.abi }}
+          path: out/libtensorflowlite_c-android-${{ matrix.abi }}.so
+
+  ios:
+    name: iOS (static) (.a)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure CMake
+        run: |
+          if ! command -v cmake >/dev/null 2>&1; then
+            brew update
+            brew install cmake
+          fi
+          cmake --version
+
+      - name: Clone TensorFlow
+        run: |
+          git clone --depth 1 --branch "${{ inputs.tensorflow_ref }}" https://github.com/tensorflow/tensorflow.git tensorflow_src
+
+      - name: Configure (iphoneos arm64)
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_device \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Build (iphoneos arm64)
+        run: cmake --build tflite_build_ios_device --target tensorflowlite_c -- -j4
+
+      - name: Configure (iphonesimulator universal)
+        run: |
+          cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_sim \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
+            -DTFLITE_ENABLE_XNNPACK=${{ inputs.enable_xnnpack }} \
+            -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Build (iphonesimulator universal)
+        run: cmake --build tflite_build_ios_sim --target tensorflowlite_c -- -j4
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          A_DEV=$(find tflite_build_ios_device -maxdepth 4 -name 'libtensorflowlite_c.a' -print -quit)
+          A_SIM=$(find tflite_build_ios_sim -maxdepth 4 -name 'libtensorflowlite_c.a' -print -quit)
+          test -f "$A_DEV"
+          test -f "$A_SIM"
+          cp -f "$A_DEV" out/libtensorflowlite_c-ios-iphoneos-arm64.a
+          cp -f "$A_SIM" out/libtensorflowlite_c-ios-iphonesimulator-universal.a
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtensorflowlite_c-ios
+          path: out/*.a
