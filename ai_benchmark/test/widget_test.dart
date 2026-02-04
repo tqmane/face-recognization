@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:similarity_quiz/main.dart';
+import 'package:ai_benchmark/main.dart';
 
 void main() {
   testWidgets('App should start without errors', (WidgetTester tester) async {
-    await tester.pumpWidget(const SimilarityQuizApp());
+    await tester.pumpWidget(const AiBenchmarkApp());
     
-    // ホーム画面のタイトルが表示されることを確認
-    expect(find.text('判別クイズ'), findsOneWidget);
+    // タイトルが表示されることを確認
+    expect(find.text('AI Benchmark'), findsWidgets);
   });
 }

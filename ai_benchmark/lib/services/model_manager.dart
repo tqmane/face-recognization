@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
@@ -152,7 +153,7 @@ class ModelManager {
           .toList();
     } catch (e) {
       // If corrupted, don't crash the app.
-      print('Failed to read custom models: $e');
+      debugPrint('Failed to read custom models: $e');
       return [];
     }
   }
@@ -327,7 +328,7 @@ class ModelManager {
       await File(tempPath).delete();
       onProgress(1.0);
     } catch (e) {
-      print('Download failed: $e');
+      debugPrint('Download failed: $e');
       rethrow;
     } finally {
       try {

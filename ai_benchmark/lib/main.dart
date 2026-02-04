@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -56,12 +57,11 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   double _similarityThreshold = 0.85;
 
   // Hardware status
-  Map<String, bool> _hardwareStatus = {'CPU': true, 'GPU': false, 'NNAPI': false};
   List<String> _availableDevices = ['CPU'];
 
   // Models status - individual download tracking
   Map<String, bool> _modelsDownloaded = {};
-  Map<String, double> _downloadProgress = {};
+  final Map<String, double> _downloadProgress = {};
   bool _isLoadingModels = true;
   List<ModelItem> _models = [];
   Set<String> _customModelKeys = {};
@@ -110,7 +110,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       if (!mounted) return;
 
       setState(() {
-        _hardwareStatus = status;
         _availableDevices = status.entries.where((e) => e.value).map((e) => e.key).toList();
 
         if (_availableDevices.contains('GPU')) {
@@ -126,7 +125,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     } else {
       if (!mounted) return;
       setState(() {
-        _hardwareStatus = {'CPU': true, 'GPU': false, 'NNAPI': false};
         _availableDevices = ['CPU'];
         _selectedDevice = 'CPU';
         _statusMessage = 'モデル未ダウンロード: Histogramで実行するか、設定からモデルを取得してください';
@@ -179,6 +177,8 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
           _downloadProgress.remove(model.key);
         });
         await _checkSystem();
+
+        if (!mounted) return;
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -192,6 +192,8 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
         setState(() {
           _downloadProgress.remove(model.key);
         });
+
+        if (!mounted) return;
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -241,6 +243,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       });
       await _checkSystem();
       if (mounted) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -551,7 +554,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
         try {
           similarity = await engine.compareImages(q.image1Url, q.image2Url);
         } catch (e) {
-          print('Inference error at index $i: $e');
+          debugPrint('Inference error at index $i: $e');
         }
 
         final elapsed = DateTime.now().difference(start).inMilliseconds;
@@ -593,7 +596,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       setState(() {
         _statusMessage = 'エラー: $e';
       });
-      print(e);
+      debugPrint('$e');
     } finally {
       engine.dispose();
       if (mounted) {
@@ -617,7 +620,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
             .replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]+'), '_');
 
     final runId = DateTime.now().millisecondsSinceEpoch;
-    final prefix = 'benchmark_${safeTestSet}_${safeModelName}_${runId}';
+    final prefix = 'benchmark_${safeTestSet}_${safeModelName}_$runId';
 
     // 1) CSV
     List<List<dynamic>> rows = [];
@@ -696,8 +699,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasAnyDownloadedModel = _modelsDownloaded.values.any((downloaded) => downloaded);
-
     if (_isLoadingModels) {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
@@ -764,7 +765,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                       Text(
                         'AIモデルの性能を測定',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
+                          color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
                         ),
                       ),
                       const SizedBox(height: 48),
@@ -781,47 +782,57 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                   Text(
                                     '⚙️ エンジン設定',
                                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                      color: colorScheme.onSurface.withOpacity(0.6),
+                                      color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
                                     ),
                                   ),
                                   const Spacer(),
-                                  Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                                  Icon(Icons.chevron_right, color: colorScheme.onSurface.withAlpha((0.4 * 255).round())),
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
+                              InputDecorator(
                                 decoration: const InputDecoration(
                                   labelText: 'モデル',
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                 ),
-                                value: _selectedModelKey,
-                                items: selectableModels
-                                  .map((name) => DropdownMenuItem(
-                                      value: name,
-                                      child: Text(name),
-                                    ))
-                                  .toList(),
-                                onChanged: _isRunning ? null : (v) => setState(() => _selectedModelKey = v!),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: _selectedModelKey,
+                                    items: selectableModels
+                                        .map((name) => DropdownMenuItem(
+                                              value: name,
+                                              child: Text(name),
+                                            ))
+                                        .toList(),
+                                    onChanged: _isRunning ? null : (v) => setState(() => _selectedModelKey = v ?? _selectedModelKey),
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
+                              InputDecorator(
                                 decoration: const InputDecoration(
                                   labelText: 'デバイス',
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                                 ),
-                                value: _selectedDevice,
-                                items: _availableDevices
-                                    .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                                    .toList(),
-                                onChanged: _isRunning ? null : (v) => setState(() => _selectedDevice = v!),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: _selectedDevice,
+                                    items: _availableDevices
+                                        .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                        .toList(),
+                                    onChanged: _isRunning ? null : (v) => setState(() => _selectedDevice = v ?? _selectedDevice),
+                                  ),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Text(
                                 '判定しきい値: ${_similarityThreshold.toStringAsFixed(2)}',
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                  color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
                                 ),
                               ),
                               Slider(
@@ -869,7 +880,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                         Text(
                           p.basename(_testSetPath!),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.onSurface.withAlpha((0.5 * 255).round()),
                           ),
                           textAlign: TextAlign.center,
                         )
@@ -877,7 +888,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                         Text(
                           'テストセットを選択して開始',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.onSurface.withAlpha((0.5 * 255).round()),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -895,7 +906,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                 children: [
                                   Text(
                                     '処理数',
-                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withAlpha((0.6 * 255).round())),
                                   ),
                                   Text(
                                     '$_processedImages/$_totalImages',
@@ -910,7 +921,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                 children: [
                                   Text(
                                     '精度',
-                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withAlpha((0.6 * 255).round())),
                                   ),
                                   Text(
                                     '${(_currentAccuracy * 100).toStringAsFixed(1)}%',
@@ -925,7 +936,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                 children: [
                                   Text(
                                     '時間',
-                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.6)),
+                                    style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withAlpha((0.6 * 255).round())),
                                   ),
                                   Text(
                                     '${(_elapsedTimeMs / 1000).toStringAsFixed(1)}s',
@@ -942,7 +953,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                       Text(
                         _statusMessage,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
+                          color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -1064,153 +1075,6 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
               child: const Text('閉じる'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// モデルダウンロード画面
-class _ModelDownloadScreen extends StatelessWidget {
-  final Map<String, bool> modelsDownloaded;
-  final Map<String, double> downloadProgress;
-  final Function(ModelItem) onDownloadModel;
-  final VoidCallback onDownloadComplete;
-
-  const _ModelDownloadScreen({
-    required this.modelsDownloaded,
-    required this.downloadProgress,
-    required this.onDownloadModel,
-    required this.onDownloadComplete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  // アイコン
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '🤖',
-                        style: TextStyle(fontSize: 48),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // タイトル
-                  Text(
-                    'AI Benchmark',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'AIモデルの性能を測定',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-
-                  // モデルリスト見出し
-                  Text(
-                    'モデルをダウンロード',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // モデルリスト
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: ModelManager.models.length,
-                      itemBuilder: (context, index) {
-                        final model = ModelManager.models[index];
-                        final isDownloaded = modelsDownloaded[model.key] ?? false;
-                        final progress = downloadProgress[model.key];
-                        final isDownloading = progress != null;
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isDownloaded
-                                  ? colorScheme.primaryContainer
-                                  : colorScheme.surfaceContainerHighest,
-                              child: Icon(
-                                isDownloaded ? Icons.check : Icons.cloud_download,
-                                color: isDownloaded
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurface,
-                              ),
-                            ),
-                            title: Text(model.name),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${model.inputSize}x${model.inputSize}'),
-                                if (isDownloading)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: LinearProgressIndicator(value: progress),
-                                  ),
-                              ],
-                            ),
-                            trailing: isDownloading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : isDownloaded
-                                    ? const Icon(Icons.check_circle, color: Colors.green)
-                                    : IconButton(
-                                        icon: const Icon(Icons.download),
-                                        onPressed: () => onDownloadModel(model),
-                                      ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 完了ボタン（いずれかのモデルがダウンロード済みの場合）
-                  if (modelsDownloaded.values.any((d) => d))
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: FilledButton.icon(
-                        onPressed: onDownloadComplete,
-                        icon: const Icon(Icons.check),
-                        label: const Text('完了', style: TextStyle(fontSize: 17)),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );

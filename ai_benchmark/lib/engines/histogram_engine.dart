@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:image/image.dart' as img;
+import 'package:flutter/foundation.dart';
 import 'inference_engine.dart';
 
 class HistogramEngine implements InferenceEngine {
@@ -35,7 +36,7 @@ class HistogramEngine implements InferenceEngine {
       final bytes = await File(path).readAsBytes();
       return img.decodeImage(bytes);
     } catch (e) {
-      print('Error loading image: $path, $e');
+      debugPrint('Error loading image: $path, $e');
       return null;
     }
   }
