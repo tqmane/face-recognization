@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:image/image.dart' as img;
+import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'inference_engine.dart';
 
@@ -15,7 +16,6 @@ class TfliteEngine implements InferenceEngine {
   TensorType? _inputTensorType;
   TensorType? _outputTensorType;
   List<int>? _inputShape;
-  List<int>? _outputShape;
   
   TfliteEngine({
     required String modelName, 
@@ -42,7 +42,7 @@ class TfliteEngine implements InferenceEngine {
             _delegate = GpuDelegateV2();
             options.addDelegate(_delegate!);
           } catch (e) {
-            print('Failed to create GpuDelegateV2: $e');
+            debugPrint('Failed to create GpuDelegateV2: $e');
           }
         } else if (device == 'NNAPI') {
           // NNAPI support varies by tflite_flutter version.
@@ -51,9 +51,9 @@ class TfliteEngine implements InferenceEngine {
              // options.useNnApi = true; // Removed: Not supported in 0.10.4
              // _delegate = NnApiDelegate(); // Check if this exists at runtime/compile time
              // options.addDelegate(_delegate!);
-             print('NNAPI is currently disabled due to API compatibility issues.');
+             debugPrint('NNAPI is currently disabled due to API compatibility issues.');
           } catch (e) {
-             print('NNAPI not supported: $e');
+             debugPrint('NNAPI not supported: $e');
           }
         }
       } else if (Platform.isIOS) {
@@ -63,7 +63,7 @@ class TfliteEngine implements InferenceEngine {
              _delegate = GpuDelegate();
              options.addDelegate(_delegate!);
            } catch (e) {
-             print('Failed to create GpuDelegate (Metal): $e');
+             debugPrint('Failed to create GpuDelegate (Metal): $e');
            }
         }
       }
@@ -72,19 +72,18 @@ class TfliteEngine implements InferenceEngine {
 
       // Load from Asset or File
       if (File(_modelPath).isAbsolute) {
-        _interpreter = await Interpreter.fromFile(File(_modelPath), options: options);
+        _interpreter = Interpreter.fromFile(File(_modelPath), options: options);
       } else {
-        _interpreter = await Interpreter.fromAsset(_modelPath, options: options);
+        _interpreter = Interpreter.fromAsset(_modelPath, options: options);
       }
       
-      print('Loaded TFLite model: $_modelName from $_modelPath on $device');
+      debugPrint('Loaded TFLite model: $_modelName from $_modelPath on $device');
 
       final inputTensor = _interpreter!.getInputTensor(0);
       final outputTensor = _interpreter!.getOutputTensor(0);
       _inputTensorType = inputTensor.type;
       _outputTensorType = outputTensor.type;
       _inputShape = inputTensor.shape;
-      _outputShape = outputTensor.shape;
 
       // Warmup
       final warmupInput = _createZeroInput();
@@ -93,7 +92,7 @@ class TfliteEngine implements InferenceEngine {
       }
       
     } catch (e) {
-      print('Failed to load TFLite model on $device: $e');
+      debugPrint('Failed to load TFLite model on $device: $e');
       throw Exception('Failed to initialize model on $device: $e');
     }
   }
@@ -171,7 +170,7 @@ class TfliteEngine implements InferenceEngine {
 
       return [input];
     } catch (e) {
-      print('Error preprocessing image: $e');
+      debugPrint('Error preprocessing image: $e');
       return null;
     }
   }
