@@ -192,11 +192,14 @@ jobs:
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
           cmake --build tflite_build_host_tools --target flatc -- -j4
-          FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
+          FLATC=$(find tflite_build_host_tools -type f -name flatc -print -quit | head -n 1)
           test -f "$FLATC"
-          HOST_TOOLS_DIR="$(dirname "$FLATC")"
-          echo "Host flatc: $FLATC"
-          echo "Host tools dir: $HOST_TOOLS_DIR"
+          HOST_TOOLS_DIR="$PWD/host_tools/bin"
+          mkdir -p "$HOST_TOOLS_DIR"
+          cp -f "$FLATC" "$HOST_TOOLS_DIR/flatc"
+          chmod +x "$HOST_TOOLS_DIR/flatc" || true
+          echo "Host flatc (built): $FLATC"
+          echo "Host flatc (export): $HOST_TOOLS_DIR/flatc"
           test -f "$HOST_TOOLS_DIR/flatc"
           echo "TFLITE_HOST_TOOLS_DIR=$HOST_TOOLS_DIR" >> "$GITHUB_ENV"
 
@@ -260,11 +263,14 @@ jobs:
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
           cmake --build tflite_build_host_tools --target flatc -- -j4
-          FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
+          FLATC=$(find tflite_build_host_tools -type f -name flatc -print -quit | head -n 1)
           test -f "$FLATC"
-          HOST_TOOLS_DIR="$(dirname "$FLATC")"
-          echo "Host flatc: $FLATC"
-          echo "Host tools dir: $HOST_TOOLS_DIR"
+          HOST_TOOLS_DIR="$PWD/host_tools/bin"
+          mkdir -p "$HOST_TOOLS_DIR"
+          cp -f "$FLATC" "$HOST_TOOLS_DIR/flatc"
+          chmod +x "$HOST_TOOLS_DIR/flatc" || true
+          echo "Host flatc (built): $FLATC"
+          echo "Host flatc (export): $HOST_TOOLS_DIR/flatc"
           test -f "$HOST_TOOLS_DIR/flatc"
           echo "TFLITE_HOST_TOOLS_DIR=$HOST_TOOLS_DIR" >> "$GITHUB_ENV"
 
