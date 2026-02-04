@@ -31,12 +31,6 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create Linux platform structure (ai_benchmark)
-      working-directory: ai_benchmark
-      run: |
-        rm -rf linux
-        flutter create --project-name ai_benchmark --org com.tqmane --platforms=linux .
-
     - name: Clean and get dependencies
       working-directory: ai_benchmark
       run: |
@@ -50,6 +44,14 @@ jobs:
     - name: Run tests
       working-directory: ai_benchmark
       run: flutter test || echo "No tests found"
+
+    - name: Check desktop native blob (Linux)
+      working-directory: ai_benchmark
+      run: |
+        if [ ! -f "blobs/libtensorflowlite_c-linux.so" ]; then
+          echo "WARNING: blobs/libtensorflowlite_c-linux.so が見つかりません。デスクトップ実行時は推論が無効になります。"
+          echo "ローカルでは ai_benchmark/tools/native/build_tflite_c_linux.sh で生成できます。"
+        fi
 
     - name: Build Linux (ai_benchmark)
       working-directory: ai_benchmark
@@ -82,12 +84,63 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor -v
 
-    - name: Create Windows platform structure (ai_benchmark)
+    - name: Clean and get dependencies
       working-directory: ai_benchmark
-      shell: pwsh
       run: |
-        Remove-Item -Recurse -Force "windows" -ErrorAction SilentlyContinue
-        flutter create --project-name ai_benchmark --org com.tqmane --platforms=windows .
+        flutter clean
+        flutter pub get
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
+
+    - name: Check desktop native blob (Windows)
+      working-directory: ai_benchmark
+      run: |
+        if (!(Test-Path "blobs\\libtensorflowlite_c-win.dll")) {
+          Write-Host "WARNING: blobs\\libtensorflowlite_c-win.dll が見つかりません。デスクトップ実行時は推論が無効になります。"
+          Write-Host "ローカルでは ai_benchmark\\tools\\native\\build_tflite_c_windows.ps1 で生成できます。"
+        }
+
+    - name: Build Windows (ai_benchmark)
+      working-directory: ai_benchmark
+      run: flutter build windows --release
+
+    - name: Package Windows build (ai_benchmark)
+      run: |
+        Compress-Archive -Path ai_benchmark/build/windows/x64/runner/Release/* -DestinationPath ai_benchmark/ai_benchmark-windows-x64.zip
+
+    - name: Upload Windows build (ai_benchmark)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-benchmark-windows
+        path: ai_benchmark/ai_benchmark-windows-x64.zip
+
+  build-ai-benchmark-android:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Flutter doctor
+      run: flutter doctor -v
 
     - name: Clean and get dependencies
       working-directory: ai_benchmark
@@ -103,19 +156,73 @@ jobs:
       working-directory: ai_benchmark
       run: flutter test || echo "No tests found"
 
-    - name: Build Windows (ai_benchmark)
+    - name: Build Android APK (ai_benchmark)
       working-directory: ai_benchmark
-      run: flutter build windows --release
+      run: flutter build apk --release
 
-    - name: Package Windows build (ai_benchmark)
-      run: |
-        Compress-Archive -Path ai_benchmark/build/windows/x64/runner/Release/* -DestinationPath ai_benchmark/ai_benchmark-windows-x64.zip
-
-    - name: Upload Windows build (ai_benchmark)
+    - name: Upload Android APK (ai_benchmark)
       uses: actions/upload-artifact@v4
       with:
-        name: ai-benchmark-windows
-        path: ai_benchmark/ai_benchmark-windows-x64.zip
+        name: ai-benchmark-android-apk
+        path: ai_benchmark/build/app/outputs/flutter-apk/app-release.apk
+
+  build-ai-benchmark-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Setup CocoaPods
+      run: |
+        gem install cocoapods
+        pod --version
+
+    - name: Clean and get dependencies
+      working-directory: ai_benchmark
+      run: |
+        flutter clean
+        flutter pub get
+
+    - name: Check desktop native blob (macOS)
+      working-directory: ai_benchmark
+      run: |
+        if [ ! -f "blobs/libtensorflowlite_c-mac.dylib" ]; then
+          echo "WARNING: blobs/libtensorflowlite_c-mac.dylib が見つかりません。デスクトップ実行時は推論が無効になります。"
+          echo "ローカルでは ai_benchmark/tools/native/build_tflite_c_macos.sh で生成できます。"
+        fi
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
+
+    - name: Build macOS (ai_benchmark)
+      working-directory: ai_benchmark
+      run: flutter build macos --release
+
+    - name: Package macOS build (ai_benchmark)
+      run: |
+        cd ai_benchmark/build/macos/Build/Products/Release
+        ditto -c -k --sequesterRsrc --keepParent ai_benchmark.app ../../../../ai_benchmark-macos.zip
+
+    - name: Upload macOS build (ai_benchmark)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-benchmark-macos
+        path: ai_benchmark/ai_benchmark-macos.zip
 
   build-ai-benchmark-ios:
     runs-on: macos-latest
@@ -132,12 +239,6 @@ jobs:
 
     - name: Flutter doctor
       run: flutter doctor -v
-
-    - name: Create iOS platform structure (ai_benchmark)
-      working-directory: ai_benchmark
-      run: |
-        rm -rf ios
-        flutter create --project-name ai_benchmark --org com.tqmane --platforms=ios .
 
     - name: Setup CocoaPods
       run: |
@@ -796,29 +897,6 @@ jobs:
 
     - name: Flutter doctor
       run: flutter doctor -v
-
-    - name: Create Android platform structure (ai_benchmark)
-      working-directory: ai_benchmark
-      run: |
-        # 既存のandroid設定を可能な範囲で保持しつつ、gradlew/gradle wrapper不足に起因するビルド失敗を回避する
-        if [ -f "android/app/google-services.json" ]; then
-          cp android/app/google-services.json /tmp/ai_benchmark_google-services.json
-        fi
-        if [ -d "android/app/src/main/res" ]; then
-          cp -r android/app/src/main/res /tmp/ai_benchmark_android_res
-        fi
-
-        rm -rf android
-        flutter create --project-name ai_benchmark --org com.tqmane --platforms=android .
-
-        if [ -f "/tmp/ai_benchmark_google-services.json" ]; then
-          mkdir -p android/app
-          cp /tmp/ai_benchmark_google-services.json android/app/google-services.json
-        fi
-        if [ -d "/tmp/ai_benchmark_android_res" ]; then
-          mkdir -p android/app/src/main
-          cp -r /tmp/ai_benchmark_android_res/* android/app/src/main/res/
-        fi
 
     - name: Get dependencies
       working-directory: ai_benchmark
