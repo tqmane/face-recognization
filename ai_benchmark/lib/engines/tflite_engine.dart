@@ -72,9 +72,9 @@ class TfliteEngine implements InferenceEngine {
 
       // Load from Asset or File
       if (File(_modelPath).isAbsolute) {
-        _interpreter = Interpreter.fromFile(File(_modelPath), options: options);
+        _interpreter = await Interpreter.fromFile(File(_modelPath), options: options);
       } else {
-        _interpreter = Interpreter.fromAsset(_modelPath, options: options);
+        _interpreter = await Interpreter.fromAsset(_modelPath, options: options);
       }
       
       debugPrint('Loaded TFLite model: $_modelName from $_modelPath on $device');

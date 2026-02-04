@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -350,6 +349,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     );
     final path = result?.files.single.path;
     if (path == null) return;
+    if (!mounted) return;
 
     final nameCtrl = TextEditingController(text: p.basenameWithoutExtension(path));
     final inputSizeCtrl = TextEditingController(text: '224');
@@ -419,6 +419,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       await Permission.storage.request();
       await Permission.manageExternalStorage.request();
     }
+    if (!mounted) return;
 
     String? path;
 

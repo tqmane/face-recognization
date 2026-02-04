@@ -20,13 +20,13 @@ class HardwareChecker {
       if (Platform.isAndroid) {
         final options = InterpreterOptions();
         options.addDelegate(GpuDelegateV2());
-        final interpreter = Interpreter.fromFile(file, options: options);
+        final interpreter = await Interpreter.fromFile(file, options: options);
         interpreter.close();
         status['GPU'] = true;
       } else if (Platform.isIOS) {
         final options = InterpreterOptions();
         options.addDelegate(GpuDelegate());
-        final interpreter = Interpreter.fromFile(file, options: options);
+        final interpreter = await Interpreter.fromFile(file, options: options);
         interpreter.close();
         status['GPU'] = true;
       }
