@@ -75,13 +75,22 @@ jobs:
           git clone --depth 1 --branch "${env:TENSORFLOW_REF}" https://github.com/tensorflow/tensorflow.git tensorflow_src
 
       - name: Configure
+        shell: pwsh
         run: |
-          cmake -S tensorflow_src\tensorflow\lite\c -B tflite_build_c `
-            -DTFLITE_C_BUILD_SHARED_LIBS=ON `
-            -DTFLITE_ENABLE_XNNPACK=${env:ENABLE_XNNPACK} `
-            -DTF_SOURCE_DIR="$PWD\tensorflow_src" `
-            -DTENSORFLOW_SOURCE_DIR="$PWD\tensorflow_src" `
-            -DCMAKE_BUILD_TYPE=Release
+          $src = Join-Path $PWD 'tensorflow_src\tensorflow\lite\c'
+          $tf  = Join-Path $PWD 'tensorflow_src'
+
+          $args = @(
+            '-S', $src,
+            '-B', 'tflite_build_c',
+            '-DTFLITE_C_BUILD_SHARED_LIBS=ON',
+            ("-DTFLITE_ENABLE_XNNPACK=$env:ENABLE_XNNPACK"),
+            ("-DTF_SOURCE_DIR=$tf"),
+            ("-DTENSORFLOW_SOURCE_DIR=$tf"),
+            '-DCMAKE_BUILD_TYPE=Release'
+          )
+
+          cmake @args
 
       - name: Build
         run: cmake --build tflite_build_c --target tensorflowlite_c --config Release
@@ -185,10 +194,16 @@ jobs:
           cmake --build tflite_build_host_tools --target flatc -- -j4
           FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
           test -f "$FLATC"
-          echo "TFLITE_HOST_TOOLS_DIR=$(dirname "$FLATC")" >> $GITHUB_ENV
+          HOST_TOOLS_DIR="$(dirname "$FLATC")"
+          echo "Host flatc: $FLATC"
+          echo "Host tools dir: $HOST_TOOLS_DIR"
+          test -f "$HOST_TOOLS_DIR/flatc"
+          echo "TFLITE_HOST_TOOLS_DIR=$HOST_TOOLS_DIR" >> "$GITHUB_ENV"
 
       - name: Configure (${{ matrix.abi }})
         run: |
+          echo "Using TFLITE_HOST_TOOLS_DIR=$TFLITE_HOST_TOOLS_DIR"
+          ls -la "$TFLITE_HOST_TOOLS_DIR" || true
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_c_${{ matrix.abi }} \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -247,10 +262,16 @@ jobs:
           cmake --build tflite_build_host_tools --target flatc -- -j4
           FLATC=$(find tflite_build_host_tools -maxdepth 6 -type f -name flatc -print -quit)
           test -f "$FLATC"
-          echo "TFLITE_HOST_TOOLS_DIR=$(dirname "$FLATC")" >> $GITHUB_ENV
+          HOST_TOOLS_DIR="$(dirname "$FLATC")"
+          echo "Host flatc: $FLATC"
+          echo "Host tools dir: $HOST_TOOLS_DIR"
+          test -f "$HOST_TOOLS_DIR/flatc"
+          echo "TFLITE_HOST_TOOLS_DIR=$HOST_TOOLS_DIR" >> "$GITHUB_ENV"
 
       - name: Configure (iphoneos arm64)
         run: |
+          echo "Using TFLITE_HOST_TOOLS_DIR=$TFLITE_HOST_TOOLS_DIR"
+          ls -la "$TFLITE_HOST_TOOLS_DIR" || true
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_device \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
@@ -267,6 +288,8 @@ jobs:
 
       - name: Configure (iphonesimulator universal)
         run: |
+          echo "Using TFLITE_HOST_TOOLS_DIR=$TFLITE_HOST_TOOLS_DIR"
+          ls -la "$TFLITE_HOST_TOOLS_DIR" || true
           cmake -S tensorflow_src/tensorflow/lite/c -B tflite_build_ios_sim \
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
