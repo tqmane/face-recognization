@@ -13,6 +13,7 @@ import 'engines/tflite_engine.dart';
 import 'services/test_set_loader.dart';
 import 'services/hardware_checker.dart';
 import 'services/model_manager.dart';
+import 'services/native_lib_checker.dart';
 import 'models/quiz_question.dart';
 import 'screens/performance_check_screen.dart';
 
@@ -69,6 +70,8 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   bool _isLoadingModels = true;
   List<ModelItem> _models = [];
   Set<String> _customModelKeys = {};
+
+  late final NativeLibStatus _tfliteCpuLibStatus = checkTfliteCpuNativeLibrary();
 
   // Stats
   int _totalImages = 0;
@@ -718,11 +721,18 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     }
 
     final colorScheme = Theme.of(context).colorScheme;
+    final desktopTfliteBlocked =
+        !(_tfliteCpuLibStatus.available) && !(Platform.isAndroid || Platform.isIOS);
     final downloadedModels = _models.where((m) => _modelsDownloaded[m.key] == true).toList();
     final selectableModels = <String>[
       kHistogramModelName,
       ...downloadedModels.map((m) => m.name),
     ];
+
+    // If desktop TFLite is not ready, force Histogram to avoid crashes.
+    if (desktopTfliteBlocked && _selectedModelKey != kHistogramModelName) {
+      _selectedModelKey = kHistogramModelName;
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -796,6 +806,43 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                       ),
                       const SizedBox(height: 48),
 
+                      if (desktopTfliteBlocked) ...[
+                        Card(
+                          color: colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'デスクトップでTFLiteが未設定',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: colorScheme.onErrorContainer,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _tfliteCpuLibStatus.message,
+                                  style: TextStyle(color: colorScheme.onErrorContainer),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '期待パス: ${_tfliteCpuLibStatus.expectedPath}',
+                                  style: TextStyle(color: colorScheme.onErrorContainer),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '現状はHistogramエンジンのみ使用できます。',
+                                  style: TextStyle(color: colorScheme.onErrorContainer),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // モデル・デバイス選択カード
                       Card(
                         child: Padding(
@@ -827,10 +874,15 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
                                     isExpanded: true,
                                     value: _selectedModelKey,
                                     items: selectableModels
-                                        .map((name) => DropdownMenuItem(
-                                              value: name,
-                                              child: Text(name),
-                                            ))
+                                        .map((name) {
+                                          final isHistogram = name == kHistogramModelName;
+                                          final enabled = isHistogram || !desktopTfliteBlocked;
+                                          return DropdownMenuItem(
+                                            value: name,
+                                            enabled: enabled,
+                                            child: Text(name),
+                                          );
+                                        })
                                         .toList(),
                                     onChanged: _isRunning ? null : (v) => setState(() => _selectedModelKey = v ?? _selectedModelKey),
                                   ),

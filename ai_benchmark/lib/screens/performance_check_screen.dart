@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../engines/tflite_engine.dart';
 import '../services/model_manager.dart';
+import '../services/native_lib_checker.dart';
 import '../services/performance_benchmark.dart';
 
 class PerformanceCheckScreen extends StatefulWidget {
@@ -24,6 +25,8 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   bool _running = false;
   String _status = '';
   final Map<String, BenchmarkStats> _results = {};
+
+  late final NativeLibStatus _tfliteCpuLibStatus = checkTfliteCpuNativeLibrary();
 
   int get _autoThreads => Platform.numberOfProcessors <= 0 ? 4 : Platform.numberOfProcessors;
 
@@ -135,6 +138,8 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final desktopTfliteBlocked =
+        !(_tfliteCpuLibStatus.available) && !(Platform.isAndroid || Platform.isIOS);
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -176,6 +181,36 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          if (desktopTfliteBlocked)
+            Card(
+              color: cs.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'デスクトップTFLiteが未設定',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: cs.onErrorContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _tfliteCpuLibStatus.message,
+                      style: TextStyle(color: cs.onErrorContainer),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '期待パス: ${_tfliteCpuLibStatus.expectedPath}',
+                      style: TextStyle(color: cs.onErrorContainer),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           if (_downloadedModels.isEmpty)
             const Card(
@@ -237,7 +272,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                       children: [
                         Expanded(
                           child: FilledButton.icon(
-                            onPressed: _running ? null : _runSelected,
+                            onPressed: (_running || desktopTfliteBlocked) ? null : _runSelected,
                             icon: const Icon(Icons.speed),
                             label: const Text('この条件で計測'),
                           ),
@@ -245,7 +280,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _running ? null : _runMaxPerformanceSuite,
+                            onPressed: (_running || desktopTfliteBlocked) ? null : _runMaxPerformanceSuite,
                             icon: const Icon(Icons.auto_graph),
                             label: const Text('CPU/GPU一括'),
                           ),
