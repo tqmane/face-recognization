@@ -44,6 +44,8 @@
 | **MobileNet V2** | 軽量かつ高精度な標準モデル | [Google / TensorFlow](https://github.com/tensorflow/models) (Apache 2.0) |
 | **MobileNet V1** | 初期の軽量モデル（ベースライン） | [Google](https://github.com/tensorflow/models) (Apache 2.0) |
 | **MobileNet V4** | 最新の軽量モデル（2024） | [byoussef/HuggingFace](https://huggingface.co/byoussef/MobileNetV4_Conv_Medium_TFLite_224) (Apache 2.0) |
+| **Image Embedder (MobileNetV3 Small/Large)** | **画像埋め込み（類似度比較向け・推奨 / 2025更新）** | [Google / MediaPipe Tasks](https://storage.googleapis.com/mediapipe-tasks/image_embedder/) (Apache 2.0) |
+| **Image Classifier (EfficientNet-Lite0/Lite2 FP32)** | **分類モデル出力を特徴量として類似度比較（2025更新）**<br>Lite0: https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite0_fp32.tflite<br>Lite2: https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite2_fp32.tflite | [Google / MediaPipe Tasks](https://storage.googleapis.com/mediapipe-tasks/image_classifier/) (Apache 2.0) |
 | **Inception V3** | 高解像度・高精度モデル | [Google](https://arxiv.org/abs/1512.00567) (Apache 2.0) |
 | **SqueezeNet** | 超軽量・高速モデル | [DeepScale](https://arxiv.org/abs/1602.07360) (BSD) |
 | **DenseNet** | 密結構造ネットワーク | [Huang et al.](https://arxiv.org/abs/1608.06993) (BSD) |
@@ -52,7 +54,7 @@
 ### ハードウェアアクセラレーション
 デバイスの性能を最大限に引き出すため、以下のアクセラレータに対応しています。
 - **GPU Delegate**: モバイルGPUを使用した高速推論
-- **NNAPI (Android)**: NPU (Neural Processing Unit) を使用した省電力・高速推論
+- **NNAPI (Android)**: NPU (Neural Processing Unit) を使用した省電力・高速推論（※現状は互換性の都合で無効化）
 - **CPU**: フォールバック用（マルチスレッド対応）
 
 ## 🌐 使用データ・クレジット
@@ -90,6 +92,12 @@ flutter run --release
 1. アプリを起動し、エンジン（モデル）とデバイス（CPU/GPU）を選択
 2. テストセット（ZIPまたはフォルダ）をロード
 3. `START` で計測開始
+
+#### 出力（研究用データ）
+AIベンチマークは 1 回の実行で、アプリのドキュメントフォルダへ以下を書き出します。
+- `*.csv`（集計用）
+- `*.jsonl`（1行=1問の詳細ログ）
+- `*.summary.json`（実行メタデータとサマリ）
 
 ### 2. 人間用アプリ（Android）
 ```bash

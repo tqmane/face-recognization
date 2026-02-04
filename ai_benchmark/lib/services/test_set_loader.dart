@@ -16,6 +16,7 @@ class TestSetLoader {
     final inputStream = InputFileStream(zipPath);
     final archive = ZipDecoder().decodeBuffer(inputStream);
     extractArchiveToDisk(archive, destDir.path);
+    inputStream.close();
     
     return _loadFromDirectory(destDir.path);
   }

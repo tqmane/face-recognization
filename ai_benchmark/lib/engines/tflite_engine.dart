@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'inference_engine.dart';
@@ -12,6 +11,11 @@ class TfliteEngine implements InferenceEngine {
   final String device;
   Interpreter? _interpreter;
   Delegate? _delegate;
+
+  TensorType? _inputTensorType;
+  TensorType? _outputTensorType;
+  List<int>? _inputShape;
+  List<int>? _outputShape;
   
   TfliteEngine({
     required String modelName, 
@@ -74,9 +78,19 @@ class TfliteEngine implements InferenceEngine {
       }
       
       print('Loaded TFLite model: $_modelName from $_modelPath on $device');
-      
+
+      final inputTensor = _interpreter!.getInputTensor(0);
+      final outputTensor = _interpreter!.getOutputTensor(0);
+      _inputTensorType = inputTensor.type;
+      _outputTensorType = outputTensor.type;
+      _inputShape = inputTensor.shape;
+      _outputShape = outputTensor.shape;
+
       // Warmup
-      _runInference(List.filled(_inputSize * _inputSize * 3, 0).reshape([1, _inputSize, _inputSize, 3]));
+      final warmupInput = _createZeroInput();
+      if (warmupInput != null) {
+        _runInference(warmupInput);
+      }
       
     } catch (e) {
       print('Failed to load TFLite model on $device: $e');
@@ -105,21 +119,29 @@ class TfliteEngine implements InferenceEngine {
     return _cosineSimilarity(output1, output2);
   }
 
-  List<dynamic>? _runInference(List<dynamic> input) {
+  List<double>? _runInference(List<dynamic> input) {
     if (_interpreter == null) return null;
-    
+
     final outputTensor = _interpreter!.getOutputTensor(0);
-    final outputShape = outputTensor.shape; 
-    
+    final outputShape = outputTensor.shape;
+
     int outputSize = 1;
-    for (var s in outputShape) {
+    for (final s in outputShape) {
       outputSize *= s;
     }
-    
-    var output = List.filled(outputSize, 0).reshape(outputShape);
+
+    dynamic output;
+    final type = _outputTensorType ?? outputTensor.type;
+    if (type == TensorType.float32) {
+      output = List.filled(outputSize, 0.0).reshape(outputShape);
+    } else {
+      output = List.filled(outputSize, 0).reshape(outputShape);
+    }
+
     _interpreter!.run(input, output);
-    
-    return output[0];
+
+    final rawVec = output[0] as List;
+    return _decodeOutputVector(rawVec, outputTensor);
   }
 
   Future<List<dynamic>?> _preprocessImage(String path) async {
@@ -130,13 +152,23 @@ class TfliteEngine implements InferenceEngine {
 
       final resized = img.copyResize(image, width: _inputSize, height: _inputSize);
       
+      final inputType = _inputTensorType;
+
+      // Most vision models expect either uint8 [0..255] or float32 normalized.
+      // For float32 we use MobileNet-style normalization: (x - 127.5) / 127.5.
       final input = List.generate(_inputSize, (y) {
         return List.generate(_inputSize, (x) {
           final pixel = resized.getPixel(x, y);
-          return [pixel.r, pixel.g, pixel.b];
+          if (inputType == TensorType.float32) {
+            final r = (pixel.r.toDouble() - 127.5) / 127.5;
+            final g = (pixel.g.toDouble() - 127.5) / 127.5;
+            final b = (pixel.b.toDouble() - 127.5) / 127.5;
+            return <double>[r, g, b];
+          }
+          return <int>[pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()];
         });
       });
-      
+
       return [input];
     } catch (e) {
       print('Error preprocessing image: $e');
@@ -144,16 +176,17 @@ class TfliteEngine implements InferenceEngine {
     }
   }
 
-  double _cosineSimilarity(List<dynamic>? vec1, List<dynamic>? vec2) {
+  double _cosineSimilarity(List<double>? vec1, List<double>? vec2) {
     if (vec1 == null || vec2 == null) return 0.0;
     
     double dotProduct = 0.0;
     double normA = 0.0;
     double normB = 0.0;
 
-    for (int i = 0; i < vec1.length; i++) {
-      double v1 = (vec1[i] as num).toDouble();
-      double v2 = (vec2[i] as num).toDouble();
+    final len = vec1.length < vec2.length ? vec1.length : vec2.length;
+    for (int i = 0; i < len; i++) {
+      final v1 = vec1[i];
+      final v2 = vec2[i];
       
       dotProduct += v1 * v2;
       normA += v1 * v1;
@@ -162,5 +195,42 @@ class TfliteEngine implements InferenceEngine {
 
     if (normA == 0 || normB == 0) return 0.0;
     return dotProduct / (sqrt(normA) * sqrt(normB));
+  }
+
+  List<dynamic>? _createZeroInput() {
+    if (_inputShape == null) return null;
+    final shape = _inputShape!;
+    int size = 1;
+    for (final s in shape) {
+      size *= s;
+    }
+
+    if (_inputTensorType == TensorType.float32) {
+      return List.filled(size, 0.0).reshape(shape);
+    }
+    return List.filled(size, 0).reshape(shape);
+  }
+
+  List<double> _decodeOutputVector(List rawVec, Tensor outputTensor) {
+    final type = _outputTensorType ?? outputTensor.type;
+    if (type == TensorType.float32) {
+      return rawVec.map((e) => (e as num).toDouble()).toList(growable: false);
+    }
+
+    // Quantized output: dequantize if params are available, otherwise cast.
+    try {
+      final qp = outputTensor.params;
+      final scale = qp.scale;
+      final zeroPoint = qp.zeroPoint;
+
+      if (scale != 0.0) {
+        return rawVec
+            .map((e) => (((e as num).toInt() - zeroPoint) * scale).toDouble())
+            .toList(growable: false);
+      }
+    } catch (_) {
+      // ignore
+    }
+    return rawVec.map((e) => (e as num).toDouble()).toList(growable: false);
   }
 }

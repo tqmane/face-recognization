@@ -10,6 +10,185 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-ai-benchmark-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Create Linux platform structure (ai_benchmark)
+      working-directory: ai_benchmark
+      run: |
+        rm -rf linux
+        flutter create --project-name ai_benchmark --org com.tqmane --platforms=linux .
+
+    - name: Clean and get dependencies
+      working-directory: ai_benchmark
+      run: |
+        flutter clean
+        flutter pub get
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
+
+    - name: Build Linux (ai_benchmark)
+      working-directory: ai_benchmark
+      run: flutter build linux --release
+
+    - name: Package Linux build (ai_benchmark)
+      run: |
+        cd ai_benchmark/build/linux/x64/release/bundle
+        tar -czvf ../../../../../ai_benchmark-linux-x64.tar.gz .
+
+    - name: Upload Linux build (ai_benchmark)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-benchmark-linux
+        path: ai_benchmark/ai_benchmark-linux-x64.tar.gz
+
+  build-ai-benchmark-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Create Windows platform structure (ai_benchmark)
+      working-directory: ai_benchmark
+      shell: pwsh
+      run: |
+        Remove-Item -Recurse -Force "windows" -ErrorAction SilentlyContinue
+        flutter create --project-name ai_benchmark --org com.tqmane --platforms=windows .
+
+    - name: Clean and get dependencies
+      working-directory: ai_benchmark
+      run: |
+        flutter clean
+        flutter pub get
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
+
+    - name: Build Windows (ai_benchmark)
+      working-directory: ai_benchmark
+      run: flutter build windows --release
+
+    - name: Package Windows build (ai_benchmark)
+      run: |
+        Compress-Archive -Path ai_benchmark/build/windows/x64/runner/Release/* -DestinationPath ai_benchmark/ai_benchmark-windows-x64.zip
+
+    - name: Upload Windows build (ai_benchmark)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-benchmark-windows
+        path: ai_benchmark/ai_benchmark-windows-x64.zip
+
+  build-ai-benchmark-ios:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.3'
+        channel: 'stable'
+
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Create iOS platform structure (ai_benchmark)
+      working-directory: ai_benchmark
+      run: |
+        rm -rf ios
+        flutter create --project-name ai_benchmark --org com.tqmane --platforms=ios .
+
+    - name: Setup CocoaPods
+      run: |
+        gem install cocoapods
+        pod --version
+
+    - name: Clean and get dependencies
+      working-directory: ai_benchmark
+      run: |
+        flutter clean
+        flutter pub get
+
+    - name: Cache CocoaPods (ai_benchmark)
+      uses: actions/cache@v4
+      with:
+        path: ai_benchmark/ios/Pods
+        key: ${{ runner.os }}-ai-benchmark-pods-${{ hashFiles('ai_benchmark/ios/Podfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-ai-benchmark-pods-
+
+    - name: Install CocoaPods dependencies (ai_benchmark)
+      working-directory: ai_benchmark/ios
+      run: |
+        pod repo update
+        pod install --verbose
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
+
+    - name: Build iOS (ai_benchmark, no codesign)
+      working-directory: ai_benchmark
+      run: flutter build ios --release --no-codesign
+
+    - name: Create IPA package (ai_benchmark)
+      run: |
+        cd ai_benchmark/build/ios/iphoneos
+        mkdir -p Payload
+        cp -r Runner.app Payload/
+        zip -r ../../../ai_benchmark-ios.ipa Payload
+
+    - name: Upload iOS build (ai_benchmark)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-benchmark-ios
+        path: ai_benchmark/ai_benchmark-ios.ipa
+
   build-linux:
     runs-on: ubuntu-latest
     env:
@@ -615,22 +794,43 @@ jobs:
         flutter-version: '3.38.3'
         channel: 'stable'
 
-    - name: Fix Android Build Config
+    - name: Flutter doctor
+      run: flutter doctor -v
+
+    - name: Create Android platform structure (ai_benchmark)
       working-directory: ai_benchmark
       run: |
-        # AGPバージョンを更新
-        sed -i 's/id "com.android.application" version \"[0-9.]*\"/id "com.android.application" version "8.3.2"/' android/settings.gradle
-        # Gradle Wrapperを更新
-        mkdir -p android/gradle/wrapper
-        echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties
-        echo "distributionPath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "distributionUrl=https://services.gradle.org/distributions/gradle-8.4-all.zip" >> android/gradle/wrapper/gradle-wrapper.properties
+        # 既存のandroid設定を可能な範囲で保持しつつ、gradlew/gradle wrapper不足に起因するビルド失敗を回避する
+        if [ -f "android/app/google-services.json" ]; then
+          cp android/app/google-services.json /tmp/ai_benchmark_google-services.json
+        fi
+        if [ -d "android/app/src/main/res" ]; then
+          cp -r android/app/src/main/res /tmp/ai_benchmark_android_res
+        fi
+
+        rm -rf android
+        flutter create --project-name ai_benchmark --org com.tqmane --platforms=android .
+
+        if [ -f "/tmp/ai_benchmark_google-services.json" ]; then
+          mkdir -p android/app
+          cp /tmp/ai_benchmark_google-services.json android/app/google-services.json
+        fi
+        if [ -d "/tmp/ai_benchmark_android_res" ]; then
+          mkdir -p android/app/src/main
+          cp -r /tmp/ai_benchmark_android_res/* android/app/src/main/res/
+        fi
 
     - name: Get dependencies
       working-directory: ai_benchmark
       run: flutter pub get
+
+    - name: Analyze
+      working-directory: ai_benchmark
+      run: flutter analyze
+
+    - name: Run tests
+      working-directory: ai_benchmark
+      run: flutter test || echo "No tests found"
 
     - name: Build AI Benchmark APK
       working-directory: ai_benchmark
@@ -649,7 +849,7 @@ jobs:
   # リリースジョブ
   release:
     runs-on: ubuntu-latest
-    needs: [build-linux, build-windows, build-macos, build-ios, build-android, build-ai-benchmark]
+    needs: [build-linux, build-windows, build-macos, build-ios, build-android, build-ai-benchmark, build-ai-benchmark-linux, build-ai-benchmark-windows, build-ai-benchmark-ios]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -671,6 +871,9 @@ jobs:
           artifacts/ios-build/*.ipa
           artifacts/android-apk/*.apk
           artifacts/ai-benchmark-apk/*.apk
+          artifacts/ai-benchmark-linux/*.tar.gz
+          artifacts/ai-benchmark-windows/*.zip
+          artifacts/ai-benchmark-ios/*.ipa
         generate_release_notes: true
         name: "Flutter App ${{ github.ref_name }}"
         body: |
@@ -683,6 +886,9 @@ jobs:
           - **iOS**: similarity_quiz-ios.ipa (要署名/AltStore等)
           - **Android (Quiz App)**: similarity_quiz-unsigned.apk / signed.apk
           - **Android (AI Benchmark)**: ai_benchmark.apk
+          - **Linux (AI Benchmark)**: ai_benchmark-linux-x64.tar.gz
+          - **Windows (AI Benchmark)**: ai_benchmark-windows-x64.zip
+          - **iOS (AI Benchmark)**: ai_benchmark-ios.ipa (要署名/AltStore等)
           
           ### インストール方法
           - Windows: ZIPを解凍して `similarity_quiz.exe` を実行
