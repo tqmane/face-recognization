@@ -175,7 +175,10 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     });
 
     try {
-      await manager.downloadModel(model.key, (progress) {
+      // Automatically download the optimal format for this platform
+      // Windows/Linux: ONNX (GPU via DirectML/CUDA)
+      // iOS/macOS/Android: TFLite (GPU via Metal/OpenCL)
+      await manager.downloadOptimalModel(model.key, (progress) {
         if (mounted) {
           setState(() {
             _downloadProgress[model.key] = progress;
