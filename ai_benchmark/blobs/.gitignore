@@ -1,4 +1,2 @@
-# Keep blobs/ in the repo but ignore locally-built native binaries
-libtensorflowlite_c-*.so
-libtensorflowlite_c-*.dll
-libtensorflowlite_c-*.dylib
+# Keep blobs/ in the repo - native binaries are now tracked
+# (Files are small enough to include in git ~9MB total)
