@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:image/image.dart' as img;
 import 'package:flutter/foundation.dart';
 import 'inference_engine.dart';
+import '../services/performance_benchmark.dart';
 
 class HistogramEngine implements InferenceEngine {
   @override
@@ -76,5 +77,36 @@ class HistogramEngine implements InferenceEngine {
 
     if (normA == 0 || normB == 0) return 0.0;
     return dotProduct / (sqrt(normA) * sqrt(normB));
+  }
+
+  @override
+  Future<BenchmarkStats> runSyntheticBenchmark({
+    int warmupRuns = 30,
+    int runs = 200,
+  }) async {
+    // Histogram doesn't need warmup
+    final times = <double>[];
+    final dummyHist = List.filled(512, 1.0 / 512);
+    
+    for (int i = 0; i < runs; i++) {
+      final sw = Stopwatch()..start();
+      _cosineSimilarity(dummyHist, dummyHist);
+      sw.stop();
+      times.add(sw.elapsedMicroseconds / 1000.0);
+    }
+
+    times.sort();
+    final mean = times.reduce((a, b) => a + b) / times.length;
+    final p50 = times[(times.length * 0.5).floor()];
+    final p90 = times[(times.length * 0.9).floor()];
+
+    return BenchmarkStats(
+      runs: runs,
+      meanMs: mean,
+      p50Ms: p50,
+      p90Ms: p90,
+      minMs: times.first,
+      maxMs: times.last,
+    );
   }
 }

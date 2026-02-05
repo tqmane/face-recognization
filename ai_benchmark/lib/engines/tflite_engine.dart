@@ -270,6 +270,7 @@ class TfliteEngine implements InferenceEngine {
 
   /// Synthetic benchmark (no file I/O): measures pure interpreter latency.
   /// Intended for "max performance" checks.
+  @override
   Future<BenchmarkStats> runSyntheticBenchmark({
     int warmupRuns = 20,
     int runs = 200,

@@ -1,7 +1,10 @@
+import '../services/performance_benchmark.dart';
+
 abstract class InferenceEngine {
   String get name;
   Future<void> initialize();
   Future<double> compareImages(String imagePath1, String imagePath2);
+  Future<BenchmarkStats> runSyntheticBenchmark({int warmupRuns = 30, int runs = 200});
   void dispose();
 }
 

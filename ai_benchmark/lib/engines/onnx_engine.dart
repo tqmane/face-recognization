@@ -34,29 +34,22 @@ class OnnxEngine implements InferenceEngine {
   String get name => '$_modelName (ONNX-$device)';
 
   /// Check if GPU acceleration is available via ONNX Runtime
+  /// Note: The Flutter onnxruntime package only supports CoreML (Apple) and NNAPI (Android)
+  /// DirectML and CUDA are not available in the Flutter binding
   static bool get isGpuAvailable {
-    // ONNX Runtime supports GPU on all desktop platforms
-    // - Windows: DirectML (AMD/Intel/NVIDIA)
-    // - Linux: CUDA (NVIDIA) or ROCm (AMD)
-    // - macOS: CoreML
-    // - Android/iOS: also supported
-    return true; // GPU providers can be added at runtime
+    return Platform.isMacOS || Platform.isIOS || Platform.isAndroid;
   }
 
   /// Get available device options for ONNX Runtime
+  /// Note: DirectML/CUDA not available in Flutter onnxruntime package
   static List<String> get availableDevices {
-    if (Platform.isWindows) {
-      return ['CPU', 'DirectML']; // DirectML works with any GPU
-    } else if (Platform.isLinux) {
-      return ['CPU', 'CUDA']; // Requires NVIDIA GPU + CUDA
-    } else if (Platform.isMacOS) {
+    if (Platform.isMacOS || Platform.isIOS) {
       return ['CPU', 'CoreML'];
     } else if (Platform.isAndroid) {
-      return ['CPU', 'NNAPI'];
-    } else if (Platform.isIOS) {
-      return ['CPU', 'CoreML'];
+      return ['CPU', 'NNAPI', 'XNNPACK'];
     }
-    return ['CPU'];
+    // Windows/Linux: CPU only with XNNPACK optimization
+    return ['CPU', 'XNNPACK'];
   }
 
   @override
@@ -68,25 +61,22 @@ class OnnxEngine implements InferenceEngine {
       _sessionOptions = OrtSessionOptions();
 
       // Configure execution providers based on device
-      if (device == 'DirectML' && Platform.isWindows) {
-        // DirectML for Windows GPU (works with AMD, Intel, NVIDIA)
-        // Note: Requires onnxruntime-directml binaries
-        _sessionOptions!.appendDirectMLExecutionProvider();
-        debugPrint('Using DirectML GPU provider');
-      } else if (device == 'CUDA' && Platform.isLinux) {
-        // CUDA for Linux NVIDIA GPU
-        // Note: Requires onnxruntime-gpu binaries and CUDA toolkit
-        _sessionOptions!.appendCUDAExecutionProvider();
-        debugPrint('Using CUDA GPU provider');
-      } else if (device == 'CoreML' && (Platform.isMacOS || Platform.isIOS)) {
+      // Note: Flutter onnxruntime only supports CoreML, NNAPI, XNNPACK, and CPU
+      if (device == 'CoreML' && (Platform.isMacOS || Platform.isIOS)) {
         // CoreML for Apple devices
-        _sessionOptions!.appendCoreMLExecutionProvider();
+        _sessionOptions!.appendCoreMLProvider(CoreMLFlags.useNone);
         debugPrint('Using CoreML provider');
       } else if (device == 'NNAPI' && Platform.isAndroid) {
         // NNAPI for Android
-        _sessionOptions!.appendNnapiExecutionProvider();
+        _sessionOptions!.appendNnapiProvider(NnapiFlags.useNone);
         debugPrint('Using NNAPI provider');
+      } else if (device == 'XNNPACK') {
+        // XNNPACK for optimized CPU execution
+        _sessionOptions!.appendXnnpackProvider();
+        debugPrint('Using XNNPACK provider');
       } else {
+        // Default CPU provider
+        _sessionOptions!.appendCPUProvider(CPUFlags.useNone);
         debugPrint('Using CPU provider with $threads threads');
       }
 
@@ -132,7 +122,11 @@ class OnnxEngine implements InferenceEngine {
       final outputs = await _session!.runAsync(runOptions, inputs);
 
       runOptions.release();
-      outputs?.forEach((e) => e?.release());
+      if (outputs != null) {
+        for (final e in outputs) {
+          e?.release();
+        }
+      }
     } finally {
       inputTensor.release();
     }
@@ -228,7 +222,9 @@ class OnnxEngine implements InferenceEngine {
       final outputData = outputTensor?.value as List<dynamic>?;
 
       runOptions.release();
-      outputs.forEach((e) => e?.release());
+      for (final e in outputs) {
+        e?.release();
+      }
 
       if (outputData == null) return null;
 
@@ -265,11 +261,11 @@ class OnnxEngine implements InferenceEngine {
   }
 
   /// Run synthetic benchmark (similar to TfliteEngine)
+  @override
   Future<BenchmarkStats> runSyntheticBenchmark({
     int warmupRuns = 30,
     int runs = 200,
   }) async {
-    final shape = [1, 3, _inputSize, _inputSize];
     final inputData = List.filled(_inputSize * _inputSize * 3, 0.5);
 
     // Warmup
