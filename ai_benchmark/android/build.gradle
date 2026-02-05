@@ -7,7 +7,8 @@ buildscript {
 
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.google.gms:google-services:4.4.2"
+        // Firebaseは使用しないため google-services は無効化
+        // classpath "com.google.gms:google-services:4.4.2"
     }
 }
 
