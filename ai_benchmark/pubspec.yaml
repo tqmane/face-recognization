@@ -10,8 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # AI Inference (Official updated version 2024)
-  tflite_flutter: ^0.11.0
+  # AI Inference
+  tflite_flutter: ^0.11.0  # TensorFlow Lite (Mobile GPU via Metal/OpenCL)
+  onnxruntime: ^1.4.1      # ONNX Runtime (Desktop GPU via DirectML/CUDA)
   
   # Image Processing
   image: ^4.1.3
