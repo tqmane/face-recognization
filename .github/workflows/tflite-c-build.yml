@@ -134,6 +134,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=ON \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
 
@@ -189,6 +190,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
           cmake --build tflite_build_host_tools --target flatc -- -j4
@@ -214,6 +216,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=ON \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTFLITE_HOST_TOOLS_DIR="$HOST_TOOLS_DIR" \
@@ -262,6 +265,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src"
           cmake --build tflite_build_host_tools --target flatc -- -j4
@@ -286,6 +290,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTFLITE_HOST_TOOLS_DIR="$HOST_TOOLS_DIR" \
@@ -306,6 +311,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DTFLITE_C_BUILD_SHARED_LIBS=OFF \
             -DTFLITE_ENABLE_XNNPACK=${ENABLE_XNNPACK} \
+            -DXNNPACK_ENABLE_KLEIDIAI=OFF \
             -DTF_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTENSORFLOW_SOURCE_DIR="$PWD/tensorflow_src" \
             -DTFLITE_HOST_TOOLS_DIR="$HOST_TOOLS_DIR" \
