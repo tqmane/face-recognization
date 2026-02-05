@@ -6,10 +6,17 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 
+/// Model format types
+enum ModelFormat {
+  tflite,
+  onnx,
+}
+
 class ModelItem {
   final String key;
   final String name;
   final String? url;
+  final String? onnxUrl; // ONNX version URL for desktop GPU
   final String fileNameInArchive; 
   final int inputSize;
   final bool isRecommended;
@@ -18,18 +25,35 @@ class ModelItem {
     required this.key,
     required this.name,
     this.url,
+    this.onnxUrl,
     required this.fileNameInArchive,
     this.inputSize = 224,
     this.isRecommended = false,
   });
 
   bool get isRemote => url != null && (url!.startsWith('http://') || url!.startsWith('https://'));
+  bool get hasOnnx => onnxUrl != null && onnxUrl!.isNotEmpty;
+
+  /// Get the preferred format for the current platform
+  static ModelFormat get preferredFormat {
+    if (Platform.isWindows || Platform.isLinux) {
+      return ModelFormat.onnx; // ONNX for desktop GPU (DirectML/CUDA)
+    }
+    return ModelFormat.tflite; // TFLite for mobile/macOS (Metal)
+  }
+
+  /// Check if GPU is available with the preferred format
+  static bool get isGpuAvailableOnPlatform {
+    // GPU is available on all platforms with appropriate runtime
+    return true;
+  }
 
   factory ModelItem.fromJson(Map<String, dynamic> json) {
     return ModelItem(
       key: json['key'] as String,
       name: json['name'] as String,
       url: json['url'] as String?,
+      onnxUrl: json['onnxUrl'] as String?,
       fileNameInArchive: json['fileNameInArchive'] as String,
       inputSize: (json['inputSize'] as num?)?.toInt() ?? 224,
       isRecommended: (json['isRecommended'] as bool?) ?? false,
@@ -41,6 +65,7 @@ class ModelItem {
       'key': key,
       'name': name,
       'url': url,
+      'onnxUrl': onnxUrl,
       'fileNameInArchive': fileNameInArchive,
       'inputSize': inputSize,
       'isRecommended': isRecommended,
@@ -49,6 +74,10 @@ class ModelItem {
 }
 
 class ModelManager {
+  // GitHub Releases base URL for pre-converted models
+  static const String _modelsReleaseBase = 
+      'https://github.com/tqmane/face-recognization/releases/download/models-v1.0.0';
+
   // Backward-compatibility: existing UI still references ModelManager.models.
   // Prefer using listModels() for default + custom models.
   static List<ModelItem> get models => defaultModels;
@@ -60,6 +89,7 @@ class ModelManager {
       key: 'mp_image_embedder_mnv3_small',
       name: 'Image Embedder (MNv3 Small, 2025)',
       url: 'https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_small_075_224_embedder.tflite',
+      onnxUrl: '$_modelsReleaseBase/mobilenet_v3_small_embedder.onnx',
       fileNameInArchive: 'mobilenet_v3_small_075_224_embedder.tflite',
       inputSize: 224,
       isRecommended: true,
@@ -68,6 +98,7 @@ class ModelManager {
       key: 'mp_image_embedder_mnv3_large',
       name: 'Image Embedder (MNv3 Large, 2025)',
       url: 'https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_large_075_224_embedder.tflite',
+      onnxUrl: '$_modelsReleaseBase/mobilenet_v3_large_embedder.onnx',
       fileNameInArchive: 'mobilenet_v3_large_075_224_embedder.tflite',
       inputSize: 224,
       isRecommended: true,
@@ -79,6 +110,7 @@ class ModelManager {
       key: 'mp_image_classifier_enlite0_fp32_2025',
       name: 'Image Classifier (EfficientNet-Lite0 FP32, 2025)',
       url: 'https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite0_fp32.tflite',
+      onnxUrl: '$_modelsReleaseBase/efficientnet_lite0_fp32.onnx',
       fileNameInArchive: 'efficientnet_lite0_fp32.tflite',
       inputSize: 224,
       isRecommended: false,
@@ -87,6 +119,7 @@ class ModelManager {
       key: 'mp_image_classifier_enlite2_fp32_2025',
       name: 'Image Classifier (EfficientNet-Lite2 FP32, 2025)',
       url: 'https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite2_fp32.tflite',
+      onnxUrl: '$_modelsReleaseBase/efficientnet_lite2_fp32.onnx',
       fileNameInArchive: 'efficientnet_lite2_fp32.tflite',
       inputSize: 224,
       isRecommended: false,
@@ -206,13 +239,47 @@ class ModelManager {
     return modelDir.path;
   }
 
-  Future<File> getModelFile(String key) async {
+  /// Get the model file for a given key and format
+  Future<File> getModelFile(String key, {ModelFormat? format}) async {
+    format ??= ModelItem.preferredFormat;
     final path = await _localPath;
-    return File(p.join(path, '$key.tflite'));
+    final ext = format == ModelFormat.onnx ? 'onnx' : 'tflite';
+    return File(p.join(path, '$key.$ext'));
   }
 
-  Future<bool> isModelDownloaded(String key) async {
-    final file = await getModelFile(key);
+  /// Get the best available model file (prefers platform-optimal format)
+  Future<(File, ModelFormat)?> getBestModelFile(String key) async {
+    final preferred = ModelItem.preferredFormat;
+    
+    // Try preferred format first
+    final preferredFile = await getModelFile(key, format: preferred);
+    if (await preferredFile.exists()) {
+      return (preferredFile, preferred);
+    }
+    
+    // Fallback to other format
+    final fallback = preferred == ModelFormat.onnx ? ModelFormat.tflite : ModelFormat.onnx;
+    final fallbackFile = await getModelFile(key, format: fallback);
+    if (await fallbackFile.exists()) {
+      return (fallbackFile, fallback);
+    }
+    
+    return null;
+  }
+
+  Future<bool> isModelDownloaded(String key, {ModelFormat? format}) async {
+    if (format != null) {
+      final file = await getModelFile(key, format: format);
+      return await file.exists();
+    }
+    // Check if any format is available
+    final best = await getBestModelFile(key);
+    return best != null;
+  }
+
+  /// Check if the optimal format for GPU is available
+  Future<bool> isOptimalFormatDownloaded(String key) async {
+    final file = await getModelFile(key, format: ModelItem.preferredFormat);
     return await file.exists();
   }
   
@@ -240,22 +307,38 @@ class ModelManager {
     await addCustomModel(meta);
   }
 
-  Future<void> downloadModel(String key, Function(double) onProgress) async {
+  Future<void> downloadModel(String key, Function(double) onProgress, {ModelFormat? format}) async {
+    format ??= ModelItem.preferredFormat;
+    
     final all = await listModels();
     final model = all.firstWhere((m) => m.key == key);
-    if (!model.isRemote) {
-      throw Exception('This model has no remote URL (imported locally).');
+    
+    // Determine URL based on format
+    String? downloadUrl;
+    if (format == ModelFormat.onnx && model.hasOnnx) {
+      downloadUrl = model.onnxUrl;
+    } else if (format == ModelFormat.tflite && model.isRemote) {
+      downloadUrl = model.url;
+    } else if (model.isRemote) {
+      // Fallback to TFLite if ONNX not available
+      downloadUrl = model.url;
+      format = ModelFormat.tflite;
     }
+    
+    if (downloadUrl == null) {
+      throw Exception('No download URL available for model $key in format $format');
+    }
+    
     final saveDir = await _localPath;
-
-    final uri = Uri.parse(model.url!);
+    final ext = format == ModelFormat.onnx ? 'onnx' : 'tflite';
+    final uri = Uri.parse(downloadUrl);
     final urlPath = uri.path.toLowerCase();
-    final isDirectTflite = urlPath.endsWith('.tflite');
+    final isDirectModel = urlPath.endsWith('.tflite') || urlPath.endsWith('.onnx');
     final isTarGz = urlPath.endsWith('.tgz') || urlPath.endsWith('.tar.gz');
     final isTar = urlPath.endsWith('.tar');
 
-    final finalModelPath = p.join(saveDir, '$key.tflite');
-    final tempPath = p.join(saveDir, isDirectTflite ? '$key.tflite.download' : '$key.temp_archive');
+    final finalModelPath = p.join(saveDir, '$key.$ext');
+    final tempPath = p.join(saveDir, isDirectModel ? '$key.$ext.download' : '$key.temp_archive');
 
     http.Client? client;
     IOSink? sink;
@@ -266,7 +349,7 @@ class ModelManager {
       final response = await client.send(request);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('HTTP ${response.statusCode} while downloading ${model.url}');
+        throw HttpException('HTTP ${response.statusCode} while downloading $downloadUrl');
       }
 
       final contentLength = response.contentLength ?? 0;
@@ -290,7 +373,7 @@ class ModelManager {
       sink = null;
 
       // 2) Extract / Move
-      if (isDirectTflite) {
+      if (isDirectModel) {
         final finalFile = File(finalModelPath);
         if (await finalFile.exists()) {
           await finalFile.delete();
@@ -309,15 +392,18 @@ class ModelManager {
 
       final archive = TarDecoder().decodeBytes(tarBytes);
       ArchiveFile? target;
+      final targetFileName = format == ModelFormat.onnx 
+          ? model.fileNameInArchive.replaceAll('.tflite', '.onnx')
+          : model.fileNameInArchive;
       for (final f in archive) {
-        if (f.isFile && f.name.endsWith(model.fileNameInArchive)) {
+        if (f.isFile && f.name.endsWith(targetFileName)) {
           target = f;
           break;
         }
       }
 
       if (target == null) {
-        throw Exception('Model file not found in archive: ${model.fileNameInArchive}');
+        throw Exception('Model file not found in archive: $targetFileName');
       }
 
       final outFile = File(finalModelPath);
@@ -336,5 +422,10 @@ class ModelManager {
       } catch (_) {}
       client?.close();
     }
+  }
+  
+  /// Download model in the optimal format for the current platform
+  Future<void> downloadOptimalModel(String key, Function(double) onProgress) async {
+    await downloadModel(key, onProgress, format: ModelItem.preferredFormat);
   }
 }

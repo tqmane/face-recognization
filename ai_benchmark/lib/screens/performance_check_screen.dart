@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../engines/tflite_engine.dart';
+import '../engines/onnx_engine.dart';
+import '../engines/inference_engine.dart';
 import '../services/model_manager.dart';
 import '../services/native_lib_checker.dart';
 import '../services/performance_benchmark.dart';
@@ -21,6 +23,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   String? _selectedModelKey;
   String _selectedDevice = 'CPU';
   int _threads = 0; // 0 = auto
+  ModelFormat _currentModelFormat = ModelFormat.tflite;
 
   bool _running = false;
   String _status = '';
@@ -29,6 +32,24 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   late final NativeLibStatus _tfliteCpuLibStatus = checkTfliteCpuNativeLibrary();
 
   int get _autoThreads => Platform.numberOfProcessors <= 0 ? 4 : Platform.numberOfProcessors;
+
+  /// Get available devices based on current model format
+  List<String> get _availableDevices {
+    if (_currentModelFormat == ModelFormat.onnx) {
+      return OnnxEngine.availableDevices;
+    } else {
+      return TfliteEngine.availableDevices;
+    }
+  }
+
+  /// Check if GPU is available for current format
+  bool get _isGpuAvailable {
+    if (_currentModelFormat == ModelFormat.onnx) {
+      return OnnxEngine.isGpuAvailable;
+    } else {
+      return TfliteEngine.isGpuAvailable;
+    }
+  }
 
   @override
   void initState() {
@@ -42,7 +63,9 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
     final models = await manager.listModels();
     final downloaded = <ModelItem>[];
     for (final m in models) {
-      if (await manager.isModelDownloaded(m.key)) {
+      // Check if any format is downloaded
+      final result = await manager.getBestModelFile(m.key);
+      if (result != null) {
         downloaded.add(m);
       }
     }
@@ -51,8 +74,25 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
     setState(() {
       _downloadedModels = downloaded;
       _selectedModelKey = downloaded.isNotEmpty ? downloaded.first.key : null;
+      _updateModelFormat();
       _loading = false;
     });
+  }
+
+  Future<void> _updateModelFormat() async {
+    if (_selectedModelKey == null) return;
+    
+    final manager = ModelManager();
+    final result = await manager.getBestModelFile(_selectedModelKey!);
+    if (result != null && mounted) {
+      setState(() {
+        _currentModelFormat = result.$2;
+        // Reset device if current selection isn't available
+        if (!_availableDevices.contains(_selectedDevice)) {
+          _selectedDevice = 'CPU';
+        }
+      });
+    }
   }
 
   Future<void> _runOnce({required String device, required int threads}) async {
@@ -61,21 +101,38 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
     setState(() {
       _running = true;
-      _status = '計測中: $device / threads=$threads';
+      _status = '計測中: $device / threads=$threads (${_currentModelFormat.name})';
     });
 
     try {
       final manager = ModelManager();
       final model = _downloadedModels.firstWhere((m) => m.key == key);
-      final file = await manager.getModelFile(model.key);
+      final result = await manager.getBestModelFile(model.key);
+      
+      if (result == null) {
+        throw Exception('モデルファイルが見つかりません');
+      }
+      
+      final (file, format) = result;
 
-      final engine = TfliteEngine(
-        modelName: model.name,
-        modelPath: file.path,
-        inputSize: model.inputSize,
-        device: device,
-        threads: threads,
-      );
+      InferenceEngine engine;
+      if (format == ModelFormat.onnx) {
+        engine = OnnxEngine(
+          modelName: model.name,
+          modelPath: file.path,
+          inputSize: model.inputSize,
+          device: device,
+          threads: threads,
+        );
+      } else {
+        engine = TfliteEngine(
+          modelName: model.name,
+          modelPath: file.path,
+          inputSize: model.inputSize,
+          device: device,
+          threads: threads,
+        );
+      }
 
       await engine.initialize();
       final stats = await engine.runSyntheticBenchmark(warmupRuns: 30, runs: 200);
@@ -83,7 +140,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
       if (!mounted) return;
       setState(() {
-        _results['$device/$threads'] = stats;
+        _results['$device/$threads (${format.name})'] = stats;
       });
     } catch (e) {
       if (!mounted) return;
@@ -119,8 +176,10 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
     await _runOnce(device: 'CPU', threads: 1);
     await _runOnce(device: 'CPU', threads: auto);
 
-    if (TfliteEngine.isGpuAvailable) {
-      await _runOnce(device: 'GPU', threads: auto);
+    if (_isGpuAvailable && _availableDevices.length > 1) {
+      // Use the first GPU device available
+      final gpuDevice = _availableDevices.firstWhere((d) => d != 'CPU', orElse: () => 'GPU');
+      await _runOnce(device: gpuDevice, threads: auto);
     }
   }
 
@@ -138,8 +197,11 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final desktopTfliteBlocked =
-        !(_tfliteCpuLibStatus.available) && !(Platform.isAndroid || Platform.isIOS);
+    // TFLite blocked only matters if we're using TFLite format on desktop
+    final isDesktop = !(Platform.isAndroid || Platform.isIOS);
+    final desktopTfliteBlocked = isDesktop && 
+        !(_tfliteCpuLibStatus.available) && 
+        _currentModelFormat == ModelFormat.tflite;
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -235,9 +297,12 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                           isExpanded: true,
                           value: _selectedModelKey,
                           items: _downloadedModels
-                              .map((m) => DropdownMenuItem(value: m.key, child: Text(m.name)))
+                              .map((m) => DropdownMenuItem(value: m.key, child: Text('${m.name} (${_currentModelFormat.name})')))
                               .toList(),
-                          onChanged: _running ? null : (v) => setState(() => _selectedModelKey = v),
+                          onChanged: _running ? null : (v) {
+                            setState(() => _selectedModelKey = v);
+                            _updateModelFormat();
+                          },
                         ),
                       ),
                     ),
@@ -248,19 +313,27 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                         child: DropdownButton<String>(
                           isExpanded: true,
                           value: _selectedDevice,
-                          items: TfliteEngine.availableDevices
+                          items: _availableDevices
                               .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                               .toList(),
                           onChanged: _running ? null : (v) => setState(() => _selectedDevice = v ?? 'CPU'),
                         ),
                       ),
                     ),
-                    if (!TfliteEngine.isGpuAvailable)
+                    if (!_isGpuAvailable)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           '※ ${Platform.operatingSystem}ではGPUアクセラレーションは利用できません',
                           style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha((0.6 * 255).round())),
+                        ),
+                      ),
+                    if (_currentModelFormat == ModelFormat.onnx)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '✓ ONNXモデル使用中 (GPU対応)',
+                          style: TextStyle(fontSize: 12, color: cs.primary),
                         ),
                       ),
                     const SizedBox(height: 12),

@@ -1,18 +1,30 @@
 # GPU Acceleration Guide for AI Benchmark
 
-This guide explains how to enable GPU acceleration on different platforms.
+This guide explains how GPU acceleration works on different platforms.
 
 ## Summary
 
 | Platform | Runtime | GPU Provider | Setup Required |
 |----------|---------|--------------|----------------|
-| **Android** | TFLite | OpenCL/OpenGL | None (built-in) |
-| **iOS** | TFLite | Metal | None (built-in) |
-| **macOS** | TFLite | Metal | None (built-in) |
-| **Windows** | ONNX Runtime | DirectML | Model conversion |
-| **Linux** | ONNX Runtime | CUDA | Model conversion + CUDA |
+| **Android** | TFLite | OpenCL/OpenGL | None (automatic) |
+| **iOS** | TFLite | Metal | None (automatic) |
+| **macOS** | TFLite | Metal | None (automatic) |
+| **Windows** | ONNX Runtime | DirectML | None (automatic) |
+| **Linux** | ONNX Runtime | CUDA | CUDA Toolkit |
 
-## Mobile Platforms (Android/iOS)
+## ✨ Automatic GPU Support
+
+**GPU acceleration now works out of the box!**
+
+When you download a model in the app, it automatically selects the optimal format for your platform:
+
+- **Android/iOS/macOS**: Downloads `.tflite` format (Metal/OpenCL acceleration)
+- **Windows**: Downloads `.onnx` format (DirectML - works with AMD, Intel, NVIDIA)
+- **Linux**: Downloads `.onnx` format (CUDA for NVIDIA GPUs)
+
+Pre-converted ONNX models are hosted on GitHub Releases and downloaded on demand.
+
+## Mobile Platforms (Android/iOS/macOS)
 
 GPU acceleration works out of the box using TensorFlow Lite.
 
@@ -24,25 +36,23 @@ Just select "GPU" in the device dropdown.
 
 ## Windows (DirectML)
 
-Windows uses ONNX Runtime with DirectML, which supports AMD, Intel, and NVIDIA GPUs.
+Windows uses ONNX Runtime with DirectML, which supports **all GPU vendors** (AMD, Intel, NVIDIA).
 
-### Step 1: Convert TFLite Model to ONNX
+### Automatic Setup
+
+1. Download any model in the app
+2. Select "DirectML" as the device
+3. Done! No manual conversion needed.
+
+### Manual Setup (for custom models)
 
 ```bash
 # Install conversion tools
 pip install tf2onnx tensorflow onnx
 
 # Convert model
-python tools/convert_tflite_to_onnx.py mobilenet_v2.tflite mobilenet_v2.onnx
+python tools/convert_tflite_to_onnx.py your_model.tflite your_model.onnx
 ```
-
-### Step 2: Download DirectML Runtime
-
-The `onnxruntime` Flutter package includes DirectML support. No additional setup needed.
-
-### Step 3: Use in App
-
-Place `.onnx` models in `assets/models/` and select "DirectML" as the device.
 
 ## Linux (CUDA)
 
@@ -50,11 +60,10 @@ Linux uses ONNX Runtime with CUDA for NVIDIA GPUs.
 
 ### Prerequisites
 
-1. **NVIDIA GPU** with CUDA support
-2. **CUDA Toolkit** 11.x or 12.x
-3. **cuDNN** library
+- **NVIDIA GPU** with CUDA support
+- **CUDA Toolkit** 11.x or 12.x (required for GPU acceleration)
 
-### Step 1: Install CUDA
+### Install CUDA
 
 ```bash
 # Ubuntu/Debian
@@ -64,16 +73,13 @@ sudo apt install nvidia-cuda-toolkit
 # https://developer.nvidia.com/cuda-downloads
 ```
 
-### Step 2: Convert Model to ONNX
+### Usage
 
-```bash
-pip install tf2onnx tensorflow onnx
-python tools/convert_tflite_to_onnx.py mobilenet_v2.tflite mobilenet_v2.onnx
-```
+1. Download any model in the app (ONNX format is selected automatically)
+2. Select "CUDA" as the device
+3. Done!
 
-### Step 3: Use CUDA Provider
-
-Select "CUDA" as the device in the benchmark app.
+**Note**: If CUDA is not installed, the app will fall back to CPU.
 
 ## Model Conversion Notes
 
