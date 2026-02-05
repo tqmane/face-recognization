@@ -114,12 +114,12 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   }
 
   Future<void> _runMaxPerformanceSuite() async {
-    // CPU: 1-thread + auto threads; GPU: auto threads (if selected device supports it, user can pick).
+    // CPU: 1-thread + auto threads; GPU: auto threads (if available on platform)
     final auto = _autoThreads;
     await _runOnce(device: 'CPU', threads: 1);
     await _runOnce(device: 'CPU', threads: auto);
 
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (TfliteEngine.isGpuAvailable) {
       await _runOnce(device: 'GPU', threads: auto);
     }
   }
@@ -248,13 +248,21 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                         child: DropdownButton<String>(
                           isExpanded: true,
                           value: _selectedDevice,
-                          items: <String>['CPU', if (Platform.isAndroid || Platform.isIOS) 'GPU']
+                          items: TfliteEngine.availableDevices
                               .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                               .toList(),
                           onChanged: _running ? null : (v) => setState(() => _selectedDevice = v ?? 'CPU'),
                         ),
                       ),
                     ),
+                    if (!TfliteEngine.isGpuAvailable)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '※ ${Platform.operatingSystem}ではGPUアクセラレーションは利用できません',
+                          style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha((0.6 * 255).round())),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     Text('スレッド数: ${_threads == 0 ? 'AUTO($_autoThreads)' : _threads}'),
                     Slider(
