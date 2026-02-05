@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../engines/tflite_engine.dart';
 import '../engines/onnx_engine.dart';
+import '../engines/gpu_server_engine.dart';
 import '../engines/inference_engine.dart';
 import '../services/model_manager.dart';
 import '../services/native_lib_checker.dart';
@@ -24,6 +25,8 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   String _selectedDevice = 'CPU';
   int _threads = 0; // 0 = auto
   ModelFormat _currentModelFormat = ModelFormat.tflite;
+  bool _useGpuServer = false;
+  bool _gpuServerAvailable = false;
 
   bool _running = false;
   String _status = '';
@@ -33,9 +36,11 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
   int get _autoThreads => Platform.numberOfProcessors <= 0 ? 4 : Platform.numberOfProcessors;
 
-  /// Get available devices based on current model format
+  /// Get available devices based on current model format and GPU server
   List<String> get _availableDevices {
-    if (_currentModelFormat == ModelFormat.onnx) {
+    if (_useGpuServer) {
+      return ['GPU Server'];
+    } else if (_currentModelFormat == ModelFormat.onnx) {
       return OnnxEngine.availableDevices;
     } else {
       return TfliteEngine.availableDevices;
@@ -44,6 +49,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
   /// Check if GPU is available for current format
   bool get _isGpuAvailable {
+    if (_useGpuServer) return true;
     if (_currentModelFormat == ModelFormat.onnx) {
       return OnnxEngine.isGpuAvailable;
     } else {
@@ -56,6 +62,16 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
     super.initState();
     _threads = 0;
     _loadModels();
+    _checkGpuServer();
+  }
+
+  Future<void> _checkGpuServer() async {
+    final available = await GpuServerEngine.isServerRunning();
+    if (mounted) {
+      setState(() {
+        _gpuServerAvailable = available;
+      });
+    }
   }
 
   Future<void> _loadModels() async {
@@ -101,37 +117,51 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
     setState(() {
       _running = true;
-      _status = '計測中: $device / threads=$threads (${_currentModelFormat.name})';
+      _status = _useGpuServer 
+          ? '計測中: GPU Server' 
+          : '計測中: $device / threads=$threads (${_currentModelFormat.name})';
     });
 
     try {
       final manager = ModelManager();
       final model = _downloadedModels.firstWhere((m) => m.key == key);
-      final result = await manager.getBestModelFile(model.key);
       
-      if (result == null) {
-        throw Exception('モデルファイルが見つかりません');
-      }
-      
-      final (file, format) = result;
-
       InferenceEngine engine;
-      if (format == ModelFormat.onnx) {
-        engine = OnnxEngine(
+      
+      if (_useGpuServer) {
+        // GPU Server モード: ONNXモデルが必要
+        final onnxFile = await manager.getModelFile(model.key, format: ModelFormat.onnx);
+        engine = GpuServerEngine(
           modelName: model.name,
-          modelPath: file.path,
+          modelPath: onnxFile.path,
           inputSize: model.inputSize,
-          device: device,
-          threads: threads,
         );
       } else {
-        engine = TfliteEngine(
-          modelName: model.name,
-          modelPath: file.path,
-          inputSize: model.inputSize,
-          device: device,
-          threads: threads,
-        );
+        final result = await manager.getBestModelFile(model.key);
+        
+        if (result == null) {
+          throw Exception('モデルファイルが見つかりません');
+        }
+        
+        final (file, format) = result;
+
+        if (format == ModelFormat.onnx) {
+          engine = OnnxEngine(
+            modelName: model.name,
+            modelPath: file.path,
+            inputSize: model.inputSize,
+            device: device,
+            threads: threads,
+          );
+        } else {
+          engine = TfliteEngine(
+            modelName: model.name,
+            modelPath: file.path,
+            inputSize: model.inputSize,
+            device: device,
+            threads: threads,
+          );
+        }
       }
 
       await engine.initialize();
@@ -140,7 +170,8 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
       if (!mounted) return;
       setState(() {
-        _results['$device/$threads (${format.name})'] = stats;
+        final label = _useGpuServer ? 'GPU Server' : '$device/$threads (${_currentModelFormat.name})';
+        _results[label] = stats;
       });
     } catch (e) {
       if (!mounted) return;
@@ -290,6 +321,55 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                   children: [
                     Text('計測設定', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
+                    // GPU Server Toggle (Windows/Linux only)
+                    if (Platform.isWindows || Platform.isLinux)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _gpuServerAvailable 
+                              ? cs.primaryContainer 
+                              : cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _gpuServerAvailable ? Icons.check_circle : Icons.info_outline,
+                              color: _gpuServerAvailable ? cs.primary : cs.onSurface.withAlpha(150),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'GPU Server モード',
+                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    _gpuServerAvailable 
+                                        ? 'サーバー接続中 (127.0.0.1:8765)' 
+                                        : 'サーバー未起動 - ドキュメント参照',
+                                    style: TextStyle(
+                                      fontSize: 12, 
+                                      color: cs.onSurface.withAlpha(180),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _useGpuServer,
+                              onChanged: (_running || !_gpuServerAvailable) 
+                                  ? null 
+                                  : (v) => setState(() => _useGpuServer = v),
+                            ),
+                          ],
+                        ),
+                      ),
                     InputDecorator(
                       decoration: const InputDecoration(labelText: 'モデル', border: OutlineInputBorder()),
                       child: DropdownButtonHideUnderline(
@@ -307,47 +387,74 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InputDecorator(
-                      decoration: const InputDecoration(labelText: 'デバイス', border: OutlineInputBorder()),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _selectedDevice,
-                          items: _availableDevices
-                              .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                              .toList(),
-                          onChanged: _running ? null : (v) => setState(() => _selectedDevice = v ?? 'CPU'),
+                    // GPU Serverモード時はデバイス・スレッド設定を非表示
+                    if (!_useGpuServer) ...[
+                      InputDecorator(
+                        decoration: const InputDecoration(labelText: 'デバイス', border: OutlineInputBorder()),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            value: _selectedDevice,
+                            items: _availableDevices
+                                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                .toList(),
+                            onChanged: _running ? null : (v) => setState(() => _selectedDevice = v ?? 'CPU'),
+                          ),
                         ),
                       ),
-                    ),
-                    if (!_isGpuAvailable)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '※ ${Platform.operatingSystem}ではGPUアクセラレーションは利用できません',
-                          style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha((0.6 * 255).round())),
+                      if (!_isGpuAvailable)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '※ ${Platform.operatingSystem}ではGPUアクセラレーションは利用できません',
+                            style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha((0.6 * 255).round())),
+                          ),
+                        ),
+                      if (_currentModelFormat == ModelFormat.onnx)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '✓ ONNXモデル使用中 (GPU対応)',
+                            style: TextStyle(fontSize: 12, color: cs.primary),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      Text('スレッド数: ${_threads == 0 ? 'AUTO($_autoThreads)' : _threads}'),
+                      Slider(
+                        value: _threads.toDouble(),
+                        min: 0,
+                        max: math.max(1, _autoThreads).toDouble(),
+                        divisions: math.max(1, _autoThreads),
+                        label: _threads == 0 ? 'AUTO' : '$_threads',
+                        onChanged: _running
+                            ? null
+                            : (v) => setState(() => _threads = v.round().clamp(0, _autoThreads)),
+                      ),
+                    ] else ...[
+                      // GPU Serverモード時の情報表示
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🚀 GPU Server 推論モード',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: cs.primary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'サーバーが自動的に最適なGPUプロバイダーを選択します\n'
+                              '(DirectML / CUDA / CPU)',
+                              style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(180)),
+                            ),
+                          ],
                         ),
                       ),
-                    if (_currentModelFormat == ModelFormat.onnx)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '✓ ONNXモデル使用中 (GPU対応)',
-                          style: TextStyle(fontSize: 12, color: cs.primary),
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    Text('スレッド数: ${_threads == 0 ? 'AUTO($_autoThreads)' : _threads}'),
-                    Slider(
-                      value: _threads.toDouble(),
-                      min: 0,
-                      max: math.max(1, _autoThreads).toDouble(),
-                      divisions: math.max(1, _autoThreads),
-                      label: _threads == 0 ? 'AUTO' : '$_threads',
-                      onChanged: _running
-                          ? null
-                          : (v) => setState(() => _threads = v.round().clamp(0, _autoThreads)),
-                    ),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -355,13 +462,16 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                           child: FilledButton.icon(
                             onPressed: (_running || desktopTfliteBlocked) ? null : _runSelected,
                             icon: const Icon(Icons.speed),
-                            label: const Text('この条件で計測'),
+                            label: Text(_useGpuServer ? 'GPU Serverで計測' : 'この条件で計測'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: (_running || desktopTfliteBlocked) ? null : _runMaxPerformanceSuite,
+                            // GPU Serverモード時は一括計測を無効化
+                            onPressed: (_running || desktopTfliteBlocked || _useGpuServer) 
+                                ? null 
+                                : _runMaxPerformanceSuite,
                             icon: const Icon(Icons.auto_graph),
                             label: const Text('CPU/GPU一括'),
                           ),
