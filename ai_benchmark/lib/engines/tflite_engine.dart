@@ -34,6 +34,25 @@ class TfliteEngine implements InferenceEngine {
   @override
   String get name => '$_modelName ($device)';
 
+  /// Check if GPU acceleration is available on the current platform
+  static bool get isGpuAvailable {
+    // GPU delegates available on: Android (OpenCL/OpenGL), iOS/macOS (Metal)
+    // Not available on: Windows, Linux (TFLite C API doesn't include GPU delegate)
+    return Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+  }
+
+  /// Get available device options for the current platform
+  static List<String> get availableDevices {
+    if (Platform.isAndroid) {
+      return ['CPU', 'GPU', 'NNAPI'];
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      return ['CPU', 'GPU'];
+    } else {
+      // Windows, Linux - only CPU available via TFLite C API
+      return ['CPU'];
+    }
+  }
+
   @override
   Future<void> initialize() async {
     try {
@@ -46,6 +65,7 @@ class TfliteEngine implements InferenceEngine {
           try {
             _delegate = GpuDelegateV2();
             options.addDelegate(_delegate!);
+            debugPrint('Using Android GPU Delegate (OpenCL/OpenGL)');
           } catch (e) {
             debugPrint('Failed to create GpuDelegateV2: $e');
           }
@@ -61,15 +81,21 @@ class TfliteEngine implements InferenceEngine {
              debugPrint('NNAPI not supported: $e');
           }
         }
-      } else if (Platform.isIOS) {
+      } else if (Platform.isIOS || Platform.isMacOS) {
         if (device == 'GPU') {
            try {
-             // Metal Delegate (GpuDelegate on iOS)
+             // Metal Delegate for iOS/macOS
              _delegate = GpuDelegate();
              options.addDelegate(_delegate!);
+             debugPrint('Using Metal GPU Delegate');
            } catch (e) {
              debugPrint('Failed to create GpuDelegate (Metal): $e');
            }
+        }
+      } else if (Platform.isWindows || Platform.isLinux) {
+        if (device == 'GPU') {
+          // GPU delegate is not available for Windows/Linux in TFLite C API
+          debugPrint('GPU delegate not available on ${Platform.operatingSystem}. Using CPU with $threads threads.');
         }
       }
       
