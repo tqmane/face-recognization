@@ -1,0 +1,306 @@
+name: AI Image Test Build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+    paths:
+      - 'ai_image_test/**'
+      - '.github/workflows/ai-image-test-build.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'ai_image_test/**'
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.38.3'
+  WORKING_DIR: ai_image_test
+
+jobs:
+  # ─── Android ───
+  build-android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Disable Impeller
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i 's|</application>|<meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />\n</application>|' "$MANIFEST"
+
+      - name: Build debug APK
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        run: flutter build apk --debug
+
+      - name: Build release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: flutter build apk --release
+
+      - name: Sign release APK
+        if: startsWith(github.ref, 'refs/tags/v') && env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/keystore.jks
+          UNSIGNED="build/app/outputs/flutter-apk/app-release.apk"
+          ALIGNED="build/app/outputs/flutter-apk/app-release-aligned.apk"
+          SIGNED="build/app/outputs/flutter-apk/ai-image-test-release.apk"
+          
+          ${ANDROID_HOME}/build-tools/34.0.0/zipalign -v -p 4 "$UNSIGNED" "$ALIGNED"
+          ${ANDROID_HOME}/build-tools/34.0.0/apksigner sign \
+            --ks /tmp/keystore.jks \
+            --ks-pass "pass:${KEYSTORE_PASSWORD}" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "pass:${KEY_PASSWORD}" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled true \
+            --out "$SIGNED" "$ALIGNED"
+          rm -f /tmp/keystore.jks
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-image-test-android
+          path: |
+            ai_image_test/build/app/outputs/flutter-apk/ai-image-test-*.apk
+            ai_image_test/build/app/outputs/flutter-apk/app-debug.apk
+
+  # ─── Linux ───
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Regenerate Linux platform files
+        run: flutter create --project-name ai_image_test --platforms=linux .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check for TFLite native lib
+        run: |
+          if [ -f "blobs/libtensorflowlite_c-linux.so" ]; then
+            mkdir -p build/linux/x64/release/bundle/lib
+            cp blobs/libtensorflowlite_c-linux.so build/linux/x64/release/bundle/lib/libtensorflowlite_c.so
+            echo "TFLite native lib found and copied"
+          else
+            echo "WARNING: TFLite native lib not found (blobs/libtensorflowlite_c-linux.so)"
+          fi
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Package
+        run: |
+          cd build/linux/x64/release/bundle
+          tar czf ../../../../../ai-image-test-linux-x64.tar.gz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-image-test-linux
+          path: ai_image_test/ai-image-test-linux-x64.tar.gz
+
+  # ─── Windows ───
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Regenerate Windows platform files
+        run: flutter create --project-name ai_image_test --platforms=windows .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check for TFLite native lib
+        shell: pwsh
+        run: |
+          if (Test-Path "blobs/libtensorflowlite_c-win.dll") {
+            Write-Host "TFLite native lib found"
+          } else {
+            Write-Host "WARNING: TFLite native lib not found"
+          }
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" `
+            -DestinationPath "ai-image-test-windows-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-image-test-windows
+          path: ai_image_test/ai-image-test-windows-x64.zip
+
+  # ─── macOS ───
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Regenerate macOS platform files
+        run: flutter create --project-name ai_image_test --platforms=macos .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods
+          cd macos && pod install --verbose
+
+      - name: Build macOS release
+        run: flutter build macos --release
+
+      - name: Package
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --keepParent "ai_image_test.app" \
+            ../../../../../ai-image-test-macos.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-image-test-macos
+          path: ai_image_test/ai-image-test-macos.zip
+
+  # ─── iOS ───
+  build-ios:
+    name: iOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Regenerate iOS platform files
+        run: flutter create --project-name ai_image_test --platforms=ios .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods
+          cd ios && pod install --verbose
+
+      - name: Set iOS deployment target
+        run: |
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 16.4/g' \
+            ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r ai-image-test-ios.ipa Payload
+          rm -rf Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-image-test-ios
+          path: ai_image_test/ai-image-test-ios.ipa
+
+  # ─── Release ───
+  release:
+    name: Create Release
+    needs: [build-android, build-linux, build-windows, build-macos, build-ios]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -50
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: "AI Image Test ${{ github.ref_name }}"
+          body: |
+            AI Image Test ${{ github.ref_name }}
+            
+            ## Downloads
+            - **Android**: ai-image-test-release.apk (署名済み) or app-debug.apk
+            - **Linux**: ai-image-test-linux-x64.tar.gz
+            - **Windows**: ai-image-test-windows-x64.zip
+            - **macOS**: ai-image-test-macos.zip
+            - **iOS**: ai-image-test-ios.ipa (未署名)
+          files: |
+            artifacts/**/*
+          fail_on_unmatched_files: false
