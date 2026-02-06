@@ -19,11 +19,29 @@ class HardwareChecker {
       return status;
     }
 
-    // GPU check per platform
+    // GPU check per platform (with timeout to prevent hangs on broken GPU drivers)
     if (Platform.isAndroid) {
-      status['GPU'] = await _checkAndroidGpu(file);
+      try {
+        status['GPU'] = await _checkAndroidGpu(file)
+            .timeout(const Duration(seconds: 8), onTimeout: () {
+          debugPrint('GPU check timed out on Android');
+          return false;
+        });
+      } catch (e) {
+        debugPrint('GPU check error: $e');
+        status['GPU'] = false;
+      }
     } else if (Platform.isIOS || Platform.isMacOS) {
-      status['GPU'] = await _checkMetalGpu(file);
+      try {
+        status['GPU'] = await _checkMetalGpu(file)
+            .timeout(const Duration(seconds: 8), onTimeout: () {
+          debugPrint('GPU (Metal) check timed out');
+          return false;
+        });
+      } catch (e) {
+        debugPrint('GPU (Metal) check error: $e');
+        status['GPU'] = false;
+      }
     }
     // Windows/Linux: TFLite GPU delegate is NOT available via the C API.
     // GPU acceleration on these platforms requires ONNX Runtime (see OnnxEngine).
