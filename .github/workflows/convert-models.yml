@@ -30,12 +30,13 @@ jobs:
     - name: Install dependencies
       run: |
         pip install tf2onnx tensorflow onnx onnxruntime
+        python -c "import tf2onnx; print('tf2onnx version:', tf2onnx.__version__)"
     
-    - name: Download and convert models
+    - name: Download TFLite models
       run: |
         mkdir -p models_tflite models_onnx
         
-        # Define models to convert
+        # Define models to download
         declare -A MODELS
         MODELS["mobilenet_v3_small_embedder"]="https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_small_075_224_embedder.tflite"
         MODELS["mobilenet_v3_large_embedder"]="https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_large_075_224_embedder.tflite"
@@ -44,21 +45,94 @@ jobs:
         
         for name in "${!MODELS[@]}"; do
           url="${MODELS[$name]}"
-          echo "Downloading $name from $url"
-          curl -L -o "models_tflite/${name}.tflite" "$url"
-          
-          echo "Converting $name to ONNX"
-          python -m tf2onnx.convert \
-            --tflite "models_tflite/${name}.tflite" \
-            --output "models_onnx/${name}.onnx" \
-            --opset 13 || echo "Warning: Failed to convert $name"
+          echo "::group::Downloading $name"
+          curl -fSL --retry 3 -o "models_tflite/${name}.tflite" "$url"
+          ls -lh "models_tflite/${name}.tflite"
+          echo "::endgroup::"
         done
         
-        # List results
-        echo "=== TFLite models ==="
+        echo "=== Downloaded TFLite models ==="
         ls -lh models_tflite/
+
+    - name: Convert TFLite to ONNX
+      run: |
+        FAILED=()
+        SUCCEEDED=()
+        
+        for tflite_file in models_tflite/*.tflite; do
+          name=$(basename "$tflite_file" .tflite)
+          onnx_file="models_onnx/${name}.onnx"
+          
+          echo "::group::Converting $name to ONNX"
+          
+          # Try conversion with multiple opset versions
+          CONVERTED=false
+          for opset in 15 13 11; do
+            echo "Trying opset $opset..."
+            if python -m tf2onnx.convert \
+              --tflite "$tflite_file" \
+              --output "$onnx_file" \
+              --opset "$opset" 2>&1; then
+              if [ -f "$onnx_file" ] && [ -s "$onnx_file" ]; then
+                echo "SUCCESS: Converted $name with opset $opset"
+                ls -lh "$onnx_file"
+                CONVERTED=true
+                SUCCEEDED+=("$name")
+                break
+              fi
+            fi
+            echo "Failed with opset $opset, trying next..."
+            rm -f "$onnx_file"
+          done
+          
+          if [ "$CONVERTED" = false ]; then
+            echo "::warning::Failed to convert $name to ONNX with any opset"
+            FAILED+=("$name")
+          fi
+          
+          echo "::endgroup::"
+        done
+        
+        echo ""
+        echo "=== Conversion Summary ==="
+        echo "Succeeded: ${SUCCEEDED[*]:-none}"
+        echo "Failed: ${FAILED[*]:-none}"
+        echo ""
+        
         echo "=== ONNX models ==="
-        ls -lh models_onnx/
+        ls -lh models_onnx/ 2>/dev/null || echo "(empty)"
+        
+        # Validate ONNX models
+        if [ ${#SUCCEEDED[@]} -gt 0 ]; then
+          echo ""
+          echo "=== Validating ONNX models ==="
+          for onnx_file in models_onnx/*.onnx; do
+            name=$(basename "$onnx_file")
+            python -c "
+        import onnx
+        model = onnx.load('$onnx_file')
+        onnx.checker.check_model(model)
+        print(f'  $name: valid (opset={model.opset_import[0].version})')
+        " || echo "  WARNING: $name validation failed"
+          done
+        fi
+
+    - name: Verify at least TFLite models exist
+      run: |
+        TFLITE_COUNT=$(find models_tflite -name '*.tflite' | wc -l)
+        ONNX_COUNT=$(find models_onnx -name '*.onnx' 2>/dev/null | wc -l)
+        
+        echo "TFLite models: $TFLITE_COUNT"
+        echo "ONNX models: $ONNX_COUNT"
+        
+        if [ "$TFLITE_COUNT" -eq 0 ]; then
+          echo "::error::No TFLite models downloaded!"
+          exit 1
+        fi
+        
+        if [ "$ONNX_COUNT" -eq 0 ]; then
+          echo "::warning::No ONNX models converted. Windows/Linux users will use TFLite fallback."
+        fi
     
     - name: Create model manifest
       run: |
@@ -131,41 +205,64 @@ jobs:
         print(json.dumps({"version": version, "models": models}, indent=2))
         EOF
     
+    - name: Collect release files
+      run: |
+        mkdir -p release_files
+        
+        # Copy TFLite models
+        cp models_tflite/*.tflite release_files/ 2>/dev/null || true
+        
+        # Copy ONNX models (may be empty)
+        cp models_onnx/*.onnx release_files/ 2>/dev/null || true
+        
+        # Copy manifest
+        cp models_manifest.json release_files/
+        
+        echo "=== Files for release ==="
+        ls -lh release_files/
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: onnx-models
-        path: |
-          models_onnx/*.onnx
-          models_tflite/*.tflite
-          models_manifest.json
+        name: converted-models
+        path: release_files/
     
+    - name: Delete existing release (if any)
+      if: startsWith(github.ref, 'refs/tags/models-v') || github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="${{ github.event.inputs.version || github.ref_name }}"
+        echo "Checking for existing release with tag: $TAG"
+        # Delete existing release if it exists (to avoid 403/409 conflicts)
+        gh release delete "$TAG" --yes 2>/dev/null || echo "No existing release to delete"
+        # Delete the tag remotely if it was created by a previous run
+        git push origin ":refs/tags/$TAG" 2>/dev/null || echo "No existing tag to delete"
+
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/models-v') || github.event_name == 'workflow_dispatch'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.event.inputs.version || github.ref_name }}
         name: "Pre-converted Models ${{ github.event.inputs.version || github.ref_name }}"
+        make_latest: false
+        fail_on_unmatched_files: false
         body: |
           ## Pre-converted AI Models for ai_benchmark
           
           These models are pre-converted for optimal performance on each platform:
           
-          ### TFLite Models (Mobile/macOS)
-          - GPU acceleration via Metal (iOS/macOS) or OpenCL (Android)
+          ### TFLite Models (Mobile/macOS/Windows/Linux)
+          - Mobile GPU acceleration via Metal (iOS/macOS) or OpenCL (Android)
+          - Desktop: TFLite CPU fallback available
           
-          ### ONNX Models (Windows/Linux)  
+          ### ONNX Models (Windows/Linux, if converted)
           - GPU acceleration via DirectML (Windows) or CUDA (Linux)
           
           ### Usage
           The ai_benchmark app will automatically download the optimal format for your platform.
-          
-          ### Manual Download
-          - Windows/Linux: Download `.onnx` files
-          - Android/iOS/macOS: Download `.tflite` files
+          If ONNX is unavailable, TFLite will be used as fallback on Windows/Linux.
         files: |
-          models_onnx/*.onnx
-          models_tflite/*.tflite
-          models_manifest.json
+          release_files/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -349,7 +349,10 @@ class ModelManager {
       final response = await client.send(request);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('HTTP ${response.statusCode} while downloading $downloadUrl');
+        throw HttpException(
+          'HTTP ${response.statusCode}: $downloadUrl へのダウンロード失敗'
+          '${response.statusCode == 404 ? "（ファイルがリリースに存在しません）" : ""}'
+        );
       }
 
       final contentLength = response.contentLength ?? 0;
@@ -424,8 +427,38 @@ class ModelManager {
     }
   }
   
-  /// Download model in the optimal format for the current platform
+  /// Download model in the optimal format for the current platform.
+  /// If the preferred format (e.g. ONNX on Windows) fails, automatically
+  /// falls back to the other format (TFLite).
   Future<void> downloadOptimalModel(String key, Function(double) onProgress) async {
-    await downloadModel(key, onProgress, format: ModelItem.preferredFormat);
+    final preferred = ModelItem.preferredFormat;
+    try {
+      await downloadModel(key, onProgress, format: preferred);
+    } catch (e) {
+      // If preferred format fails, try fallback format
+      final fallback = preferred == ModelFormat.onnx ? ModelFormat.tflite : ModelFormat.onnx;
+      debugPrint('Preferred format ($preferred) download failed: $e');
+      debugPrint('Trying fallback format: $fallback');
+
+      final all = await listModels();
+      final model = all.firstWhere((m) => m.key == key);
+
+      // Check if the fallback format has a URL
+      final hasFallbackUrl = fallback == ModelFormat.tflite
+          ? model.isRemote
+          : model.hasOnnx;
+
+      if (!hasFallbackUrl) {
+        // No fallback available, rethrow original error
+        throw Exception('$preferred ダウンロード失敗: $e（フォールバック $fallback のURLもありません）');
+      }
+
+      try {
+        await downloadModel(key, onProgress, format: fallback);
+        debugPrint('Fallback download ($fallback) succeeded');
+      } catch (fallbackError) {
+        throw Exception('$preferred: $e / $fallback: $fallbackError');
+      }
+    }
   }
 }
