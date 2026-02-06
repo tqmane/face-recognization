@@ -44,5 +44,4 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.11.0")
 }
