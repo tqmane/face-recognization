@@ -129,9 +129,12 @@ jobs:
           echo "::error::No TFLite models downloaded!"
           exit 1
         fi
-        
-        if [ "$ONNX_COUNT" -eq 0 ]; then
-          echo "::warning::No ONNX models converted. Windows/Linux users will use TFLite fallback."
+
+        # For releases, require at least one ONNX model.
+        # (If ONNX conversion is broken, we prefer failing fast over publishing only TFLite.)
+        if [ "$ONNX_COUNT" -eq 0 ] && ( [[ "${GITHUB_REF}" == refs/tags/models-v* ]] || [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]] ); then
+          echo "::error::No ONNX models converted! Release requires ONNX assets."
+          exit 1
         fi
     
     - name: Create model manifest
@@ -182,17 +185,22 @@ jobs:
         for m in model_defs:
             tflite_path = f"models_tflite/{m['tflite']}"
             onnx_path = f"models_onnx/{m['onnx']}"
+
+          base_name = m["tflite"].removesuffix(".tflite")
             
             entry = {
                 "key": m["key"],
                 "name": m["name"],
                 "inputSize": m["inputSize"],
                 "isRecommended": m["isRecommended"],
-                "fileNameInArchive": m["tflite"]
+            # Base name without extension (e.g. "mobilenet_v3_small_embedder")
+            "fileNameInArchive": base_name
             }
             
             if os.path.exists(tflite_path):
-                entry["url"] = f"{base_url}/{m['tflite']}"
+            # Keep legacy key "url" for older clients, but prefer explicit name.
+            entry["tfliteUrl"] = f"{base_url}/{m['tflite']}"
+            entry["url"] = entry["tfliteUrl"]
             
             if os.path.exists(onnx_path):
                 entry["onnxUrl"] = f"{base_url}/{m['onnx']}"
