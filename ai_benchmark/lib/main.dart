@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'engines/inference_engine.dart';
 import 'engines/histogram_engine.dart';
 import 'engines/tflite_engine.dart';
+import 'engines/onnx_engine.dart';
 import 'services/test_set_loader.dart';
 import 'services/hardware_checker.dart';
 import 'services/model_manager.dart';
@@ -112,22 +113,59 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
 
     final hasAnyDownloadedModel = _modelsDownloaded.values.any((downloaded) => downloaded);
 
-    // Hardware Check (only meaningful when a TFLite model exists)
+    // Hardware Check — probe TFLite GPU and determine available devices based
+    // on which model formats are present on disk.
     if (hasAnyDownloadedModel) {
-      final checker = HardwareChecker();
       final firstModelKey = _modelsDownloaded.entries.firstWhere((e) => e.value).key;
-      final modelFile = await manager.getModelFile(firstModelKey);
-      final status = await checker.checkAvailability(modelFile.path);
+      final bestFile = await manager.getBestModelFile(firstModelKey);
+
+      bool hasTflite = false;
+      bool hasOnnx = false;
+      if (bestFile != null) {
+        hasTflite = bestFile.$2 == ModelFormat.tflite;
+        hasOnnx = bestFile.$2 == ModelFormat.onnx;
+      }
+      // Also check if the other format exists
+      final tfliteFile = await manager.getModelFile(firstModelKey, format: ModelFormat.tflite);
+      final onnxFile = await manager.getModelFile(firstModelKey, format: ModelFormat.onnx);
+      if (await tfliteFile.exists()) hasTflite = true;
+      if (await onnxFile.exists()) hasOnnx = true;
+
+      // TFLite GPU check (only meaningful on mobile / macOS)
+      final checker = HardwareChecker();
+      Map<String, bool> tfliteStatus = {'CPU': true};
+      if (hasTflite && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+        final tflFile = await manager.getModelFile(firstModelKey, format: ModelFormat.tflite);
+        if (await tflFile.exists()) {
+          tfliteStatus = await checker.checkAvailability(tflFile.path);
+        }
+      }
+
+      // Build device list combining TFLite and ONNX capabilities
+      final devices = HardwareChecker.availableDevicesForPlatform(
+        hasTflite: hasTflite,
+        hasOnnx: hasOnnx,
+      );
+
+      // Remove GPU if TFLite GPU check explicitly failed
+      if (hasTflite && tfliteStatus['GPU'] == false) {
+        // Keep GPU in the list only if ONNX provides GPU capability
+        if (!hasOnnx || !(Platform.isMacOS || Platform.isIOS)) {
+          devices.remove('GPU');
+        }
+      }
 
       if (!mounted) return;
 
       setState(() {
-        _availableDevices = status.entries.where((e) => e.value).map((e) => e.key).toList();
+        _availableDevices = devices;
 
         if (_availableDevices.contains('GPU')) {
           _selectedDevice = 'GPU';
-        } else if (_availableDevices.contains('NNAPI')) {
-          _selectedDevice = 'NNAPI';
+        } else if (_availableDevices.contains('CoreML')) {
+          _selectedDevice = 'CoreML';
+        } else if (_availableDevices.contains('XNNPACK')) {
+          _selectedDevice = 'XNNPACK';
         } else {
           _selectedDevice = 'CPU';
         }
@@ -495,11 +533,30 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     );
 
     final manager = ModelManager();
-    final file = await manager.getModelFile(modelInfo.key);
+    final result = await manager.getBestModelFile(modelInfo.key);
 
-    if (!await file.exists()) {
-      setState(() => _statusMessage = 'モデルが見つかりません: ${file.path}');
+    if (result == null) {
+      setState(() => _statusMessage = 'モデルファイルが見つかりません: ${modelInfo.key}');
       return null;
+    }
+
+    final (file, format) = result;
+
+    if (format == ModelFormat.onnx) {
+      // Map device names for ONNX Runtime
+      String onnxDevice = device;
+      if (device == 'GPU' && (Platform.isMacOS || Platform.isIOS)) {
+        onnxDevice = 'CoreML';
+      } else if (device == 'GPU') {
+        onnxDevice = 'XNNPACK'; // Best CPU optimisation available
+      }
+      return OnnxEngine(
+        modelName: modelInfo.name,
+        modelPath: file.path,
+        inputSize: modelInfo.inputSize,
+        device: onnxDevice,
+        threads: Platform.numberOfProcessors > 0 ? Platform.numberOfProcessors : 4,
+      );
     }
 
     return TfliteEngine(
@@ -507,6 +564,7 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       modelPath: file.path,
       inputSize: modelInfo.inputSize,
       device: device,
+      threads: Platform.numberOfProcessors > 0 ? Platform.numberOfProcessors : 4,
     );
   }
 

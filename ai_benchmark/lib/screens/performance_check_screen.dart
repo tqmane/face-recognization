@@ -165,13 +165,23 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
       }
 
       await engine.initialize();
+
+      // Show actual device used (may differ when GPU falls back to CPU)
+      String actualLabel;
+      if (_useGpuServer) {
+        actualLabel = 'GPU Server';
+      } else if (engine is TfliteEngine) {
+        actualLabel = '${engine.actualDevice}/$threads (${_currentModelFormat.name})';
+      } else {
+        actualLabel = '$device/$threads (${_currentModelFormat.name})';
+      }
+
       final stats = await engine.runSyntheticBenchmark(warmupRuns: 30, runs: 200);
       engine.dispose();
 
       if (!mounted) return;
       setState(() {
-        final label = _useGpuServer ? 'GPU Server' : '$device/$threads (${_currentModelFormat.name})';
-        _results[label] = stats;
+        _results[actualLabel] = stats;
       });
     } catch (e) {
       if (!mounted) return;
@@ -204,13 +214,47 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   Future<void> _runMaxPerformanceSuite() async {
     // CPU: 1-thread + auto threads; GPU: auto threads (if available on platform)
     final auto = _autoThreads;
-    await _runOnce(device: 'CPU', threads: 1);
-    await _runOnce(device: 'CPU', threads: auto);
+    final errors = <String>[];
 
+    // --- CPU 1-thread ---
+    try {
+      await _runOnce(device: 'CPU', threads: 1);
+    } catch (e) {
+      errors.add('CPU/1: $e');
+      debugPrint('Max-perf suite: CPU/1 failed: $e');
+    }
+
+    // --- CPU auto-threads ---
+    try {
+      await _runOnce(device: 'CPU', threads: auto);
+    } catch (e) {
+      errors.add('CPU/$auto: $e');
+      debugPrint('Max-perf suite: CPU/$auto failed: $e');
+    }
+
+    // --- GPU / accelerator ---
     if (_isGpuAvailable && _availableDevices.length > 1) {
-      // Use the first GPU device available
-      final gpuDevice = _availableDevices.firstWhere((d) => d != 'CPU', orElse: () => 'GPU');
-      await _runOnce(device: gpuDevice, threads: auto);
+      final gpuDevice = _availableDevices.firstWhere(
+        (d) => d != 'CPU',
+        orElse: () => 'GPU',
+      );
+      try {
+        await _runOnce(device: gpuDevice, threads: auto);
+      } catch (e) {
+        errors.add('$gpuDevice: $e');
+        debugPrint('Max-perf suite: $gpuDevice failed: $e');
+      }
+    }
+
+    // Show summary
+    if (mounted && errors.isNotEmpty) {
+      setState(() {
+        _status = '完了（一部失敗: ${errors.join('; ')}）';
+      });
+    } else if (mounted) {
+      setState(() {
+        _status = '一括計測 完了';
+      });
     }
   }
 
