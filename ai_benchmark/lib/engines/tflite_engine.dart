@@ -326,6 +326,10 @@ class TfliteEngine implements InferenceEngine {
 
   /// Synthetic benchmark (no file I/O): measures pure interpreter latency.
   /// Intended for "max performance" checks.
+  ///
+  /// ウォームアップ ([warmupRuns] 回) 後に [runs] 回推論を実行し、
+  /// 各回のレイテンシ (ms) から統計値を計算して返す。
+  /// GPU推論中にクラッシュした場合は、取得済みのサンプルで部分結果を返す。
   @override
   Future<BenchmarkStats> runSyntheticBenchmark({
     int warmupRuns = 20,
@@ -358,18 +362,40 @@ class TfliteEngine implements InferenceEngine {
       output = List.filled(outputSize, 0).reshape(outputShape);
     }
 
-    // Warmup
-    for (int i = 0; i < warmupRuns; i++) {
-      _interpreter!.run(input, output);
+    // Warmup — errors here may indicate GPU incompatibility.
+    try {
+      for (int i = 0; i < warmupRuns; i++) {
+        _interpreter!.run(input, output);
+      }
+    } catch (e) {
+      debugPrint('Benchmark warmup failed at $_actualDevice: $e');
+      throw Exception('ウォームアップ中にエラー ($_actualDevice): $e');
     }
 
+    // We do the actual benchmark runs with a yield every 50 iterations
+    // so the UI thread stays responsive and setState can safely be called.
     final samplesMs = <double>[];
     final clock = Stopwatch()..start();
-    for (int i = 0; i < runs; i++) {
-      final t0 = clock.elapsedMicroseconds;
-      _interpreter!.run(input, output);
-      final t1 = clock.elapsedMicroseconds;
-      samplesMs.add((t1 - t0) / 1000.0);
+    try {
+      for (int i = 0; i < runs; i++) {
+        final t0 = clock.elapsedMicroseconds;
+        _interpreter!.run(input, output);
+        final t1 = clock.elapsedMicroseconds;
+        samplesMs.add((t1 - t0) / 1000.0);
+
+        // Yield periodically to keep UI responsive
+        if (i % 50 == 49) {
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+    } catch (e) {
+      debugPrint('Benchmark run failed after ${samplesMs.length} samples: $e');
+      // Return partial results if we got at least a few samples
+      if (samplesMs.length >= 5) {
+        return computeBenchmarkStats(samplesMs);
+      }
+      throw Exception('推論ベンチマーク中にエラー ($_actualDevice, '
+          '${samplesMs.length}/$runs 完了): $e');
     }
 
     return computeBenchmarkStats(samplesMs);
