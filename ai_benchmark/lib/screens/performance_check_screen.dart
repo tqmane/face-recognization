@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../engines/tflite_engine.dart';
 import '../engines/onnx_engine.dart';
 import '../engines/gpu_server_engine.dart';
+import '../engines/histogram_engine.dart';
 import '../engines/inference_engine.dart';
 import '../services/model_manager.dart';
 import '../services/native_lib_checker.dart';
@@ -19,6 +20,8 @@ class PerformanceCheckScreen extends StatefulWidget {
 }
 
 class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
+  static const String _kHistogramKey = '__histogram__';
+
   bool _loading = true;
   List<ModelItem> _downloadedModels = [];
   String? _selectedModelKey;
@@ -76,21 +79,30 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
   Future<void> _loadModels() async {
     final manager = ModelManager();
-    final models = await manager.listModels();
+    List<ModelItem> models;
+    try {
+      models = await manager.listModels();
+    } catch (e) {
+      debugPrint('Failed to list models: $e');
+      models = [];
+    }
     final downloaded = <ModelItem>[];
     for (final m in models) {
-      // Check if any format is downloaded
-      final result = await manager.getBestModelFile(m.key);
-      if (result != null) {
-        downloaded.add(m);
+      try {
+        final result = await manager.getBestModelFile(m.key);
+        if (result != null) {
+          downloaded.add(m);
+        }
+      } catch (e) {
+        debugPrint('Failed to check model ${m.key}: $e');
       }
     }
 
     if (!mounted) return;
     setState(() {
       _downloadedModels = downloaded;
-      _selectedModelKey = downloaded.isNotEmpty ? downloaded.first.key : null;
-      _updateModelFormat();
+      // Always default to histogram (works without model download)
+      _selectedModelKey = _kHistogramKey;
       _loading = false;
     });
   }
@@ -119,17 +131,21 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
       _running = true;
       _status = _useGpuServer 
           ? '計測中: GPU Server' 
-          : '計測中: $device / threads=$threads (${_currentModelFormat.name})';
+          : key == _kHistogramKey
+              ? '計測中: Histogram (CPU)'
+              : '計測中: $device / threads=$threads (${_currentModelFormat.name})';
     });
 
     try {
-      final manager = ModelManager();
-      final model = _downloadedModels.firstWhere((m) => m.key == key);
-      
       InferenceEngine engine;
       
-      if (_useGpuServer) {
+      if (key == _kHistogramKey) {
+        // Histogram engine doesn't need model download
+        engine = HistogramEngine();
+      } else if (_useGpuServer) {
         // GPU Server モード: ONNXモデルが必要
+        final manager = ModelManager();
+        final model = _downloadedModels.firstWhere((m) => m.key == key);
         final onnxFile = await manager.getModelFile(model.key, format: ModelFormat.onnx);
         engine = GpuServerEngine(
           modelName: model.name,
@@ -137,6 +153,8 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
           inputSize: model.inputSize,
         );
       } else {
+        final manager = ModelManager();
+        final model = _downloadedModels.firstWhere((m) => m.key == key);
         final result = await manager.getBestModelFile(model.key);
         
         if (result == null) {
@@ -168,7 +186,9 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
 
       // Show actual device used (may differ when GPU falls back to CPU)
       String actualLabel;
-      if (_useGpuServer) {
+      if (key == _kHistogramKey) {
+        actualLabel = 'Histogram (CPU)';
+      } else if (_useGpuServer) {
         actualLabel = 'GPU Server';
       } else if (engine is TfliteEngine) {
         actualLabel = '${engine.actualDevice}/$threads (${_currentModelFormat.name})';
@@ -273,10 +293,12 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     // TFLite blocked only matters if we're using TFLite format on desktop
+    // AND we're not using Histogram engine (which doesn't need TFLite)
     final isDesktop = !(Platform.isAndroid || Platform.isIOS);
     final desktopTfliteBlocked = isDesktop && 
         !(_tfliteCpuLibStatus.available) && 
-        _currentModelFormat == ModelFormat.tflite;
+        _currentModelFormat == ModelFormat.tflite &&
+        _selectedModelKey != _kHistogramKey;
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -353,11 +375,11 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('計測にはTFLiteモデルのダウンロードが必要です。ホーム画面の設定からモデルを取得してください。'),
+                child: Text('モデル未ダウンロード: Histogramエンジンで計測できます。\nAIモデルで計測するには、ホーム画面の設定からモデルを取得してください。'),
               ),
-            )
-          else
-            Card(
+            ),
+          const SizedBox(height: 12),
+          Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -420,19 +442,29 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                         child: DropdownButton<String>(
                           isExpanded: true,
                           value: _selectedModelKey,
-                          items: _downloadedModels
-                              .map((m) => DropdownMenuItem(value: m.key, child: Text('${m.name} (${_currentModelFormat.name})')))
-                              .toList(),
+                          items: [
+                            // Always include Histogram (no model download needed)
+                            const DropdownMenuItem(
+                              value: _kHistogramKey,
+                              child: Text('Color Histogram (モデル不要)'),
+                            ),
+                            ..._downloadedModels.map((m) => DropdownMenuItem(
+                              value: m.key,
+                              child: Text('${m.name} (${_currentModelFormat.name})'),
+                            )),
+                          ],
                           onChanged: _running ? null : (v) {
                             setState(() => _selectedModelKey = v);
-                            _updateModelFormat();
+                            if (v != _kHistogramKey) {
+                              _updateModelFormat();
+                            }
                           },
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // GPU Serverモード時はデバイス・スレッド設定を非表示
-                    if (!_useGpuServer) ...[
+                    // Histogram選択時 or GPU Serverモード時はデバイス・スレッド設定を非表示
+                    if (!_useGpuServer && _selectedModelKey != _kHistogramKey) ...[
                       InputDecorator(
                         decoration: const InputDecoration(labelText: 'デバイス', border: OutlineInputBorder()),
                         child: DropdownButtonHideUnderline(
@@ -474,7 +506,7 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                             ? null
                             : (v) => setState(() => _threads = v.round().clamp(0, _autoThreads)),
                       ),
-                    ] else ...[
+                    ] else if (_useGpuServer) ...[
                       // GPU Serverモード時の情報表示
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -498,22 +530,39 @@ class _PerformanceCheckScreenState extends State<PerformanceCheckScreen> {
                           ],
                         ),
                       ),
+                    ] else ...[
+                      // Histogram選択時
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Histogramエンジン: モデルダウンロード不要、CPU処理のみ',
+                          style: TextStyle(fontSize: 12, color: cs.onSurface.withAlpha(180)),
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: FilledButton.icon(
-                            onPressed: (_running || desktopTfliteBlocked) ? null : _runSelected,
+                            onPressed: _running ? null : _runSelected,
                             icon: const Icon(Icons.speed),
-                            label: Text(_useGpuServer ? 'GPU Serverで計測' : 'この条件で計測'),
+                            label: Text(_useGpuServer 
+                                ? 'GPU Serverで計測' 
+                                : _selectedModelKey == _kHistogramKey 
+                                    ? 'Histogramで計測'
+                                    : 'この条件で計測'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            // GPU Serverモード時は一括計測を無効化
-                            onPressed: (_running || desktopTfliteBlocked || _useGpuServer) 
+                            // GPU ServerモードまたはHistogram選択時は一括計測を無効化
+                            onPressed: (_running || desktopTfliteBlocked || _useGpuServer || _selectedModelKey == _kHistogramKey) 
                                 ? null 
                                 : _runMaxPerformanceSuite,
                             icon: const Icon(Icons.auto_graph),

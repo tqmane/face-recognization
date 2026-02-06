@@ -96,8 +96,21 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
     // Initialize model download status
     final manager = ModelManager();
     final downloadedStatus = <String, bool>{};
-    final customModels = await manager.listCustomModels();
-    final allModels = await manager.listModels();
+    List<ModelItem> customModels;
+    List<ModelItem> allModels;
+    try {
+      customModels = await manager.listCustomModels();
+      allModels = await manager.listModels();
+    } catch (e) {
+      debugPrint('Model listing failed: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingModels = false;
+          _statusMessage = 'モデル一覧取得エラー: $e';
+        });
+      }
+      return;
+    }
     for (final model in allModels) {
       downloadedStatus[model.key] = await manager.isModelDownloaded(model.key);
     }
@@ -132,12 +145,22 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
       if (await onnxFile.exists()) hasOnnx = true;
 
       // TFLite GPU check (only meaningful on mobile / macOS)
+      // Use timeout to prevent app from hanging if GPU driver is broken
       final checker = HardwareChecker();
       Map<String, bool> tfliteStatus = {'CPU': true};
       if (hasTflite && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
         final tflFile = await manager.getModelFile(firstModelKey, format: ModelFormat.tflite);
         if (await tflFile.exists()) {
-          tfliteStatus = await checker.checkAvailability(tflFile.path);
+          try {
+            tfliteStatus = await checker.checkAvailability(tflFile.path)
+                .timeout(const Duration(seconds: 10), onTimeout: () {
+              debugPrint('GPU check timed out, assuming CPU only');
+              return {'CPU': true, 'GPU': false};
+            });
+          } catch (e) {
+            debugPrint('GPU check failed: $e');
+            tfliteStatus = {'CPU': true, 'GPU': false};
+          }
         }
       }
 
@@ -468,57 +491,101 @@ class _BenchmarkHomeScreenState extends State<BenchmarkHomeScreen> {
   }
 
   Future<void> _pickTestSet() async {
-    // Storage permissions are Android-specific. iOS and desktop use sandbox pickers.
+    // Android 13+ (API 33+) doesn't need storage permission for file picker.
+    // Older Android versions need storage permission.
     if (Platform.isAndroid) {
-      await Permission.storage.request();
-      await Permission.manageExternalStorage.request();
+      try {
+        final sdkInt = int.tryParse(
+            Platform.version.split('.').first.replaceAll(RegExp(r'[^0-9]'), ''));
+        // Only request legacy storage permission on older Android
+        if (sdkInt == null || sdkInt < 33) {
+          await Permission.storage.request();
+        }
+      } catch (e) {
+        debugPrint('Permission request error: $e');
+      }
     }
     if (!mounted) return;
 
     String? path;
 
-    // Desktop: let user choose ZIP or folder explicitly.
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      final choice = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('テストセットの形式'),
-          content: const Text('ZIPファイルかフォルダを選択してください'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'dir'),
-              child: const Text('フォルダ'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'zip'),
-              child: const Text('ZIP'),
-            ),
-          ],
-        ),
-      );
+    try {
+      // Desktop: let user choose ZIP or folder explicitly.
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('テストセットの形式'),
+            content: const Text('ZIPファイルかフォルダを選択してください'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'dir'),
+                child: const Text('フォルダ'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'zip'),
+                child: const Text('ZIP'),
+              ),
+            ],
+          ),
+        );
 
-      if (choice == 'dir') {
-        path = await FilePicker.platform.getDirectoryPath();
-      } else if (choice == 'zip') {
+        if (choice == 'dir') {
+          path = await FilePicker.platform.getDirectoryPath();
+        } else if (choice == 'zip') {
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['zip'],
+          );
+          path = result?.files.single.path;
+        }
+      } else {
+        // Mobile: pick ZIP file
         final result = await FilePicker.platform.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['zip'],
         );
-        path = result?.files.single.path;
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.single;
+          path = file.path;
+
+          // Android: file.path can be null with content URIs.
+          // In that case, save bytes to temp directory.
+          if (path == null && file.bytes != null) {
+            final tempDir = await getTemporaryDirectory();
+            final tempFile = File(
+                '${tempDir.path}/test_set_${DateTime.now().millisecondsSinceEpoch}.zip');
+            await tempFile.writeAsBytes(file.bytes!);
+            path = tempFile.path;
+          } else if (path == null && file.name.isNotEmpty) {
+            // Try to use the cached file path
+            final tempDir = await getTemporaryDirectory();
+            final cachedPath = '${tempDir.path}/${file.name}';
+            if (File(cachedPath).existsSync()) {
+              path = cachedPath;
+            }
+          }
+        }
       }
-    } else {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-      );
-      path = result?.files.single.path;
+    } catch (e) {
+      debugPrint('File picker error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ファイル選択エラー: $e')),
+        );
+      }
+      return;
     }
 
-    if (path != null) {
+    if (path != null && mounted) {
       setState(() {
         _testSetPath = path;
         _statusMessage = '選択中: ${p.basename(path!)}';
       });
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ファイルが選択されなかったか、パスを取得できませんでした')),
+      );
     }
   }
 
