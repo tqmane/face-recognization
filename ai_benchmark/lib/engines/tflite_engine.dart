@@ -84,7 +84,7 @@ class TfliteEngine implements InferenceEngine {
 
       // Load interpreter — try with GPU delegate first, fallback to CPU on error.
       try {
-        _interpreter = _loadInterpreter(options);
+        _interpreter = await _loadInterpreter(options);
       } catch (e) {
         if (gpuDelegate != null) {
           // GPU delegate caused the load failure → retry CPU-only.
@@ -93,7 +93,7 @@ class TfliteEngine implements InferenceEngine {
           gpuDelegate = null;
 
           final cpuOptions = InterpreterOptions()..threads = threads;
-          _interpreter = _loadInterpreter(cpuOptions);
+          _interpreter = await _loadInterpreter(cpuOptions);
           _actualDevice = 'CPU (GPUフォールバック)';
         } else {
           rethrow;
@@ -112,7 +112,7 @@ class TfliteEngine implements InferenceEngine {
 
       // Warn about quantised model + GPU (common source of crashes).
       if (device == 'GPU' && _inputTensorType != TensorType.float32) {
-        debugPrint('⚠ 量子化モデル(${_inputTensorType})でGPUを使用しています。'
+        debugPrint('⚠ 量子化モデル($_inputTensorType)でGPUを使用しています。'
             '一部デバイスではクラッシュする可能性があります。');
       }
 
@@ -130,7 +130,7 @@ class TfliteEngine implements InferenceEngine {
             _delegate = null;
 
             final cpuOptions = InterpreterOptions()..threads = threads;
-            _interpreter = _loadInterpreter(cpuOptions);
+            _interpreter = await _loadInterpreter(cpuOptions);
             _actualDevice = 'CPU (GPU推論エラー)';
 
             // Refresh tensor info
@@ -180,11 +180,11 @@ class TfliteEngine implements InferenceEngine {
   }
 
   /// Load interpreter from asset or file.
-  Interpreter _loadInterpreter(InterpreterOptions options) {
+  Future<Interpreter> _loadInterpreter(InterpreterOptions options) async {
     if (File(_modelPath).isAbsolute) {
       return Interpreter.fromFile(File(_modelPath), options: options);
     } else {
-      return Interpreter.fromAsset(_modelPath, options: options);
+      return await Interpreter.fromAsset(_modelPath, options: options);
     }
   }
 
