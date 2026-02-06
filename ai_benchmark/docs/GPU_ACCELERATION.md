@@ -4,82 +4,57 @@ This guide explains how GPU acceleration works on different platforms.
 
 ## Summary
 
-| Platform | Runtime | GPU Provider | Setup Required |
-|----------|---------|--------------|----------------|
-| **Android** | TFLite | OpenCL/OpenGL | None (automatic) |
-| **iOS** | TFLite | Metal | None (automatic) |
-| **macOS** | TFLite | Metal | None (automatic) |
-| **Windows** | ONNX Runtime | DirectML | None (automatic) |
-| **Linux** | ONNX Runtime | CUDA | CUDA Toolkit |
+| Platform | Runtime | GPU Provider | In-App GPU | Setup Required |
+|----------|---------|--------------|------------|----------------|
+| **Android** | TFLite | OpenCL/OpenGL (GpuDelegateV2) | Yes | None (automatic) |
+| **iOS** | TFLite | Metal (GpuDelegate) | Yes | None (automatic) |
+| **macOS** | TFLite + ONNX | Metal / CoreML | Yes | None (automatic) |
+| **Windows** | ONNX Runtime | XNNPACK (CPU最適化) | CPU only | None |
+| **Windows** | GPU Server | DirectML | Yes (サーバー経由) | Python + サーバー起動 |
+| **Linux** | ONNX Runtime | XNNPACK (CPU最適化) | CPU only | None |
+| **Linux** | GPU Server | CUDA | Yes (サーバー経由) | Python + CUDA + サーバー起動 |
 
-## ✨ Automatic GPU Support
+## GPU support per platform
 
-**GPU acceleration now works out of the box!**
+### Android (TFLite — GpuDelegateV2)
 
-When you download a model in the app, it automatically selects the optimal format for your platform:
+GPU acceleration works out of the box using TFLite `GpuDelegateV2` with
+`isPrecisionLossAllowed: true` (FP16). This maximises compatibility across
+devices and models.
 
-- **Android/iOS/macOS**: Downloads `.tflite` format (Metal/OpenCL acceleration)
-- **Windows**: Downloads `.onnx` format (DirectML - works with AMD, Intel, NVIDIA)
-- **Linux**: Downloads `.onnx` format (CUDA for NVIDIA GPUs)
+- Select **GPU** in the device dropdown.
+- If the GPU delegate fails for a specific model, the app automatically falls
+  back to **CPU** and shows a notice.
+- **量子化モデル (uint8)** は一部のGPUデリゲートと互換性がありません。
+  FP32 モデル（推奨: Image Embedder / EfficientNet FP32）を使用してください。
 
-Pre-converted ONNX models are hosted on GitHub Releases and downloaded on demand.
+### iOS (TFLite — Metal)
 
-## Mobile Platforms (Android/iOS/macOS)
+Uses `GpuDelegate` (Apple Metal). Select **GPU** in the device dropdown.
 
-GPU acceleration works out of the box using TensorFlow Lite.
+### macOS (TFLite Metal + ONNX CoreML)
 
-- **Android**: Uses `GpuDelegateV2` (OpenCL/OpenGL ES)
-- **iOS**: Uses `GpuDelegate` (Metal)
-- **macOS**: Uses `GpuDelegate` (Metal)
+- **TFLite models**: Metal via `GpuDelegate` — select **GPU**.
+- **ONNX models**: Apple CoreML — select **CoreML**.
 
-Just select "GPU" in the device dropdown.
+### Windows
 
-## Windows (DirectML)
+The Flutter `onnxruntime` package does **not** include DirectML or CUDA
+providers. In-app GPU acceleration is not available.
 
-Windows uses ONNX Runtime with DirectML, which supports **all GPU vendors** (AMD, Intel, NVIDIA).
+**Available in-app options:**
+- **CPU** — default
+- **XNNPACK** — optimised CPU execution (recommended)
+- **GPU Server** — full GPU acceleration via local Python server (see below)
 
-### Automatic Setup
+### Linux
 
-1. Download any model in the app
-2. Select "DirectML" as the device
-3. Done! No manual conversion needed.
+Same as Windows — the Flutter ONNX binding has no CUDA provider.
 
-### Manual Setup (for custom models)
-
-```bash
-# Install conversion tools
-pip install tf2onnx tensorflow onnx
-
-# Convert model
-python tools/convert_tflite_to_onnx.py your_model.tflite your_model.onnx
-```
-
-## Linux (CUDA)
-
-Linux uses ONNX Runtime with CUDA for NVIDIA GPUs.
-
-### Prerequisites
-
-- **NVIDIA GPU** with CUDA support
-- **CUDA Toolkit** 11.x or 12.x (required for GPU acceleration)
-
-### Install CUDA
-
-```bash
-# Ubuntu/Debian
-sudo apt install nvidia-cuda-toolkit
-
-# Or download from NVIDIA:
-# https://developer.nvidia.com/cuda-downloads
-```
-
-### Usage
-
-1. Download any model in the app (ONNX format is selected automatically)
-2. Select "CUDA" as the device
-3. Done!
-
-**Note**: If CUDA is not installed, the app will fall back to CPU.
+**Available in-app options:**
+- **CPU** — default
+- **XNNPACK** — optimised CPU execution (recommended)
+- **GPU Server** — full GPU acceleration via local Python server (see below)
 
 ## Model Conversion Notes
 
@@ -125,19 +100,29 @@ Typical speedups with GPU:
 
 ## Troubleshooting
 
-### "DirectML provider not found"
+### Android: GPU テストでクラッシュする
 
-Ensure you're using a GPU-enabled build of ONNX Runtime:
-```yaml
-# pubspec.yaml
-onnxruntime: ^1.4.1
+1. **量子化モデル**: MobileNet V1/V2 (uint8 quantized) は一部のGPUで非対応です。
+   FP32 モデル（Image Embedder, EfficientNet FP32）を使用してください。
+2. アプリは自動的にCPUへフォールバックしますが、ネイティブクラッシュが発生する
+   場合は FP32 モデルに切り替えてください。
+3. `isPrecisionLossAllowed: true` により FP16 で動作し、互換性が向上しています。
+
+### iOS/macOS: Metal GPU が遅い
+
+1. 初回推論はJITコンパイルのため遅くなります。
+2. ウォームアップ後の値を参考にしてください。
+
+### Windows/Linux: ネイティブGPUが使えない
+
+Flutter の `onnxruntime` パッケージは DirectML / CUDA プロバイダーを含んでいません。
+GPU推論には **GPU Server モード** を使用してください。
+
+```bash
+cd ai_benchmark/server
+pip install -r requirements.txt
+python inference_server.py
 ```
-
-### "CUDA provider not found"
-
-1. Check CUDA is installed: `nvcc --version`
-2. Check GPU is detected: `nvidia-smi`
-3. Ensure CUDA version matches ONNX Runtime requirements
 
 ### "Model inference is slow"
 
@@ -155,10 +140,15 @@ onnxruntime: ^1.4.1
 │  │   TfliteEngine   │    │      OnnxEngine          │   │
 │  │   (.tflite)      │    │      (.onnx)             │   │
 │  ├──────────────────┤    ├──────────────────────────┤   │
-│  │ Android: OpenCL  │    │ Windows: DirectML        │   │
-│  │ iOS:     Metal   │    │ Linux:   CUDA            │   │
-│  │ macOS:   Metal   │    │ macOS:   CoreML          │   │
-│  │ Win/Lin: CPU only│    │ Android: NNAPI           │   │
-│  └──────────────────┘    └──────────────────────────────┘│
+│  │ Android: OpenCL  │    │ macOS/iOS:  CoreML       │   │
+│  │ iOS:     Metal   │    │ Android:    XNNPACK      │   │
+│  │ macOS:   Metal   │    │ Win/Linux:  XNNPACK(CPU) │   │
+│  │ Win/Lin: CPU only│    │                          │   │
+│  └──────────────────┘    └──────────────────────────┘   │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │            GpuServerEngine (HTTP)                │   │
+│  │  Win: DirectML  /  Linux: CUDA  /  Fallback: CPU │   │
+│  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```

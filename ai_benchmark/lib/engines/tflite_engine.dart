@@ -16,6 +16,10 @@ class TfliteEngine implements InferenceEngine {
   Interpreter? _interpreter;
   Delegate? _delegate;
 
+  /// The device actually used after initialization (may differ from [device]
+  /// when GPU fallback to CPU occurs).
+  String _actualDevice = '';
+
   TensorType? _inputTensorType;
   TensorType? _outputTensorType;
   List<int>? _inputShape;
@@ -32,7 +36,10 @@ class TfliteEngine implements InferenceEngine {
        _inputSize = inputSize;
 
   @override
-  String get name => '$_modelName ($device)';
+  String get name => '$_modelName ($_actualDevice)';
+
+  /// The device that is actually being used (set after [initialize]).
+  String get actualDevice => _actualDevice;
 
   /// Check if GPU acceleration is available on the current platform
   static bool get isGpuAvailable {
@@ -44,7 +51,7 @@ class TfliteEngine implements InferenceEngine {
   /// Get available device options for the current platform
   static List<String> get availableDevices {
     if (Platform.isAndroid) {
-      return ['CPU', 'GPU', 'NNAPI'];
+      return ['CPU', 'GPU'];
     } else if (Platform.isIOS || Platform.isMacOS) {
       return ['CPU', 'GPU'];
     } else {
@@ -55,64 +62,47 @@ class TfliteEngine implements InferenceEngine {
 
   @override
   Future<void> initialize() async {
+    _actualDevice = device;
+
     try {
       final options = InterpreterOptions();
-      
-      // Hardware Acceleration setup
-      if (Platform.isAndroid) {
-        if (device == 'GPU') {
-          // Use default GPU Delegate settings for compatibility
-          try {
-            _delegate = GpuDelegateV2();
-            options.addDelegate(_delegate!);
-            debugPrint('Using Android GPU Delegate (OpenCL/OpenGL)');
-          } catch (e) {
-            debugPrint('Failed to create GpuDelegateV2: $e');
-          }
-        } else if (device == 'NNAPI') {
-          // NNAPI support varies by tflite_flutter version.
-          // Trying NnApiDelegate if available, otherwise fallback.
-          try {
-             // options.useNnApi = true; // Removed: Not supported in 0.10.4
-             // _delegate = NnApiDelegate(); // Check if this exists at runtime/compile time
-             // options.addDelegate(_delegate!);
-             debugPrint('NNAPI is currently disabled due to API compatibility issues.');
-          } catch (e) {
-             debugPrint('NNAPI not supported: $e');
-          }
-        }
-      } else if (Platform.isIOS || Platform.isMacOS) {
-        if (device == 'GPU') {
-           try {
-             // Metal Delegate for iOS/macOS
-             _delegate = GpuDelegate();
-             options.addDelegate(_delegate!);
-             debugPrint('Using Metal GPU Delegate');
-           } catch (e) {
-             debugPrint('Failed to create GpuDelegate (Metal): $e');
-           }
-        }
-      } else if (Platform.isWindows || Platform.isLinux) {
-        if (device == 'GPU') {
-          // GPU delegate is not available for Windows/Linux in TFLite C API
-          debugPrint('GPU delegate not available on ${Platform.operatingSystem}. Using CPU with $threads threads.');
-        }
-      }
-      
       options.threads = threads;
 
-      // Load from Asset or File
-      if (File(_modelPath).isAbsolute) {
-        _interpreter = await Future.sync(
-          () => Interpreter.fromFile(File(_modelPath), options: options),
-        );
-      } else {
-        _interpreter = await Future.sync(
-          () => Interpreter.fromAsset(_modelPath, options: options),
-        );
+      Delegate? gpuDelegate;
+
+      // Hardware Acceleration setup
+      if (device == 'GPU') {
+        gpuDelegate = _createGpuDelegate();
+        if (gpuDelegate != null) {
+          options.addDelegate(gpuDelegate);
+        } else {
+          // Delegate creation failed — will load as CPU.
+          debugPrint('GPU delegate creation failed, falling back to CPU.');
+          _actualDevice = 'CPU (GPU不可)';
+        }
       }
-      
-      debugPrint('Loaded TFLite model: $_modelName from $_modelPath on $device');
+
+      // Load interpreter — try with GPU delegate first, fallback to CPU on error.
+      try {
+        _interpreter = _loadInterpreter(options);
+      } catch (e) {
+        if (gpuDelegate != null) {
+          // GPU delegate caused the load failure → retry CPU-only.
+          debugPrint('Interpreter creation with GPU failed ($e), retrying CPU-only.');
+          gpuDelegate.delete();
+          gpuDelegate = null;
+
+          final cpuOptions = InterpreterOptions()..threads = threads;
+          _interpreter = _loadInterpreter(cpuOptions);
+          _actualDevice = 'CPU (GPUフォールバック)';
+        } else {
+          rethrow;
+        }
+      }
+
+      _delegate = gpuDelegate;
+
+      debugPrint('Loaded TFLite model: $_modelName from $_modelPath on $_actualDevice');
 
       final inputTensor = _interpreter!.getInputTensor(0);
       final outputTensor = _interpreter!.getOutputTensor(0);
@@ -120,15 +110,81 @@ class TfliteEngine implements InferenceEngine {
       _outputTensorType = outputTensor.type;
       _inputShape = inputTensor.shape;
 
-      // Warmup
+      // Warn about quantised model + GPU (common source of crashes).
+      if (device == 'GPU' && _inputTensorType != TensorType.float32) {
+        debugPrint('⚠ 量子化モデル(${_inputTensorType})でGPUを使用しています。'
+            '一部デバイスではクラッシュする可能性があります。');
+      }
+
+      // Warmup — wrapped in try/catch so that a GPU crash during the first
+      // inference does not kill the app without an error message.
       final warmupInput = _createZeroInput();
       if (warmupInput != null) {
-        _runInference(warmupInput);
+        try {
+          _runInference(warmupInput);
+        } catch (e) {
+          if (gpuDelegate != null) {
+            debugPrint('Warmup inference with GPU failed ($e), reinitialising CPU-only.');
+            _interpreter?.close();
+            _delegate?.delete();
+            _delegate = null;
+
+            final cpuOptions = InterpreterOptions()..threads = threads;
+            _interpreter = _loadInterpreter(cpuOptions);
+            _actualDevice = 'CPU (GPU推論エラー)';
+
+            // Refresh tensor info
+            final inT = _interpreter!.getInputTensor(0);
+            final outT = _interpreter!.getOutputTensor(0);
+            _inputTensorType = inT.type;
+            _outputTensorType = outT.type;
+            _inputShape = inT.shape;
+
+            // Retry warmup on CPU
+            final cpuWarmup = _createZeroInput();
+            if (cpuWarmup != null) _runInference(cpuWarmup);
+          } else {
+            rethrow;
+          }
+        }
       }
       
     } catch (e) {
       debugPrint('Failed to load TFLite model on $device: $e');
       throw Exception('Failed to initialize model on $device: $e');
+    }
+  }
+
+  /// Create a GPU delegate for the current platform, or null on failure.
+  Delegate? _createGpuDelegate() {
+    try {
+      if (Platform.isAndroid) {
+        // isPrecisionLossAllowed = true enables FP16, greatly improving
+        // compatibility with quantised and some float32 models on mobile GPUs.
+        final delegate = GpuDelegateV2(
+          options: GpuDelegateOptionsV2(
+            isPrecisionLossAllowed: true,
+          ),
+        );
+        debugPrint('Created Android GpuDelegateV2 (isPrecisionLossAllowed=true)');
+        return delegate;
+      } else if (Platform.isIOS || Platform.isMacOS) {
+        final delegate = GpuDelegate();
+        debugPrint('Created Metal GpuDelegate');
+        return delegate;
+      }
+    } catch (e) {
+      debugPrint('GPU delegate creation error: $e');
+    }
+    return null;
+  }
+
+  /// Load interpreter from asset or file.
+  Interpreter _loadInterpreter(InterpreterOptions options) {
+    if (File(_modelPath).isAbsolute) {
+      return Interpreter.fromFile(File(_modelPath), options: options);
+    } else {
+      return Interpreter.fromAsset(_modelPath, options: options);
     }
   }
 
