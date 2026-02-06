@@ -29,35 +29,80 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install tf2onnx tensorflow onnx onnxruntime
-        python -c "import tf2onnx; print('tf2onnx version:', tf2onnx.__version__)"
+        python -m pip install --upgrade pip
+        # Pin versions to keep TFLite→ONNX conversion stable on Python 3.11.
+        python -m pip install \
+          tensorflow==2.15.0 \
+          tf2onnx==1.16.1 \
+          onnx==1.16.1 \
+          onnxruntime==1.17.3
+        python - << 'PY'
+        import tensorflow as tf
+        import tf2onnx
+        import onnx
+        import onnxruntime as ort
+        print('tensorflow:', tf.__version__)
+        print('tf2onnx:', tf2onnx.__version__)
+        print('onnx:', onnx.__version__)
+        print('onnxruntime:', ort.__version__)
+        PY
     
     - name: Download TFLite models
       run: |
+        set -euo pipefail
         mkdir -p models_tflite models_onnx
-        
-        # Define models to download
-        declare -A MODELS
-        MODELS["mobilenet_v3_small_embedder"]="https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_small_075_224_embedder.tflite"
-        MODELS["mobilenet_v3_large_embedder"]="https://storage.googleapis.com/mediapipe-tasks/image_embedder/mobilenet_v3_large_075_224_embedder.tflite"
-        MODELS["efficientnet_lite0_fp32"]="https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite0_fp32.tflite"
-        MODELS["efficientnet_lite2_fp32"]="https://storage.googleapis.com/mediapipe-tasks/image_classifier/efficientnet_lite2_fp32.tflite"
-        
-        for name in "${!MODELS[@]}"; do
-          url="${MODELS[$name]}"
-          echo "::group::Downloading $name"
-          curl -fSL --retry 3 -o "models_tflite/${name}.tflite" "$url"
-          ls -lh "models_tflite/${name}.tflite"
-          echo "::endgroup::"
-        done
-        
+
+        download_and_extract() {
+          local url="$1"
+          local wanted="$2"
+          local out="$3"
+
+          local tmp
+          tmp="$(mktemp -d)"
+          echo "Downloading: $url"
+          curl -fSL --retry 3 --retry-delay 2 -o "$tmp/model.tgz" "$url"
+          tar -xzf "$tmp/model.tgz" -C "$tmp"
+          local found
+          found="$(find "$tmp" -name "$wanted" -type f -print -quit)"
+          if [ -z "$found" ]; then
+            echo "::error::Could not find $wanted in archive from $url"
+            echo "Archive contents (first 50):"
+            tar -tzf "$tmp/model.tgz" | head -50 || true
+            exit 1
+          fi
+          cp "$found" "$out"
+          rm -rf "$tmp"
+        }
+
+        echo "::group::Download MobileNet V1"
+        download_and_extract \
+          "https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_2018_02_22/mobilenet_v1_1.0_224_quant.tgz" \
+          "mobilenet_v1_1.0_224_quant.tflite" \
+          "models_tflite/mobilenet_v1_1.0_224_quant.tflite"
+        ls -lh "models_tflite/mobilenet_v1_1.0_224_quant.tflite"
+        echo "::endgroup::"
+
+        echo "::group::Download MobileNet V2"
+        download_and_extract \
+          "https://storage.googleapis.com/download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224_quant.tgz" \
+          "mobilenet_v2_1.0_224_quant.tflite" \
+          "models_tflite/mobilenet_v2_1.0_224_quant.tflite"
+        ls -lh "models_tflite/mobilenet_v2_1.0_224_quant.tflite"
+        echo "::endgroup::"
+
         echo "=== Downloaded TFLite models ==="
         ls -lh models_tflite/
 
     - name: Convert TFLite to ONNX
       run: |
+        set -euo pipefail
         FAILED=()
         SUCCEEDED=()
+
+        is_release=false
+        if [[ "${GITHUB_REF}" == refs/tags/models-v* ]] || [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+          is_release=true
+        fi
         
         for tflite_file in models_tflite/*.tflite; do
           name=$(basename "$tflite_file" .tflite)
@@ -76,9 +121,23 @@ jobs:
               if [ -f "$onnx_file" ] && [ -s "$onnx_file" ]; then
                 echo "SUCCESS: Converted $name with opset $opset"
                 ls -lh "$onnx_file"
-                CONVERTED=true
-                SUCCEEDED+=("$name")
-                break
+                # Validate ONNX file (checker + ORT load)
+                if python - << PY
+        import onnx
+        import onnxruntime as ort
+        m = onnx.load("$onnx_file")
+        onnx.checker.check_model(m)
+        _ = ort.InferenceSession("$onnx_file", providers=["CPUExecutionProvider"])
+        print("validated:", "$onnx_file", "opset=", m.opset_import[0].version)
+        PY
+                then
+                  CONVERTED=true
+                  SUCCEEDED+=("$name")
+                  break
+                else
+                  echo "Validation failed for $onnx_file (opset $opset), trying next..."
+                  rm -f "$onnx_file"
+                fi
               fi
             fi
             echo "Failed with opset $opset, trying next..."
@@ -102,19 +161,9 @@ jobs:
         echo "=== ONNX models ==="
         ls -lh models_onnx/ 2>/dev/null || echo "(empty)"
         
-        # Validate ONNX models
-        if [ ${#SUCCEEDED[@]} -gt 0 ]; then
-          echo ""
-          echo "=== Validating ONNX models ==="
-          for onnx_file in models_onnx/*.onnx; do
-            name=$(basename "$onnx_file")
-            python -c "
-        import onnx
-        model = onnx.load('$onnx_file')
-        onnx.checker.check_model(model)
-        print(f'  $name: valid (opset={model.opset_import[0].version})')
-        " || echo "  WARNING: $name validation failed"
-          done
+        if [ "$is_release" = true ] && [ ${#FAILED[@]} -gt 0 ]; then
+          echo "::error::ONNX conversion failed for: ${FAILED[*]}"
+          exit 1
         fi
 
     - name: Verify at least TFLite models exist
@@ -142,75 +191,57 @@ jobs:
         python3 << 'EOF'
         import json
         import os
-        
-        models = []
+
         version = "${{ github.event.inputs.version || github.ref_name }}"
         base_url = f"https://github.com/${{ github.repository }}/releases/download/{version}"
-        
-        model_defs = [
-            {
-                "key": "mp_image_embedder_mnv3_small",
-                "name": "Image Embedder (MNv3 Small, 2025)",
-                "tflite": "mobilenet_v3_small_embedder.tflite",
-                "onnx": "mobilenet_v3_small_embedder.onnx",
-                "inputSize": 224,
-                "isRecommended": True
-            },
-            {
-                "key": "mp_image_embedder_mnv3_large", 
-                "name": "Image Embedder (MNv3 Large, 2025)",
-                "tflite": "mobilenet_v3_large_embedder.tflite",
-                "onnx": "mobilenet_v3_large_embedder.onnx",
-                "inputSize": 224,
-                "isRecommended": True
-            },
-            {
-                "key": "mp_image_classifier_enlite0_fp32_2025",
-                "name": "Image Classifier (EfficientNet-Lite0 FP32, 2025)",
-                "tflite": "efficientnet_lite0_fp32.tflite",
-                "onnx": "efficientnet_lite0_fp32.onnx",
-                "inputSize": 224,
-                "isRecommended": False
-            },
-            {
-                "key": "mp_image_classifier_enlite2_fp32_2025",
-                "name": "Image Classifier (EfficientNet-Lite2 FP32, 2025)",
-                "tflite": "efficientnet_lite2_fp32.tflite",
-                "onnx": "efficientnet_lite2_fp32.onnx",
-                "inputSize": 224,
-                "isRecommended": False
-            }
-        ]
-        
-        for m in model_defs:
-            tflite_path = f"models_tflite/{m['tflite']}"
-            onnx_path = f"models_onnx/{m['onnx']}"
 
-          base_name = m["tflite"].removesuffix(".tflite")
-            
-            entry = {
-                "key": m["key"],
-                "name": m["name"],
-                "inputSize": m["inputSize"],
-                "isRecommended": m["isRecommended"],
-            # Base name without extension (e.g. "mobilenet_v3_small_embedder")
-            "fileNameInArchive": base_name
-            }
-            
-            if os.path.exists(tflite_path):
-            # Keep legacy key "url" for older clients, but prefer explicit name.
-            entry["tfliteUrl"] = f"{base_url}/{m['tflite']}"
+        model_defs = [
+          {
+            "key": "mobilenet_v2",
+            "name": "MobileNet V2 (224x224)",
+            "base": "mobilenet_v2_1.0_224_quant",
+            "inputSize": 224,
+            "isRecommended": True,
+          },
+          {
+            "key": "mobilenet_v1",
+            "name": "MobileNet V1 (224x224)",
+            "base": "mobilenet_v1_1.0_224_quant",
+            "inputSize": 224,
+            "isRecommended": False,
+          },
+        ]
+
+        models = []
+        for m in model_defs:
+          tflite_name = f"{m['base']}.tflite"
+          onnx_name = f"{m['base']}.onnx"
+          tflite_path = os.path.join("models_tflite", tflite_name)
+          onnx_path = os.path.join("models_onnx", onnx_name)
+
+          entry = {
+            "key": m["key"],
+            "name": m["name"],
+            "inputSize": m["inputSize"],
+            "isRecommended": m["isRecommended"],
+            # base name without extension
+            "fileNameInArchive": m["base"],
+          }
+
+          if os.path.exists(tflite_path):
+            entry["tfliteUrl"] = f"{base_url}/{tflite_name}"
+            # legacy key for older clients
             entry["url"] = entry["tfliteUrl"]
-            
-            if os.path.exists(onnx_path):
-                entry["onnxUrl"] = f"{base_url}/{m['onnx']}"
-            
-            models.append(entry)
-        
-        with open("models_manifest.json", "w") as f:
-            json.dump({"version": version, "models": models}, f, indent=2)
-        
-        print(json.dumps({"version": version, "models": models}, indent=2))
+
+          if os.path.exists(onnx_path):
+            entry["onnxUrl"] = f"{base_url}/{onnx_name}"
+
+          models.append(entry)
+
+        with open("models_manifest.json", "w", encoding="utf-8") as f:
+          json.dump({"version": version, "models": models}, f, indent=2, ensure_ascii=False)
+
+        print(json.dumps({"version": version, "models": models}, indent=2, ensure_ascii=False))
         EOF
     
     - name: Collect release files
