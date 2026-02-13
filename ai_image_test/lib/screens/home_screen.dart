@@ -4,9 +4,11 @@ import '../engines/engine.dart';
 import '../engines/histogram_engine.dart';
 import '../engines/tflite_engine.dart';
 import '../engines/onnx_engine.dart';
+import '../engines/onnx_directml_engine.dart';
 import '../engines/gpu_server_engine.dart';
 import '../services/model_manager.dart';
 import '../services/test_set_loader.dart';
+import '../services/gpu_capability_checker.dart';
 import '../models/test_image_pair.dart';
 import 'benchmark_screen.dart';
 import 'perf_check_screen.dart';
@@ -23,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Engine selection
   String _selectedEngine = 'histogram';
+  String _selectedDevice = 'CPU';
   double _threshold = 0.5;
   String _gpuServerUrl = 'http://localhost:8000';
 
@@ -33,14 +36,47 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _errorMessage;
 
   final _modelManager = ModelManager();
+  final _gpuChecker = GpuCapabilityChecker.instance;
 
   // Available engine options
   static const _engineOptions = {
     'histogram': 'Histogram (ベースライン)',
     'tflite': 'TFLite (CPU/GPU)',
     'onnx': 'ONNX Runtime',
+    'onnx_directml': 'ONNX DirectML (Windows)',
     'gpu_server': 'GPU Server (リモート)',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _gpuChecker.logCapabilities();
+    _updateAvailableDevice();
+  }
+
+  void _updateAvailableDevice() {
+    List<String> devices;
+    switch (_selectedEngine) {
+      case 'tflite':
+        devices = TfliteEngine.availableDevices;
+        break;
+      case 'onnx':
+        devices = OnnxEngine.availableDevices;
+        break;
+      case 'onnx_directml':
+        devices = OnnxDirectMLEngine.availableDevices;
+        break;
+      default:
+        devices = ['CPU'];
+    }
+    
+    // Update selected device if current selection is not available
+    if (!devices.contains(_selectedDevice)) {
+      setState(() {
+        _selectedDevice = devices.first;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           title: Text(e.value),
                           value: e.key,
                           groupValue: _selectedEngine,
-                          onChanged: (v) => setState(() => _selectedEngine = v!),
+                          onChanged: (v) {
+                            setState(() {
+                              _selectedEngine = v!;
+                              _updateAvailableDevice();
+                            });
+                          },
                           dense: true,
                         )),
                     if (_selectedEngine == 'gpu_server') ...[
@@ -96,6 +137,32 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         onChanged: (v) => _gpuServerUrl = v,
                         controller: TextEditingController(text: _gpuServerUrl),
+                      ),
+                    ],
+                    // Device selection for TFLite and ONNX
+                    if (_selectedEngine == 'tflite' || 
+                        _selectedEngine == 'onnx' || 
+                        _selectedEngine == 'onnx_directml') ...[
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Text('デバイス選択', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _selectedDevice,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: '実行デバイス',
+                        ),
+                        items: _getAvailableDevices()
+                            .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedDevice = v!),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '利用可能: ${_gpuChecker.capabilitiesDescription}',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ],
@@ -243,6 +310,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<String> _getAvailableDevices() {
+    switch (_selectedEngine) {
+      case 'tflite':
+        return TfliteEngine.availableDevices;
+      case 'onnx':
+        return OnnxEngine.availableDevices;
+      case 'onnx_directml':
+        return OnnxDirectMLEngine.availableDevices;
+      default:
+        return ['CPU'];
+    }
+  }
+
   Future<InferenceEngine> _createEngine() async {
     switch (_selectedEngine) {
       case 'tflite':
@@ -252,7 +332,12 @@ class _HomeScreenState extends State<HomeScreen> {
         if (modelPath == null) {
           throw Exception('モデルがダウンロードされていません。モデル管理画面からダウンロードしてください。');
         }
-        return TfliteEngine(modelName: recommended.name, modelPath: modelPath, inputSize: recommended.inputSize);
+        return TfliteEngine(
+          modelName: recommended.name, 
+          modelPath: modelPath, 
+          inputSize: recommended.inputSize,
+          device: _selectedDevice,
+        );
       case 'onnx':
         final models = ModelManager.builtInModels;
         final recommended = models.firstWhere((m) => m.isRecommended, orElse: () => models.first);
@@ -260,7 +345,25 @@ class _HomeScreenState extends State<HomeScreen> {
         if (modelPath == null) {
           throw Exception('モデルがダウンロードされていません。モデル管理画面からダウンロードしてください。');
         }
-        return OnnxEngine(modelName: recommended.name, modelPath: modelPath, inputSize: recommended.inputSize);
+        return OnnxEngine(
+          modelName: recommended.name, 
+          modelPath: modelPath, 
+          inputSize: recommended.inputSize,
+          device: _selectedDevice,
+        );
+      case 'onnx_directml':
+        final models = ModelManager.builtInModels;
+        final recommended = models.firstWhere((m) => m.isRecommended, orElse: () => models.first);
+        final modelPath = await _modelManager.getModelPath(recommended, preferOnnx: true);
+        if (modelPath == null) {
+          throw Exception('モデルがダウンロードされていません。モデル管理画面からダウンロードしてください。');
+        }
+        return OnnxDirectMLEngine(
+          modelName: recommended.name, 
+          modelPath: modelPath, 
+          inputSize: recommended.inputSize,
+          device: _selectedDevice,
+        );
       case 'gpu_server':
         return GpuServerEngine(serverUrl: _gpuServerUrl);
       case 'histogram':
