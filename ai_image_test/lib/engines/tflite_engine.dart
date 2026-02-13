@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import '../models/benchmark_run.dart';
+import '../services/gpu_capability_checker.dart';
 import 'engine.dart';
 
 /// TFLite engine – GPU on mobile/macOS via delegates; CPU everywhere.
@@ -33,10 +34,7 @@ class TfliteEngine implements InferenceEngine {
   String get actualDevice => _actualDevice;
 
   static List<String> get availableDevices {
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-      return ['CPU', 'GPU'];
-    }
-    return ['CPU'];
+    return GpuCapabilityChecker.instance.availableTfliteDevices;
   }
 
   @override
