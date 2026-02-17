@@ -107,8 +107,6 @@ AI画像テストは 1 回の実行で、アプリのドキュメントフォル
 - Windows: `ai_image_test/blobs/libtensorflowlite_c-win.dll`
 - macOS: `ai_image_test/blobs/libtensorflowlite_c-mac.dylib`
 
-ローカルでビルドする場合は、[ai_image_test/tools/native/README.md](ai_image_test/tools/native/README.md) のスクリプトを使用してください（存在する場合）。
-
 GitHub Actions で各OS向けにビルドしてArtifactsとして取得したい場合は、ワークフロー
 [.github/workflows/tflite-c-build.yml](.github/workflows/tflite-c-build.yml)
 を `workflow_dispatch` で実行してください。
