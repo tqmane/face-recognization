@@ -287,7 +287,7 @@ jobs:
         make_latest: false
         fail_on_unmatched_files: false
         body: |
-          ## Pre-converted AI Models for ai_benchmark
+          ## Pre-converted AI Models for ai_image_test
           
           These models are pre-converted for optimal performance on each platform:
           
@@ -299,7 +299,7 @@ jobs:
           - GPU acceleration via DirectML (Windows) or CUDA (Linux)
           
           ### Usage
-          The ai_benchmark app will automatically download the optimal format for your platform.
+          The ai_image_test app will automatically download the optimal format for your platform.
           If ONNX is unavailable, TFLite will be used as fallback on Windows/Linux.
         files: |
           release_files/*

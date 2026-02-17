@@ -1,2 +1,0 @@
-# Keep blobs/ in the repo - native binaries are now tracked
-# (Files are small enough to include in git ~9MB total)

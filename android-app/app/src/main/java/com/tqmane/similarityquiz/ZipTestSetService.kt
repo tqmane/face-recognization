@@ -21,16 +21,17 @@ class ZipTestSetService(private val context: Context) {
         
         // 利用可能なテストセット
         val AVAILABLE_TEST_SETS = listOf(
-            TestSetInfo("dogs", "犬種", "柴犬・秋田犬・ハスキーなど似ている犬種"),
+            TestSetInfo("dogs_", "犬種", "柴犬・秋田犬・ハスキーなど似ている犬種"),
             TestSetInfo("small_cats", "ネコ科", "ペルシャ・スコフォ・メインクーンなど"),
-            TestSetInfo("wild_dogs", "犬と野生動物", "オオカミ・キツネ・コヨーテなど"),
-            TestSetInfo("raccoons", "アライグマ系", "アライグマ・タヌキ・レッサーパンダなど"),
+            // 以下のテストセットはsets_pics/にまだ画像が準備されていないためコメントアウト
+            // TestSetInfo("wild_dogs", "犬と野生動物", "オオカミ・キツネ・コヨーテなど"),
+            // TestSetInfo("raccoons", "アライグマ系", "アライグマ・タヌキ・レッサーパンダなど"),
             TestSetInfo("birds", "鳥類", "カラス・ワタリガラス・鷹・鷲など"),
-            TestSetInfo("marine", "海洋動物", "アシカ・アザラシ・イルカ・シャチなど"),
-            TestSetInfo("reptiles", "爬虫類", "ワニ・クロコダイル・イグアナなど"),
+            // TestSetInfo("marine", "海洋動物", "アシカ・アザラシ・イルカ・シャチなど"),
+            // TestSetInfo("reptiles", "爬虫類", "ワニ・クロコダイル・イグアナなど"),
             TestSetInfo("bears", "クマ科", "ヒグマ・ホッキョクグマ・パンダなど"),
-            TestSetInfo("primates", "霊長類", "チンパンジー・ゴリラ・オランウータンなど"),
-            TestSetInfo("insects", "昆虫", "蝶・蛾・蜂・アブなど")
+            // TestSetInfo("primates", "霊長類", "チンパンジー・ゴリラ・オランウータンなど"),
+            // TestSetInfo("insects", "昆虫", "蝶・蛾・蜂・アブなど")
         )
     }
     
