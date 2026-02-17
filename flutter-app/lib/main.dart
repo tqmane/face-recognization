@@ -63,6 +63,18 @@ class SimilarityQuizApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      // 英韓中日露以外の言語がシステムとして設定されている場合は英語をフォールバックとして使用
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale != null) {
+          for (final supported in supportedLocales) {
+            if (supported.languageCode == locale.languageCode) {
+              return supported;
+            }
+          }
+        }
+        // フォールバック: 英語
+        return const Locale('en');
+      },
       home: const HomeScreen(),
     );
   }
