@@ -21,7 +21,7 @@ class ZipTestSetService(private val context: Context) {
         
         // 利用可能なテストセット
         val AVAILABLE_TEST_SETS = listOf(
-            TestSetInfo("dogs_", "犬種", "柴犬・秋田犬・ハスキーなど似ている犬種"),
+            TestSetInfo("dogs", "犬種", "柴犬・秋田犬・ハスキーなど似ている犬種"),
             TestSetInfo("small_cats", "ネコ科", "ペルシャ・スコフォ・メインクーンなど"),
             // 以下のテストセットはsets_pics/にまだ画像が準備されていないためコメントアウト
             // TestSetInfo("wild_dogs", "犬と野生動物", "オオカミ・キツネ・コヨーテなど"),
