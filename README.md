@@ -29,12 +29,12 @@
 |:---|:---|:---|:---|
 | `android-app/` | **人間用クイズアプリ** | 被験者（人間）によるデータ収集 | Android (スマホ/タブレット) |
 | `flutter-app/` | **人間用テストアプリ** | デスクトップでの精密なテスト実施 | Windows / Mac / Linux |
-| `ai_benchmark/` | **AIベンチマーク** | **AIモデルによる自動テスト・速度計測** | Android / iOS / Desktop |
+| `ai_image_test/` | **AI画像テスト** | **AIモデルによる自動テスト・速度計測** | Android / iOS / Desktop |
 | `tools/` | 画像収集ツール | 研究用データセットの作成 | Python (CLI) |
 
-## 🤖 AI ベンチマーク機能
+## 🤖 AI 画像テスト機能
 
-新しく実装された **AI Benchmark Runner** (`ai_benchmark/`) は、人間と同じテストセットをAIに解かせるためのツールです。
+**AI Image Test** (`ai_image_test/`) は、人間と同じテストセットをAIに解かせるためのツールです。
 
 ### 搭載AIモデル (推論エンジン)
 以下のモデルを使用して、画像の特徴量を比較・判別します。
@@ -83,9 +83,9 @@
 
 ## 🔧 実行方法
 
-### 1. AIベンチマークの実行
+### 1. AI画像テストの実行
 ```bash
-cd ai_benchmark
+cd ai_image_test
 flutter pub get
 flutter run --release
 ```
@@ -94,20 +94,20 @@ flutter run --release
 3. `START` で計測開始
 
 #### 出力（研究用データ）
-AIベンチマークは 1 回の実行で、アプリのドキュメントフォルダへ以下を書き出します。
+AI画像テストは 1 回の実行で、アプリのドキュメントフォルダへ以下を書き出します。
 - `*.csv`（集計用）
 - `*.jsonl`（1行=1問の詳細ログ）
 - `*.summary.json`（実行メタデータとサマリ）
 
 ### Desktop (Windows/macOS/Linux) の注意: libtensorflowlite_c
 
-`ai_benchmark/` はデスクトップで `tflite_flutter` を使うために、ネイティブライブラリ `libtensorflowlite_c` が必要です。
+`ai_image_test/` はデスクトップで `tflite_flutter` を使うために、ネイティブライブラリ `libtensorflowlite_c` が必要です。
 
-- Linux: `ai_benchmark/blobs/libtensorflowlite_c-linux.so`
-- Windows: `ai_benchmark/blobs/libtensorflowlite_c-win.dll`
-- macOS: `ai_benchmark/blobs/libtensorflowlite_c-mac.dylib`
+- Linux: `ai_image_test/blobs/libtensorflowlite_c-linux.so`
+- Windows: `ai_image_test/blobs/libtensorflowlite_c-win.dll`
+- macOS: `ai_image_test/blobs/libtensorflowlite_c-mac.dylib`
 
-ローカルでビルドする場合は、[ai_benchmark/tools/native/README.md](ai_benchmark/tools/native/README.md) のスクリプトを使用してください。
+ローカルでビルドする場合は、[ai_image_test/tools/native/README.md](ai_image_test/tools/native/README.md) のスクリプトを使用してください（存在する場合）。
 
 GitHub Actions で各OS向けにビルドしてArtifactsとして取得したい場合は、ワークフロー
 [.github/workflows/tflite-c-build.yml](.github/workflows/tflite-c-build.yml)
