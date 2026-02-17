@@ -6,8 +6,8 @@
 - GBIF: 生物多様性データ（自然史博物館等の写真）
 - The Dog API: 犬種
 - The Cat API: 猫種
-- Unsplash: 高品質写真（車、風景等）
 - Wikimedia Commons: その他（ロゴ等）
+- Serper API (Bing/Google): フォールバック検索
 
 出力構造:
   test_sets/
@@ -31,15 +31,22 @@ from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 from dataclasses import dataclass, field, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import quote, urlparse
 
 
 # =============================================================================
 # 設定
 # =============================================================================
 
-USER_AGENT = "SimilarityQuiz/1.0 (Educational Research App - Japanese High School)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 OUTPUT_DIR = Path("test_sets")
 IMAGES_PER_TYPE = 20  # 各種類ごとにダウンロードする画像数
+
+# 並列処理設定
+MAX_WORKERS = 5  # 並列ダウンロード数
+MAX_RETRIES = 3  # リトライ回数
+RETRY_DELAY = 2  # 初期リトライ遅延（秒）
+BACKOFF_FACTOR = 2  # 指数バックオフの係数
 
 # API URLs
 INATURALIST_API = "https://api.inaturalist.org/v1"
@@ -47,6 +54,10 @@ GBIF_API = "https://api.gbif.org/v1"
 DOG_API = "https://api.thedogapi.com/v1"
 CAT_API = "https://api.thecatapi.com/v1"
 WIKIMEDIA_API = "https://commons.wikimedia.org/w/api.php"
+
+# Serper API (Bing/Google 画像検索) - 必要な場合は設定
+# https://serper.dev/ でAPIキーを取得
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 
 
 # =============================================================================
@@ -62,6 +73,7 @@ class ItemInfo:
     gbif_species_key: Optional[int] = None
     dog_api_breed_id: Optional[int] = None
     cat_api_breed_id: Optional[str] = None
+    wikimedia_category: Optional[str] = None
 
 
 @dataclass
@@ -125,25 +137,116 @@ GBIF_SPECIES_KEYS = {
     "chimpanzee": 5219513, "gorilla": 5219521, "orangutan": 5219531,
 }
 
-# Dog API breed_id マッピング
+# Dog API breed_id マッピング（正しいIDに修正）
+# https://api.thedogapi.com/v1/breeds から取得
 DOG_BREED_IDS = {
-    "shiba": 136, "akita": 5, "husky": 141, "malamute": 5,
-    "samoyed": 130, "golden_retriever": 63, "labrador": 82,
-    "german_shepherd": 60, "border_collie": 37,
-    "australian_shepherd": 13, "corgi": 180, "pomeranian": 109, "chow_chow": 48,
+    "shiba": 105,      # Shiba Inu
+    "akita": 4,        # Akita
+    "husky": 248,      # Siberian Husky
+    "malamute": 27,    # Alaskan Malamute
+    "samoyed": 144,    # Samoyed
+    "golden_retriever": 121,    # Golden Retriever
+    "labrador": 129,   # Labrador Retriever
+    "german_shepherd": 84,      # German Shepherd Dog
+    "border_collie": 52,       # Border Collie
+    "australian_shepherd": 15, # Australian Shepherd
+    "corgi": 69,       # Welsh Corgi Pembroke
+    "pomeranian": 143, # Pomeranian
+    "chow_chow": 56,   # Chow Chow
 }
 
-# Cat API breed_id マッピング
+# Cat API breed_id マッピング（正しいIDに修正）
+# https://api.thecatapi.com/v1/breeds から取得
 CAT_BREED_IDS = {
-    "persian_cat": "pers", "british_shorthair": "bsho",
-    "scottish_fold": "sfol", "maine_coon": "mcoo",
-    "ragdoll": "ragd", "siamese": "siam", "russian_blue": "rblu",
+    "persian_cat": "pers",      # Persian
+    "british_shorthair": "bsho", # British Shorthair
+    "scottish_fold": "sfol",    # Scottish Fold
+    "maine_coon": "mcoo",       # Maine Coon
+    "ragdoll": "ragd",         # Ragdoll
+    "siamese": "siam",         # Siamese
+    "russian_blue": "rblu",    # Russian Blue
 }
 
+# Wikimedia Category マッピング
+WIKIMEDIA_CATEGORIES = {
+    "persian_cat": "Persian cat",
+    "british_shorthair": "British Shorthair",
+    "scottish_fold": "Scottish Fold",
+    "maine_coon": "Maine Coon",
+    "ragdoll": "Ragdoll",
+    "siamese": "Siamese cat",
+    "russian_blue": "Russian Blue",
+    "shiba": "Shiba Inu",
+    "akita": "Akita Inu",
+    "husky": "Siberian Husky",
+    "malamute": "Alaskan Malamute",
+    "samoyed": "Samoyed dog",
+    "golden_retriever": "Golden Retriever",
+    "labrador": "Labrador Retriever",
+    "german_shepherd": "German Shepherd Dog",
+    "border_collie": "Border Collie",
+    "australian_shepherd": "Australian Shepherd",
+    "corgi": "Welsh Corgi Pembroke",
+    "pomeranian": "Pomeranian dog",
+    "chow_chow": "Chow Chow",
+    # 野生動物
+    "wolf": "Canis lupus",
+    "fox": "Vulpes vulpes",
+    "arctic_fox": "Vulpes lagopus",
+    "coyote": "Canis latrans",
+    "dingo": "Canis lupus dingo",
+    "jackal": "Canis aureus",
+    "raccoon": "Procyon lotor",
+    "tanuki": "Nyctereutes procyonoides",
+    "red_panda": "Ailurus fulgens",
+    "coati": "Nasua",
+    "crow": "Corvus",
+    "raven": "Corvus corax",
+    "hawk": "Accipitrinae",
+    "eagle": "Eagle",
+    "falcon": "Falcon",
+    "owl": "Strigiformes",
+    "barn_owl": "Tyto alba",
+    "sea_lion": "Otariinae",
+    "seal": "Phocidae",
+    "walrus": "Odobenus rosmarus",
+    "dolphin": "Dolphin",
+    "orca": "Orcinus orca",
+    "beluga": "Delphinapterus leucas",
+    "manatee": "Trichechus",
+    "dugong": "Dugong dugon",
+    "alligator": "Alligator",
+    "crocodile": "Crocodile",
+    "caiman": "Caiman",
+    "gharial": "Gavialis gangeticus",
+    "iguana": "Iguana",
+    "monitor": "Varanus",
+    "komodo": "Varanus komodoensis",
+    "brown_bear": "Ursus arctos",
+    "black_bear": "Ursus thibetanus",
+    "polar_bear": "Ursus maritimus",
+    "panda": "Ailuropoda melanoleuca",
+    "spectacled_bear": "Tremarctos ornatus",
+    "sun_bear": "Helarctos malayanus",
+    "chimpanzee": "Pan troglodytes",
+    "bonobo": "Pan paniscus",
+    "gorilla": "Gorilla",
+    "orangutan": "Pongo",
+    "gibbon": "Hylobatidae",
+    "macaque": "Macaca",
+    "baboon": "Papio",
+    "mandrill": "Mandrillus sphinx",
+    "bee": "Anthophila",
+    "wasp": "Wasp",
+    "hornet": "Vespa",
+    "butterfly": "Rhopalocera",
+    "moth": "Moth",
+    "beetle": "Coleoptera",
+    "stag_beetle": "Lucanidae",
+    "ladybug": "Coccinellidae",
+    "firefly": "Lampyridae",
+}
 
-# =============================================================================
-# ジャンル定義（android-appと同じ）
-# =============================================================================
 
 def create_item(id: str, name_ja: str, query: str) -> ItemInfo:
     """アイテム情報を作成（API IDを自動設定）"""
@@ -155,6 +258,7 @@ def create_item(id: str, name_ja: str, query: str) -> ItemInfo:
         gbif_species_key=GBIF_SPECIES_KEYS.get(id),
         dog_api_breed_id=DOG_BREED_IDS.get(id),
         cat_api_breed_id=CAT_BREED_IDS.get(id),
+        wikimedia_category=WIKIMEDIA_CATEGORIES.get(id),
     )
 
 
@@ -391,35 +495,250 @@ GENRES: Dict[str, GenreInfo] = {
 
 
 # =============================================================================
-# 画像取得関数
+# ユーティリティ関数
 # =============================================================================
 
-def fetch_from_inaturalist(taxon_id: int, max_results: int = 30) -> List[str]:
+def is_valid_image_url(url: str) -> bool:
+    """画像URLが有効かチェック（簡易チェック）"""
+    lower = url.lower()
+    # 無効なURLパターンを除外
+    # 注: 'thumb' は Wikimedia の thumburl で使われるので除外しない
+    invalid_patterns = ["placeholder", "default", "avatar", "icon", "logo", "watermark", "pixel", "1x1"]
+    if any(p in lower for p in invalid_patterns):
+        return False
+    
+    # 画像拡張子を確認（クエリパラメータは無視）
+    path = lower.split('?')[0]
+    valid_extensions = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")
+    return any(path.endswith(ext) for ext in valid_extensions)
+
+
+def is_photo_filename(title: str) -> bool:
+    """Wikimediaのファイル名から写真かどうか判定（非写真を除外）
+    
+    Wikimedia Categoriesには写真以外にも以下が含まれる:
+    - SVGアイコン、ロゴ、紋章
+    - 地図、図面、グラフ
+    - イラスト、漫画
+    - スクリーンショット
+    これらを除外して実際の動物写真のみ通す。
+    """
+    lower = title.lower()
+    # 除外パターン（非写真コンテンツ）
+    reject_patterns = [
+        "icon", "logo", "emblem", "coat of arms", "flag",
+        "map", "diagram", "chart", "graph", "schema",
+        "illustration", "drawing", "sketch", "cartoon", "comic",
+        "stamp", "postage", "coin", "medal", "trophy",
+        "screenshot", "screen shot",
+        "symbol", "sign", "pictogram", "silhouette",
+        ".svg", ".gif",
+    ]
+    return not any(p in lower for p in reject_patterns)
+
+
+def is_valid_image_content(content: bytes, min_size: int = 500) -> bool:
+    """画像コンテンツが有効かチェック"""
+    if len(content) < min_size:
+        return False
+    
+    # 画像ファイルのマジックバイトを確認
+    magic_bytes = {
+        b'\xff\xd8\xff': 'jpeg',
+        b'\x89PNG\r\n\x1a\n': 'png',
+        b'GIF87a': 'gif',
+        b'GIF89a': 'gif',
+        b'RIFF': 'webp',  # WebPはRIFF..WEBP
+        b'BM': 'bmp',
+    }
+    
+    for magic, fmt in magic_bytes.items():
+        if content.startswith(magic):
+            return True
+    
+    # JPEGは最初の2バイトが FF D8
+    if content[:2] == b'\xff\xd8':
+        return True
+    
+    return False
+
+
+def get_retry_delay(retry_count: int) -> float:
+    """指数バックオフでリトライ遅延を計算"""
+    return RETRY_DELAY * (BACKOFF_FACTOR ** retry_count)
+
+
+def filter_portrait_image(content: bytes, width: int = 100, height: int = 100) -> bool:
+    """画像がポートレート/颜向きかチェック（簡易版）- 缓和版"""
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(content))
+        w, h = img.size
+        
+        # 颜向き画像の条件：
+        # 1. 正方形に近い、または縦長の画像
+        # 2. 极端な横長（バナー等）は除外
+        aspect_ratio = w / h if h > 0 else 1
+        
+        # アスペクト比チェック - 缓和版 (0.25 ~ 4.0 の間)
+        # 动物の場合、橫長もOK（全身写真など）
+        if aspect_ratio < 0.25 or aspect_ratio > 4.0:
+            return False
+        
+        # 极端に小さい画像は除外
+        if w < 100 or h < 100:
+            return False
+        
+        return True
+    except:
+        # Pillowがインストールされていない場合はパス
+        return True
+
+
+def suggest_image_classification(item_id: str) -> List[str]:
+    """アイテムIDに基づいて期待される画像クラスを返す"""
+    # 动物名のマッピング（英語）
+    class_mapping = {
+        # 猫
+        "persian_cat": ["persian cat", "cat"],
+        "british_shorthair": ["british shorthair", "cat"],
+        "scottish_fold": ["scottish fold", "cat"],
+        "maine_coon": ["maine coon", "cat"],
+        "ragdoll": ["ragdoll", "cat"],
+        "siamese": ["siamese cat", "cat"],
+        "russian_blue": ["russian blue", "cat"],
+        # 犬
+        "shiba": ["shiba inu", "dog"],
+        "akita": ["akita", "dog"],
+        "husky": ["siberian husky", "husky", "dog"],
+        "malamute": ["alaskan malamute", "dog"],
+        "samoyed": ["samoyed", "dog"],
+        "golden_retriever": ["golden retriever", "dog"],
+        "labrador": ["labrador retriever", "dog"],
+        "german_shepherd": ["german shepherd", "dog"],
+        "border_collie": ["border collie", "dog"],
+        "australian_shepherd": ["australian shepherd", "dog"],
+        "corgi": ["welsh corgi", "corgi", "dog"],
+        "pomeranian": ["pomeranian", "dog"],
+        "chow_chow": ["chow chow", "dog"],
+        # 野生イヌ科
+        "wolf": ["wolf", "gray wolf"],
+        "fox": ["red fox", "fox"],
+        "arctic_fox": ["arctic fox", "white fox"],
+        "coyote": ["coyote"],
+        "dingo": ["dingo"],
+        "jackal": ["jackal"],
+        # アライグマ系
+        "raccoon": ["raccoon"],
+        "tanuki": ["tanuki", "raccoon dog"],
+        "red_panda": ["red panda"],
+        "coati": ["coati"],
+        # 鳥
+        "crow": ["crow", "bird"],
+        "raven": ["raven", "bird"],
+        "hawk": ["hawk", "bird"],
+        "eagle": ["eagle", "bird"],
+        "falcon": ["falcon", "bird"],
+        "owl": ["owl", "bird"],
+        "barn_owl": ["barn owl", "owl", "bird"],
+        # 海洋
+        "sea_lion": ["sea lion"],
+        "seal": ["seal", "harbor seal"],
+        "walrus": ["walrus"],
+        "dolphin": ["dolphin"],
+        "orca": ["orca", "killer whale"],
+        "beluga": ["beluga whale"],
+        "manatee": ["manatee"],
+        "dugong": ["dugong"],
+        # 爬虫類
+        "alligator": ["alligator", "american alligator"],
+        "crocodile": ["crocodile"],
+        "caiman": ["caiman"],
+        "gharial": ["gharial"],
+        "iguana": ["iguana"],
+        "monitor": ["monitor lizard"],
+        "komodo": ["komodo dragon"],
+        # クマ
+        "brown_bear": ["brown bear", "grizzly bear"],
+        "black_bear": ["black bear", "asian black bear"],
+        "polar_bear": ["polar bear"],
+        "panda": ["giant panda", "panda"],
+        "spectacled_bear": ["spectacled bear"],
+        "sun_bear": ["sun bear"],
+        # 霊長類
+        "chimpanzee": ["chimpanzee", "chimp"],
+        "bonobo": ["bonobo"],
+        "gorilla": ["gorilla"],
+        "orangutan": ["orangutan"],
+        "gibbon": ["gibbon"],
+        "macaque": ["macaque", "monkey"],
+        "baboon": ["baboon"],
+        "mandrill": ["mandrill"],
+        # 昆虫
+        "bee": ["bee", "honey bee"],
+        "wasp": ["wasp"],
+        "hornet": ["hornet", "giant hornet"],
+        "butterfly": ["butterfly"],
+        "moth": ["moth"],
+        "beetle": ["beetle", "rhinoceros beetle"],
+        "stag_beetle": ["stag beetle"],
+        "ladybug": ["ladybug", "ladybird"],
+        "firefly": ["firefly", "lightning bug"],
+    }
+    return class_mapping.get(item_id, [item_id])
+
+
+# =============================================================================
+# 画像取得関数（改良版）
+# =============================================================================
+
+def fetch_from_inaturalist(taxon_id: int, max_results: int = 50) -> List[str]:
     """iNaturalist APIから画像URLを取得"""
     urls = []
     try:
-        url = f"{INATURALIST_API}/observations?taxon_id={taxon_id}&photos=true&quality_grade=research&per_page={max_results}&order=desc&order_by=votes"
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        # 写真付きでquality_grade=research（研究グレード）のみ取得
+        url = f"{INATURALIST_API}/observations"
+        params = {
+            "taxon_id": taxon_id,
+            "photos": "true",
+            "quality_grade": "research",
+            "per_page": min(max_results, 200),
+            "order": "desc",
+            "order_by": "votes",
+        }
+        
+        response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             for obs in data.get("results", []):
                 for photo in obs.get("photos", []):
-                    photo_url = photo.get("url", "").replace("square", "medium")
+                    # より大きな画像サイズを選択（square < medium < large < original）
+                    photo_url = photo.get("url", "").replace("square", "large")
                     if photo_url and is_valid_image_url(photo_url):
                         urls.append(photo_url)
-    except Exception as e:
-        print(f"  iNaturalist error for taxon_id={taxon_id}: {e}")
+                        
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ iNaturalist error for taxon_id={taxon_id}: {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ iNaturalist JSON error: {e}")
     
     return urls
 
 
-def fetch_from_gbif(species_key: int, max_results: int = 30) -> List[str]:
+def fetch_from_gbif(species_key: int, max_results: int = 50) -> List[str]:
     """GBIF APIから画像URLを取得"""
     urls = []
     try:
-        url = f"{GBIF_API}/occurrence/search?speciesKey={species_key}&mediaType=StillImage&limit={max_results}"
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        url = f"{GBIF_API}/occurrence/search"
+        params = {
+            "speciesKey": species_key,
+            "mediaType": "StillImage",
+            "limit": min(max_results, 200),
+        }
+        
+        response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
@@ -428,131 +747,481 @@ def fetch_from_gbif(species_key: int, max_results: int = 30) -> List[str]:
                     photo_url = media.get("identifier", "")
                     if photo_url and is_valid_image_url(photo_url):
                         urls.append(photo_url)
-    except Exception as e:
-        print(f"  GBIF error for species_key={species_key}: {e}")
+                        
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ GBIF error for species_key={species_key}: {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ GBIF JSON error: {e}")
     
     return urls
 
 
-def fetch_from_dog_api(breed_id: int, max_results: int = 20) -> List[str]:
-    """The Dog APIから画像URLを取得"""
+def fetch_from_dog_api(breed_id: int, expected_breed: str, max_results: int = 10) -> List[str]:
+    """The Dog APIから画像URLを取得（品種検証付き・1ページのみ）
+    
+    無料プランでは pagination で無関係な画像が返されるため、
+    1ページのみ取得し、レスポンスの breeds 情報で品種を検証する。
+    """
     urls = []
     try:
-        url = f"{DOG_API}/images/search?breed_ids={breed_id}&limit={max_results}"
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        url = f"{DOG_API}/images/search"
+        params = {
+            "breed_ids": breed_id,
+            "limit": min(max_results, 25),
+        }
+        
+        response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
+            expected_lower = expected_breed.lower()
+            
             for item in data:
                 photo_url = item.get("url", "")
-                if photo_url and is_valid_image_url(photo_url):
-                    urls.append(photo_url)
-    except Exception as e:
-        print(f"  Dog API error for breed_id={breed_id}: {e}")
-    
-    return urls
-
-
-def fetch_from_cat_api(breed_id: str, max_results: int = 20) -> List[str]:
-    """The Cat APIから画像URLを取得"""
-    urls = []
-    try:
-        url = f"{CAT_API}/images/search?breed_ids={breed_id}&limit={max_results}"
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for item in data:
-                photo_url = item.get("url", "")
-                if photo_url and is_valid_image_url(photo_url):
-                    urls.append(photo_url)
-    except Exception as e:
-        print(f"  Cat API error for breed_id={breed_id}: {e}")
-    
-    return urls
-
-
-def fetch_from_wikimedia(search_term: str, max_results: int = 20) -> List[str]:
-    """Wikimedia Commonsから画像URLを取得"""
-    urls = []
-    try:
-        url = f"{WIKIMEDIA_API}?action=query&generator=search&gsrsearch={search_term}&gsrlimit={max_results}&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json"
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            pages = data.get("query", {}).get("pages", {})
-            for page in pages.values():
-                for info in page.get("imageinfo", []):
-                    photo_url = info.get("thumburl") or info.get("url", "")
-                    if photo_url and is_valid_image_url(photo_url):
+                if not photo_url or not is_valid_image_url(photo_url):
+                    continue
+                
+                # 品種情報が含まれている場合、検証する
+                breeds = item.get("breeds", [])
+                if breeds:
+                    breed_name = breeds[0].get("name", "").lower()
+                    # 品種名が期待値と一致するかチェック
+                    if expected_lower in breed_name or breed_name in expected_lower:
                         urls.append(photo_url)
-    except Exception as e:
-        print(f"  Wikimedia error for '{search_term}': {e}")
+                    else:
+                        print(f"      ⚠ 品種不一致 skip: expected={expected_breed}, got={breeds[0].get('name')}")
+                else:
+                    # 品種情報なし → 信頼できないためスキップ
+                    pass
+                    
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ Dog API error for breed_id={breed_id}: {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ Dog API JSON error: {e}")
+    
+    return urls[:max_results]
+
+
+def fetch_from_cat_api(breed_id: str, expected_breed: str, max_results: int = 10) -> List[str]:
+    """The Cat APIから画像URLを取得（品種検証付き・1ページのみ）"""
+    urls = []
+    try:
+        url = f"{CAT_API}/images/search"
+        params = {
+            "breed_ids": breed_id,
+            "limit": min(max_results, 25),
+        }
+        
+        response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            expected_lower = expected_breed.lower()
+            
+            for item in data:
+                photo_url = item.get("url", "")
+                if not photo_url or not is_valid_image_url(photo_url):
+                    continue
+                
+                # 品種情報が含まれている場合、検証する
+                breeds = item.get("breeds", [])
+                if breeds:
+                    breed_name = breeds[0].get("name", "").lower()
+                    if expected_lower in breed_name or breed_name in expected_lower:
+                        urls.append(photo_url)
+                    else:
+                        print(f"      ⚠ 品種不一致 skip: expected={expected_breed}, got={breeds[0].get('name')}")
+                else:
+                    pass
+                    
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ Cat API error for breed_id={breed_id}: {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ Cat API JSON error: {e}")
+    
+    return urls[:max_results]
+
+
+# Dog/Cat API 品種名マッピング（APIレスポンスと照合用）
+DOG_BREED_EXPECTED_NAMES = {
+    "shiba": "shiba inu",
+    "akita": "akita",
+    "husky": "siberian husky",
+    "malamute": "alaskan malamute",
+    "samoyed": "samoyed",
+    "golden_retriever": "golden retriever",
+    "labrador": "labrador retriever",
+    "german_shepherd": "german shepherd",
+    "border_collie": "border collie",
+    "australian_shepherd": "australian shepherd",
+    "corgi": "pembroke welsh corgi",
+    "pomeranian": "pomeranian",
+    "chow_chow": "chow chow",
+}
+
+CAT_BREED_EXPECTED_NAMES = {
+    "persian_cat": "persian",
+    "british_shorthair": "british shorthair",
+    "scottish_fold": "scottish fold",
+    "maine_coon": "maine coon",
+    "ragdoll": "ragdoll",
+    "siamese": "siamese",
+    "russian_blue": "russian blue",
+}
+
+
+def fetch_from_wikimedia_category(category: str, max_results: int = 50) -> List[str]:
+    """Wikimedia Commonsのカテゴリから画像URLを取得（写真のみフィルタリング）
+    
+    寸法・MIME・ファイル名でフィルタリングし、
+    実際の動物写真のみを返す。
+    """
+    urls = []
+    continue_token = None
+    
+    try:
+        url = f"{WIKIMEDIA_API}"
+        
+        while len(urls) < max_results:
+            params = {
+                "action": "query",
+                "generator": "categorymembers",
+                "gcmtitle": f"Category:{category}",
+                "gcmtype": "file",
+                "gcmlimit": 50,  # APIの最大値を使って効率化
+                "prop": "imageinfo",
+                "iiprop": "url|size|mime",  # サイズとMIME情報を取得
+                "iiurlwidth": 800,
+                "format": "json",
+            }
+            
+            if continue_token:
+                params.update(continue_token)
+            
+            response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                pages = data.get("query", {}).get("pages", {})
+                
+                if not pages:
+                    break
+                    
+                for page in pages.values():
+                    title = page.get("title", "")
+                    
+                    # ファイル名で非写真コンテンツを除外
+                    if not is_photo_filename(title):
+                        continue
+                    
+                    for info in page.get("imageinfo", []):
+                        mime = info.get("mime", "")
+                        width = info.get("width", 0)
+                        height = info.get("height", 0)
+                        
+                        # JPEG/PNG写真のみ（SVG, GIF等は除外）
+                        if mime not in ("image/jpeg", "image/png"):
+                            continue
+                        
+                        # 最低寸法チェック（400x300以上で実際の写真と判定）
+                        if width < 400 or height < 300:
+                            continue
+                        
+                        photo_url = info.get("thumburl") or info.get("url", "")
+                        if photo_url:
+                            urls.append(photo_url)
+                
+                if "continue" in data:
+                    continue_token = data["continue"]
+                else:
+                    break
+            else:
+                break
+                
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ Wikimedia Category error for '{category}': {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ Wikimedia JSON error: {e}")
+    
+    return urls[:max_results]
+
+
+def fetch_from_wikimedia_search(search_term: str, max_results: int = 30) -> List[str]:
+    """Wikimedia Commonsから画像URLを取得（テキスト検索、写真フィルタリング付き）"""
+    urls = []
+    continue_token = None
+    
+    try:
+        url = f"{WIKIMEDIA_API}"
+        
+        while len(urls) < max_results:
+            params = {
+                "action": "query",
+                "generator": "search",
+                "gsrsearch": search_term,
+                "gsrlimit": 50,
+                "prop": "imageinfo",
+                "iiprop": "url|size|mime",
+                "iiurlwidth": 800,
+                "format": "json",
+            }
+
+            if continue_token:
+                params.update(continue_token)
+            
+            response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                pages = data.get("query", {}).get("pages", {})
+                
+                if not pages:
+                    break
+                    
+                for page in pages.values():
+                    title = page.get("title", "")
+                    if not is_photo_filename(title):
+                        continue
+                    
+                    for info in page.get("imageinfo", []):
+                        mime = info.get("mime", "")
+                        width = info.get("width", 0)
+                        height = info.get("height", 0)
+                        
+                        if mime not in ("image/jpeg", "image/png"):
+                            continue
+                        if width < 400 or height < 300:
+                            continue
+                        
+                        photo_url = info.get("thumburl") or info.get("url", "")
+                        if photo_url:
+                            urls.append(photo_url)
+                
+                if "continue" in data:
+                    continue_token = data["continue"]
+                else:
+                    break
+            else:
+                break
+                        
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ Wikimedia Search error for '{search_term}': {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ Wikimedia JSON error: {e}")
+    
+    return urls[:max_results]
+
+
+def fetch_from_flickr(search_term: str, max_results: int = 30) -> List[str]:
+    """Flickrからクリエイティブコモンズ画像のURLを取得"""
+    urls = []
+    try:
+        url = "https://www.flickr.com/services/rest/"
+        params = {
+            "method": "flickr.photos.search",
+            "api_key": "5c0c78c507116987fe0a3a4f6380e0a8",
+            "text": search_term,
+            "safe_search": 1,
+            "content_type": 1,
+            "extras": "url_l,url_m",
+            "per_page": min(max_results, 50),
+            "format": "json",
+            "nojsoncallback": 1,
+        }
+        
+        response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            for photo in data.get("photos", {}).get("photo", []):
+                photo_url = photo.get("url_l") or photo.get("url_m", "")
+                if photo_url and is_valid_image_url(photo_url):
+                    urls.append(photo_url)
+                    
+    except requests.exceptions.RequestException as e:
+        print(f"    ⚠ Flickr error: {e}")
+    except json.JSONDecodeError as e:
+        print(f"    ⚠ Flickr JSON error: {e}")
     
     return urls
 
 
-def is_valid_image_url(url: str) -> bool:
-    """画像URLが有効かチェック"""
-    lower = url.lower()
-    return ((".jpg" in lower or ".jpeg" in lower or ".png" in lower or ".webp" in lower)
-            and "placeholder" not in lower and "default" not in lower)
-
-
-def get_image_urls(item: ItemInfo, max_results: int = 30) -> List[str]:
-    """アイテムから画像URLを取得（複数APIを試行）"""
+def get_image_urls(item: ItemInfo, max_results: int = 50) -> List[str]:
+    """アイテムから画像URLを取得（正確性重視版）
+    
+    優先順位（正確性の高い順）:
+    1. Wikimedia Category  - 分類学カテゴリから直接取得（最も正確）
+    2. iNaturalist         - 研究グレード写真（taxon_idで種レベル指定）
+    3. GBIF                - 生物多様性データ（species_keyで種レベル指定）
+    4. Dog/Cat API         - 品種検証付き（breed名チェック、1ページのみ）
+    5. Wikimedia Search    - テキスト検索（フォールバック）
+    6. Flickr              - テキスト検索（最終手段）
+    """
     urls = []
+    sources_tried = []
     
-    # 1. iNaturalist
-    if item.inaturalist_taxon_id:
-        print(f"    Trying iNaturalist (taxon_id={item.inaturalist_taxon_id})...")
-        urls.extend(fetch_from_inaturalist(item.inaturalist_taxon_id, max_results))
+    # 1. Wikimedia Category（最も正確・大量に取得可能）
+    if item.wikimedia_category:
+        print(f"    → Wikimedia Category ('{item.wikimedia_category}')...")
+        cat_urls = fetch_from_wikimedia_category(item.wikimedia_category, max_results)
+        urls.extend(cat_urls)
+        sources_tried.append(f"Wikimedia Category({len(cat_urls)})")
+        time.sleep(0.3)
     
-    # 2. GBIF
-    if len(urls) < max_results // 2 and item.gbif_species_key:
-        print(f"    Trying GBIF (species_key={item.gbif_species_key})...")
-        urls.extend(fetch_from_gbif(item.gbif_species_key, max_results))
+    # 2. iNaturalist（研究グレード・分類学的に正確）
+    if len(urls) < max_results and item.inaturalist_taxon_id:
+        print(f"    → iNaturalist (taxon_id={item.inaturalist_taxon_id})...")
+        inat_urls = fetch_from_inaturalist(item.inaturalist_taxon_id, max_results)
+        urls.extend(inat_urls)
+        sources_tried.append(f"iNaturalist({len(inat_urls)})")
+        time.sleep(0.3)
     
-    # 3. Dog API
-    if len(urls) < max_results // 2 and item.dog_api_breed_id:
-        print(f"    Trying Dog API (breed_id={item.dog_api_breed_id})...")
-        urls.extend(fetch_from_dog_api(item.dog_api_breed_id, max_results))
+    # 3. GBIF（生物多様性データベース）
+    if len(urls) < max_results and item.gbif_species_key:
+        print(f"    → GBIF (species_key={item.gbif_species_key})...")
+        gbif_urls = fetch_from_gbif(item.gbif_species_key, max_results)
+        urls.extend(gbif_urls)
+        sources_tried.append(f"GBIF({len(gbif_urls)})")
+        time.sleep(0.3)
     
-    # 4. Cat API
-    if len(urls) < max_results // 2 and item.cat_api_breed_id:
-        print(f"    Trying Cat API (breed_id={item.cat_api_breed_id})...")
-        urls.extend(fetch_from_cat_api(item.cat_api_breed_id, max_results))
+    # 4. Dog/Cat API（品種検証付き・1ページのみ）
+    if len(urls) < max_results and item.dog_api_breed_id:
+        expected_name = DOG_BREED_EXPECTED_NAMES.get(item.id, item.id)
+        print(f"    → Dog API (breed_id={item.dog_api_breed_id}, expect='{expected_name}')...")
+        dog_urls = fetch_from_dog_api(item.dog_api_breed_id, expected_name, max_results=10)
+        urls.extend(dog_urls)
+        sources_tried.append(f"Dog API({len(dog_urls)})")
+        time.sleep(0.3)
     
-    # 5. Wikimedia（フォールバック）
-    if len(urls) < max_results // 2:
-        print(f"    Trying Wikimedia (query='{item.query}')...")
-        urls.extend(fetch_from_wikimedia(item.query, max_results))
+    if len(urls) < max_results and item.cat_api_breed_id:
+        expected_name = CAT_BREED_EXPECTED_NAMES.get(item.id, item.id)
+        print(f"    → Cat API (breed_id={item.cat_api_breed_id}, expect='{expected_name}')...")
+        cat_urls = fetch_from_cat_api(item.cat_api_breed_id, expected_name, max_results=10)
+        urls.extend(cat_urls)
+        sources_tried.append(f"Cat API({len(cat_urls)})")
+        time.sleep(0.3)
+    
+    # 5. Wikimedia Search（テキスト検索フォールバック）
+    if len(urls) < max_results:
+        print(f"    → Wikimedia Search (query='{item.query}')...")
+        wm_urls = fetch_from_wikimedia_search(item.query, max_results)
+        urls.extend(wm_urls)
+        sources_tried.append(f"Wikimedia Search({len(wm_urls)})")
+        time.sleep(0.3)
+    
+    # 6. Flickr（最終手段）
+    if len(urls) < max_results:
+        print(f"    → Flickr (query='{item.query}')...")
+        fl_urls = fetch_from_flickr(item.query, max_results)
+        urls.extend(fl_urls)
+        sources_tried.append(f"Flickr({len(fl_urls)})")
+        time.sleep(0.3)
+    
+    print(f"    取得URL数: {len(urls)} (ソース: {', '.join(sources_tried)})")
     
     # 重複を除去
     seen = set()
     unique_urls = []
     for url in urls:
-        if url not in seen:
-            seen.add(url)
+        parsed = urlparse(url)
+        normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        
+        if normalized not in seen:
+            seen.add(normalized)
             unique_urls.append(url)
     
     return unique_urls[:max_results]
 
 
-def download_image(url: str, save_path: Path) -> bool:
-    """画像をダウンロードして保存"""
+
+
+
+# =============================================================================
+# ダウンロード関数（改良版）
+# =============================================================================
+
+def download_image(url: str, save_path: Path, retry_count: int = 0) -> bool:
+    """画像をダウンロードして保存（HEAD不要・GETのみ）
+    
+    Wikimediaのレート制限(429)対策でHEADリクエストを廃止。
+    直接GETでダウンロードし、コンテンツを検証する。
+    """
     try:
-        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-        if response.status_code == 200 and len(response.content) > 1000:
-            # 画像形式を確認
-            content_type = response.headers.get("content-type", "")
-            if "image" in content_type or is_valid_image_url(url):
-                save_path.write_bytes(response.content)
-                return True
-    except Exception as e:
-        print(f"    Download failed: {e}")
+        response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+        
+        if response.status_code == 429:
+            # レート制限: 長めに待機してリトライ
+            if retry_count < MAX_RETRIES:
+                delay = max(5.0, get_retry_delay(retry_count))
+                print(f"      ⚠ Rate limited (429), waiting {delay:.0f}s...")
+                time.sleep(delay)
+                return download_image(url, save_path, retry_count + 1)
+            return False
+        
+        if response.status_code != 200:
+            if retry_count < MAX_RETRIES:
+                delay = get_retry_delay(retry_count)
+                time.sleep(delay)
+                return download_image(url, save_path, retry_count + 1)
+            return False
+        
+        content = response.content
+        
+        # コンテンツ検証（最小5KB = 実際の写真）
+        if not is_valid_image_content(content, min_size=5000):
+            return False
+        
+        # 保存
+        save_path.write_bytes(content)
+        return True
+        
+    except requests.exceptions.Timeout:
+        if retry_count < MAX_RETRIES:
+            time.sleep(get_retry_delay(retry_count))
+            return download_image(url, save_path, retry_count + 1)
+    except requests.exceptions.RequestException:
+        pass
+    except IOError:
+        pass
+    
     return False
+
+
+def download_images_sequential(urls: List[str], save_dir: Path, prefix: str = "", existing_hashes: set = None) -> List[Path]:
+    """順次ダウンロード（レート制限対策・各画像間に遅延）
+    
+    Wikimediaのレート制限を避けるため、並列ではなく順次ダウンロード。
+    各画像間に0.5秒の遅延を入れる。
+    """
+    downloaded_paths = []
+    used_hashes = existing_hashes.copy() if existing_hashes else set()
+    
+    for i, url in enumerate(urls):
+        ext = Path(urlparse(url).path).suffix or ".jpg"
+        if not ext.startswith("."):
+            ext = ".jpg"
+        # 拡張子の正規化
+        if ext.lower() not in (".jpg", ".jpeg", ".png", ".webp"):
+            ext = ".jpg"
+        save_path = save_dir / f"{prefix}{i+1:03d}{ext}"
+        
+        if download_image(url, save_path):
+            # ダウンロードした画像のハッシュを確認（重複防止）
+            try:
+                content = save_path.read_bytes()
+                content_hash = hashlib.md5(content).hexdigest()[:16]
+                if content_hash in used_hashes:
+                    save_path.unlink()
+                    continue
+                used_hashes.add(content_hash)
+            except:
+                pass
+            downloaded_paths.append(save_path)
+        
+        # レート制限対策: 各ダウンロード間に0.5秒待機
+        time.sleep(0.5)
+    
+    return downloaded_paths
 
 
 # =============================================================================
@@ -574,6 +1243,7 @@ def download_genre(genre_id: str, images_per_type: int = IMAGES_PER_TYPE):
     print(f"ジャンル: {genre.display_name} ({genre_id})")
     print(f"説明: {genre.description}")
     print(f"アイテム数: {len(genre.items)}")
+    print(f"目標画像数: 各タイプ {images_per_type} 枚")
     print(f"{'='*60}")
     
     manifest = {
@@ -592,45 +1262,51 @@ def download_genre(genre_id: str, images_per_type: int = IMAGES_PER_TYPE):
         print(f"\n  [{item.id}] {item.name_ja}")
         
         # 既存の画像を確認
-        existing = list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png"))
+        existing = list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp"))
         if len(existing) >= images_per_type:
-            print(f"    Already have {len(existing)} images, skipping")
+            print(f"    ✓ Already have {len(existing)} images, skipping")
             manifest["types"][item.id] = {
                 "display_name": item.name_ja,
                 "count": len(existing),
             }
             continue
         
-        # 画像URLを取得
-        urls = get_image_urls(item, max_results=images_per_type * 2)
-        print(f"    Found {len(urls)} URLs")
+        # 画像URLを取得（目標枚数の2倍まで取得してフィルタリング用に確保）
+        needed = images_per_type - len(existing)
+        urls = get_image_urls(item, max_results=needed * 2)
         
         if not urls:
-            print(f"    WARNING: No URLs found!")
+            print(f"    ✗ WARNING: No URLs found!")
             manifest["types"][item.id] = {
                 "display_name": item.name_ja,
-                "count": 0,
+                "count": len(existing),
             }
             continue
         
-        # ダウンロード
-        downloaded = len(existing)
-        for i, url in enumerate(urls):
-            if downloaded >= images_per_type:
-                break
-            
-            save_path = item_dir / f"{downloaded + 1:03d}.jpg"
-            if download_image(url, save_path):
-                downloaded += 1
-                print(f"    Downloaded: {save_path.name}")
-            
-            time.sleep(0.3)  # レート制限対策
+        # 既存の画像のハッシュを取得（重複防止）
+        existing_hashes = set()
+        for f in existing:
+            try:
+                existing_hashes.add(hashlib.md5(f.read_bytes()).hexdigest()[:16])
+            except:
+                pass
+        
+        # 目標枚数分だけダウンロード
+        download_count = min(len(urls), needed)
+        print(f"    Downloading up to {download_count} images (目標: {images_per_type}枚)...")
+        downloaded = download_images_sequential(urls[:download_count], item_dir, prefix="", existing_hashes=existing_hashes)
+        
+        # ダウンロード結果を確認
+        final_count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp")))
         
         manifest["types"][item.id] = {
             "display_name": item.name_ja,
-            "count": downloaded,
+            "count": final_count,
         }
-        print(f"    Total: {downloaded} images")
+        print(f"    ✓ Total: {final_count} images downloaded")
+        
+        # APIレート制限対策
+        time.sleep(1)
     
     # manifest.jsonを保存
     manifest_path = genre_dir / "manifest.json"
@@ -665,7 +1341,7 @@ def show_genre_stats(genre_id: str):
     for item in genre.items:
         item_dir = genre_dir / item.id
         if item_dir.exists():
-            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp")))
         else:
             count = 0
         
@@ -706,7 +1382,7 @@ def refill_genre(genre_id: str, target_count: int):
         item_dir.mkdir(exist_ok=True)
         
         # 既存の画像を確認
-        existing_files = sorted(item_dir.glob("*.jpg")) + sorted(item_dir.glob("*.png"))
+        existing_files = sorted(item_dir.glob("*.jpg")) + sorted(item_dir.glob("*.png")) + sorted(item_dir.glob("*.webp"))
         current_count = len(existing_files)
         
         if current_count >= target_count:
@@ -716,24 +1392,7 @@ def refill_genre(genre_id: str, target_count: int):
         needed = target_count - current_count
         print(f"\n  [{item.id}] {item.name_ja}: {current_count}枚 → {needed}枚不足")
         
-        # 既存のファイル名から次の番号を決定
-        max_num = 0
-        for f in existing_files:
-            try:
-                num = int(f.stem)
-                max_num = max(max_num, num)
-            except ValueError:
-                pass
-        
-        # 画像URLを取得（多めに取得）
-        urls = get_image_urls(item, max_results=needed * 3)
-        print(f"    Found {len(urls)} URLs")
-        
-        if not urls:
-            print(f"    WARNING: No URLs found!")
-            continue
-        
-        # 既存の画像のハッシュを取得（重複防止）
+        # 既存のファイルのハッシュを取得
         existing_hashes = set()
         for f in existing_files:
             try:
@@ -741,41 +1400,35 @@ def refill_genre(genre_id: str, target_count: int):
             except:
                 pass
         
-        # ダウンロード
-        downloaded = 0
-        next_num = max_num + 1
+        # 画像URLを取得（多めに取得）
+        urls = get_image_urls(item, max_results=needed * 3)
         
+        if not urls:
+            print(f"    WARNING: No URLs found!")
+            continue
+        
+        # 重複を除外
+        filtered_urls = []
         for url in urls:
-            if downloaded >= needed:
-                break
-            
-            # 一時的にダウンロードしてハッシュチェック
             try:
-                response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-                if response.status_code != 200 or len(response.content) < 1000:
-                    continue
-                
-                # 重複チェック
-                content_hash = hashlib.md5(response.content).hexdigest()[:16]
-                if content_hash in existing_hashes:
-                    print(f"    スキップ（重複）: {url[:50]}...")
-                    continue
-                
-                # 保存
-                save_path = item_dir / f"{next_num:03d}.jpg"
-                save_path.write_bytes(response.content)
-                existing_hashes.add(content_hash)
-                
-                downloaded += 1
-                next_num += 1
-                print(f"    Downloaded: {save_path.name}")
-                
-            except Exception as e:
-                print(f"    Error: {e}")
-            
-            time.sleep(0.3)
+                response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=5, stream=True)
+                if response.status_code == 200:
+                    content = response.content
+                    content_hash = hashlib.md5(content).hexdigest()[:16]
+                    if content_hash not in existing_hashes:
+                        filtered_urls.append(url)
+                        existing_hashes.add(content_hash)
+            except:
+                pass
         
-        print(f"    補填完了: +{downloaded}枚 (計 {current_count + downloaded}枚)")
+        # 並列ダウンロード
+        print(f"    Downloading {len(filtered_urls)} images...")
+        downloaded = download_images_sequential(filtered_urls[:needed * 2], item_dir, prefix="")
+        
+        final_count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp")))
+        print(f"    補填完了: +{final_count - current_count}枚 (計 {final_count}枚)")
+        
+        time.sleep(1)
     
     # manifest.jsonを更新
     update_manifest(genre_id)
@@ -802,7 +1455,7 @@ def update_manifest(genre_id: str):
     for item in genre.items:
         item_dir = genre_dir / item.id
         if item_dir.exists():
-            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+            count = len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp")))
         else:
             count = 0
         
@@ -817,7 +1470,7 @@ def update_manifest(genre_id: str):
 
 
 def list_genres():
-    """利用可能なジャンル一覧を表示（番号付き）"""
+    """利用可能なジャンル一覧を表示"""
     print("\n利用可能なジャンル:")
     print("-" * 50)
     genre_list = list(GENRES.items())
@@ -836,7 +1489,7 @@ def select_genre():
     if selection.isdigit():
         idx = int(selection) - 1
         if 0 <= idx < len(genre_list):
-            return genre_list[idx][0]  # genre_id を返す
+            return genre_list[idx][0]
         else:
             print(f"無効な番号です（1-{len(genre_list)}の範囲で入力してください）")
             return None
@@ -872,7 +1525,7 @@ def create_genre_zip(genre_id: str) -> Optional[Path]:
     image_count = 0
     for item_dir in genre_dir.iterdir():
         if item_dir.is_dir():
-            image_count += len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")))
+            image_count += len(list(item_dir.glob("*.jpg")) + list(item_dir.glob("*.png")) + list(item_dir.glob("*.webp")))
     
     if image_count == 0:
         print(f"画像がありません: {genre_dir}")
@@ -897,7 +1550,7 @@ def create_genre_zip(genre_id: str) -> Optional[Path]:
             if item_dir.is_dir():
                 item_id = item_dir.name
                 for img_file in sorted(item_dir.glob("*")):
-                    if img_file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+                    if img_file.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
                         arcname = f"{item_id}/{img_file.name}"
                         zf.write(img_file, arcname)
                         print(f"    追加: {arcname}")
@@ -921,8 +1574,8 @@ def create_all_genre_zips():
 def main():
     """メイン関数"""
     print("="*60)
-    print("  テストセット画像ダウンローダー")
-    print("  (iNaturalist / GBIF / Dog API / Cat API / Wikimedia)")
+    print("  テストセット画像ダウンローダー（改良版）")
+    print("  iNaturalist / GBIF / Dog API / Cat API / Wikimedia / Flickr")
     print("="*60)
     
     OUTPUT_DIR.mkdir(exist_ok=True)

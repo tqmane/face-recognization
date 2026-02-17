@@ -1,0 +1,8 @@
+Fetching 'akita dog'...
+
+--- Image Results Structure ---
+Found 0 images with class 'tile--img__img'.
+
+--- Pagination Structure ---
+Form 0: action=//duckduckgo.com/anomaly.js?sv=html&cc=sre&ti=1771329915&gk=d4cd0dabcf4caa22ad92fab40844c786&p=91f6999ebca44cf0be88b04b9955d71f-8e7591c68dbc4e8ba77972ff5097bc5e-be2c90034f5647c98939432788409871-06636ae19e6648a79d4b58ef53472413-96af3cf9e79b4ec4ab55ddafaf766109-72a60e66124c4c88a126f2a6d717b0ee-b832887d23904bf5b69ed6434a927a87-5039083e9bd3433b9704c899e412bfa3-443fff33ddd845a39ad49a9086676bfb&q=akita dog&o=rEMrNWYvqs05BLm0nkcAY0OewOA4ZJLfQdGqCjNYNBOocCGk4gaPbfcsXmLqzNk8%0A&r=ase inputs=[]
+Form 1: action=//duckduckgo.com/anomaly.js?sv=html&cc=sre&st=1771329915&gk=d4cd0dabcf4caa22ad92fab40844c786&p=91f6999ebca44cf0be88b04b9955d71f-8e7591c68dbc4e8ba77972ff5097bc5e-be2c90034f5647c98939432788409871-06636ae19e6648a79d4b58ef53472413-96af3cf9e79b4ec4ab55ddafaf766109-72a60e66124c4c88a126f2a6d717b0ee-b832887d23904bf5b69ed6434a927a87-5039083e9bd3433b9704c899e412bfa3-443fff33ddd845a39ad49a9086676bfb&q=akita dog&o=rEMrNWYvqs05BLm0nkcAY0OewOA4ZJLfQdGqCjNYNBOocCGk4gaPbfcsXmLqzNk8%0A&r=ase inputs=['name=image-check_91f6999ebca44cf0be88b04b9955d71f value=None', 'name=image-check_8e7591c68dbc4e8ba77972ff5097bc5e value=None', 'name=image-check_be2c90034f5647c98939432788409871 value=None', 'name=image-check_06636ae19e6648a79d4b58ef53472413 value=None', 'name=image-check_96af3cf9e79b4ec4ab55ddafaf766109 value=None', 'name=image-check_72a60e66124c4c88a126f2a6d717b0ee value=None', 'name=image-check_b832887d23904bf5b69ed6434a927a87 value=None', 'name=image-check_5039083e9bd3433b9704c899e412bfa3 value=None', 'name=image-check_443fff33ddd845a39ad49a9086676bfb value=None', 'name=None value=None']
