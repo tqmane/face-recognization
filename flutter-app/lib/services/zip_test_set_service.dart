@@ -163,7 +163,7 @@ class ZipTestSetService {
       id: 'dogs',
       displayName: '犬種',
       description: '柴犬・秋田犬・ハスキーなど似ている犬種',
-      zipUrl: '$_baseUrl/dogs_.zip',
+      zipUrl: '$_baseUrl/dogs.zip',
     ),
     ZipTestSetInfo(
       id: 'small_cats',
