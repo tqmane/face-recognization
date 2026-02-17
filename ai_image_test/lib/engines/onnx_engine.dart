@@ -164,10 +164,19 @@ class OnnxEngine implements InferenceEngine {
       final raw = outputs.first?.value;
       for (final o in outputs) o?.release();
       if (raw == null) return null;
-      return _flatten(raw);
+      return _normalizeEmbedding(_flatten(raw));
     } finally {
       tensor.release();
     }
+  }
+
+  /// L2正規化で埋め込みベクトルを正規化
+  List<double> _normalizeEmbedding(List<double> embedding) {
+    double norm = 0;
+    for (final v in embedding) norm += v * v;
+    norm = sqrt(norm);
+    if (norm == 0) return embedding;
+    return embedding.map((v) => v / norm).toList();
   }
 
   List<double> _flatten(dynamic d) {
@@ -187,7 +196,8 @@ class OnnxEngine implements InferenceEngine {
       nb += b[i] * b[i];
     }
     if (na == 0 || nb == 0) return 0;
-    return dot / (sqrt(na) * sqrt(nb));
+    final sim = dot / (sqrt(na) * sqrt(nb));
+    return sim.clamp(0.0, 1.0);
   }
 
   @override
