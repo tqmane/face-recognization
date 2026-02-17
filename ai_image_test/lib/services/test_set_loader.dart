@@ -9,18 +9,20 @@ import '../models/test_image_pair.dart';
 
 /// Loads a test set from a ZIP archive or folder.
 ///
-/// Supported structure:
+/// テストセットの構造（flutter-app と同じ形式）:
 /// ```
 /// test_set/
-///   manifest.json  (optional)
+///   manifest.json        (types / similar_pairs を定義)
 ///   type_a/
 ///     img1.jpg
 ///   type_b/
 ///     img1.jpg
 /// ```
 class TestSetLoader {
+  final Random _random = Random();
+
   /// Load from a ZIP file. Extracts to temp and then delegates to [loadFromDirectory].
-  Future<List<TestImagePair>> loadFromZip(String zipPath) async {
+  Future<List<TestImagePair>> loadFromZip(String zipPath, {int? questionCount}) async {
     final bytes = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
     final tmp = await getTemporaryDirectory();
@@ -40,17 +42,18 @@ class TestSetLoader {
     // The ZIP may contain a single root folder; detect that.
     final children = outDir.listSync();
     if (children.length == 1 && children.first is Directory) {
-      return loadFromDirectory((children.first as Directory).path);
+      return loadFromDirectory((children.first as Directory).path, questionCount: questionCount);
     }
-    return loadFromDirectory(outDir.path);
+    return loadFromDirectory(outDir.path, questionCount: questionCount);
   }
 
   /// Load from a folder on disk.
-  Future<List<TestImagePair>> loadFromDirectory(String dirPath) async {
+  /// flutter-app の generateQuestions() と同じロジックで問題を生成する。
+  Future<List<TestImagePair>> loadFromDirectory(String dirPath, {int? questionCount}) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) throw Exception('ディレクトリが存在しません: $dirPath');
 
-    // Read manifest if present.
+    // manifest.json を読み込み
     final manifestFile = File(p.join(dirPath, 'manifest.json'));
     Map<String, dynamic>? manifest;
     if (await manifestFile.exists()) {
@@ -61,89 +64,148 @@ class TestSetLoader {
       }
     }
 
-    // Find type subdirectories (each subfolder = one species/type).
-    final typeDirs = <String, List<String>>{};
+    // マニフェストからタイプIDリストを取得（あればそちらを使用）
+    Set<String>? manifestTypeIds;
+    if (manifest != null && manifest['types'] is Map) {
+      manifestTypeIds = (manifest['types'] as Map<String, dynamic>).keys.toSet();
+    }
+
+    // 各タイプのサブディレクトリから画像を収集
+    final imagesByType = <String, List<String>>{};
     await for (final entity in dir.list()) {
       if (entity is Directory) {
         final name = p.basename(entity.path);
         if (name.startsWith('.')) continue;
+        // マニフェストがあれば、そこに定義されたタイプのみ使用
+        if (manifestTypeIds != null && !manifestTypeIds.contains(name)) continue;
         final images = <String>[];
         await for (final f in entity.list()) {
           if (f is File && _isImage(f.path)) images.add(f.path);
         }
-        if (images.isNotEmpty) typeDirs[name] = images;
+        if (images.isNotEmpty) imagesByType[name] = images;
       }
     }
 
-    if (typeDirs.isEmpty) {
+    if (imagesByType.isEmpty) {
       throw Exception('テストセットにサブフォルダが見つかりません: $dirPath');
     }
 
     final genre = manifest?['genre'] as String? ?? p.basename(dirPath);
-    final types = typeDirs.keys.toList();
-    final rng = Random(); // use non-deterministic seed for randomness each run
-    final pairs = <TestImagePair>[];
-    int id = 1;
+    final typeIds = imagesByType.keys.toList();
 
-    // Build similar_pairs set from manifest (if available).
-    final similarPairs = <(String, String)>{};
+    // similar_pairs を取得
+    final similarPairs = <({String id1, String id2})>[];
     if (manifest != null && manifest['similar_pairs'] is List) {
       for (final sp in manifest['similar_pairs'] as List) {
         if (sp is Map) {
-          similarPairs.add((sp['id1'] as String, sp['id2'] as String));
+          final id1 = sp['id1'] as String? ?? '';
+          final id2 = sp['id2'] as String? ?? '';
+          if (id1.isNotEmpty && id2.isNotEmpty) {
+            similarPairs.add((id1: id1, id2: id2));
+          }
         }
       }
     }
 
-    // Generate pairs: ~50% same, ~50% different.
-    final pairCount = types.length * 3; // scale with number of types
+    // 問題数を決定
+    final count = questionCount ?? typeIds.length * 3;
+    final pairs = <TestImagePair>[];
+    int id = 1;
 
-    // Same-type pairs.
-    for (int i = 0; i < pairCount && i < types.length * 2; i++) {
-      final t = types[rng.nextInt(types.length)];
-      final imgs = typeDirs[t]!;
-      if (imgs.length < 2) continue;
-      final a = imgs[rng.nextInt(imgs.length)];
-      String b;
-      do {
-        b = imgs[rng.nextInt(imgs.length)];
-      } while (b == a && imgs.length > 1);
-      pairs.add(TestImagePair(
-          id: id++, genre: genre, imagePath1: a, imagePath2: b, isSame: true));
+    // タイプが1つしかない場合は全て同種ペアにする
+    if (typeIds.length == 1) {
+      final onlyType = typeIds.single;
+      final images = imagesByType[onlyType]!;
+      if (images.length < 2) {
+        throw Exception('テストセットの画像が不足しています（同種ペアには2枚以上必要です）');
+      }
+      for (int i = 0; i < count; i++) {
+        final pair = _pickTwoDistinct(images);
+        pairs.add(TestImagePair(
+          id: id++, genre: genre,
+          imagePath1: pair[0], imagePath2: pair[1],
+          isSame: true,
+        ));
+      }
+      pairs.shuffle(_random);
+      return pairs;
     }
 
-    // Different-type pairs (prefer similar_pairs).
-    final diffTargets = <(String, String)>[];
-    for (final sp in similarPairs) {
-      if (typeDirs.containsKey(sp.$1) && typeDirs.containsKey(sp.$2)) {
-        diffTargets.add(sp);
+    // 同種ペア数 (約50%)
+    final sameTarget = count ~/ 2;
+    final typesWithMultipleImages = typeIds.where((t) => (imagesByType[t]?.length ?? 0) >= 2).toList();
+
+    // 同じタイプの問題を生成
+    if (typesWithMultipleImages.isNotEmpty) {
+      int attempts = 0;
+      while (pairs.where((q) => q.isSame).length < sameTarget && attempts < sameTarget * 20) {
+        attempts++;
+        final typeId = typesWithMultipleImages[_random.nextInt(typesWithMultipleImages.length)];
+        final images = imagesByType[typeId]!;
+        final pair = _pickTwoDistinct(images);
+        pairs.add(TestImagePair(
+          id: id++, genre: genre,
+          imagePath1: pair[0], imagePath2: pair[1],
+          isSame: true,
+        ));
       }
     }
-    // Pad with random pairs if needed.
-    while (diffTargets.length < pairCount) {
-      final a = types[rng.nextInt(types.length)];
-      String b;
-      do {
-        b = types[rng.nextInt(types.length)];
-      } while (b == a && types.length > 1);
-      diffTargets.add((a, b));
-    }
 
-    for (int i = 0; i < pairCount && i < diffTargets.length; i++) {
-      final (ta, tb) = diffTargets[i];
-      final imgsA = typeDirs[ta]!;
-      final imgsB = typeDirs[tb]!;
+    // 異種ペア：similar_pairs を優先的に使用（flutter-app と同じ）
+    final usedPairKeys = <String>{};
+    final shuffledSimilarPairs = List.of(similarPairs)..shuffle(_random);
+    for (final sp in shuffledSimilarPairs) {
+      if (pairs.length >= count) break;
+      final pairKey = '${sp.id1}-${sp.id2}';
+      if (usedPairKeys.contains(pairKey)) continue;
+
+      final images1 = imagesByType[sp.id1];
+      final images2 = imagesByType[sp.id2];
+      if (images1 == null || images2 == null) continue;
+
+      usedPairKeys.add(pairKey);
       pairs.add(TestImagePair(
-        id: id++,
-        genre: genre,
-        imagePath1: imgsA[rng.nextInt(imgsA.length)],
-        imagePath2: imgsB[rng.nextInt(imgsB.length)],
+        id: id++, genre: genre,
+        imagePath1: images1[_random.nextInt(images1.length)],
+        imagePath2: images2[_random.nextInt(images2.length)],
         isSame: false,
       ));
     }
 
-    pairs.shuffle(rng);
-    return pairs;
+    // まだ足りない場合はランダムな異種ペアを追加
+    int randomAttempts = 0;
+    while (pairs.length < count && randomAttempts < count * 50) {
+      randomAttempts++;
+      final type1 = typeIds[_random.nextInt(typeIds.length)];
+      var type2 = typeIds[_random.nextInt(typeIds.length)];
+      while (type2 == type1) {
+        type2 = typeIds[_random.nextInt(typeIds.length)];
+      }
+      final images1 = imagesByType[type1];
+      final images2 = imagesByType[type2];
+      if (images1 == null || images1.isEmpty || images2 == null || images2.isEmpty) continue;
+
+      pairs.add(TestImagePair(
+        id: id++, genre: genre,
+        imagePath1: images1[_random.nextInt(images1.length)],
+        imagePath2: images2[_random.nextInt(images2.length)],
+        isSame: false,
+      ));
+    }
+
+    // シャッフルして返す（毎回異なる順番）
+    pairs.shuffle(_random);
+    return pairs.take(count).toList();
+  }
+
+  /// 2つの異なる画像を選択
+  List<String> _pickTwoDistinct(List<String> images) {
+    final idx1 = _random.nextInt(images.length);
+    var idx2 = _random.nextInt(images.length);
+    while (idx2 == idx1 && images.length > 1) {
+      idx2 = _random.nextInt(images.length);
+    }
+    return [images[idx1], images[idx2]];
   }
 
   bool _isImage(String path) {

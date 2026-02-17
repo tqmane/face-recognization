@@ -1,22 +1,22 @@
-# GPU Inference Testing Guide
+# GPU 推論テストガイド
 
-This guide provides instructions for testing the GPU inference implementation across different platforms.
+このガイドでは、各プラットフォームにおける GPU 推論実装のテスト手順を説明します。
 
-## Testing on Windows
+## Windows でのテスト
 
-### Prerequisites
-- Windows 10/11 with DirectX 12
-- GPU with DirectML support (NVIDIA, AMD, or Intel)
-- ONNX Runtime DirectML DLL (see WINDOWS_DIRECTML_SETUP.md)
+### 前提条件
+- DirectX 12 対応の Windows 10/11
+- DirectML 対応の GPU（NVIDIA、AMD、または Intel）
+- ONNX Runtime DirectML DLL（WINDOWS_DIRECTML_SETUP.md を参照）
 
-### Test Cases
+### テストケース
 
-#### TC1: DirectML Availability Detection
-**Steps**:
-1. Launch the app
-2. Check console output for GPU capabilities
+#### TC1: DirectML 利用可否の検出
+**手順**:
+1. アプリを起動する
+2. コンソール出力で GPU 機能を確認する
 
-**Expected Output**:
+**期待される出力**:
 ```
 === GPU Capabilities ===
 Platform: windows
@@ -29,55 +29,55 @@ ONNX devices: CPU, XNNPACK, DirectML
 =======================
 ```
 
-#### TC2: ONNX DirectML Engine Selection
-**Steps**:
-1. Select "ONNX DirectML (Windows)" engine
-2. Device dropdown should show: CPU, XNNPACK, DirectML
-3. Select "DirectML" device
-4. Click "パフォーマンスチェック" (Performance Check)
+#### TC2: ONNX DirectML エンジンの選択
+**手順**:
+1. 「ONNX DirectML (Windows)」エンジンを選択する
+2. デバイスドロップダウンに CPU、XNNPACK、DirectML が表示されることを確認する
+3. 「DirectML」デバイスを選択する
+4. 「パフォーマンスチェック」をクリックする
 
-**Expected Result**:
-- Engine initializes successfully
-- Name shows "ModelName (ONNX-DirectML)" or "(ONNX-XNNPACK)" as fallback
-- Inference completes without errors
+**期待される結果**:
+- エンジンが正常に初期化される
+- 名前に「ModelName (ONNX-DirectML)」、またはフォールバック時に「(ONNX-XNNPACK)」が表示される
+- 推論がエラーなく完了する
 
-#### TC3: DirectML Fallback to XNNPACK
-**Steps**:
-1. Rename or remove DirectML DLL
-2. Select ONNX DirectML engine with DirectML device
-3. Run performance check
+#### TC3: DirectML から XNNPACK へのフォールバック
+**手順**:
+1. DirectML DLL の名前を変更するか削除する
+2. ONNX DirectML エンジンで DirectML デバイスを選択する
+3. パフォーマンスチェックを実行する
 
-**Expected Result**:
-- Console shows "DirectML requested but not directly supported"
-- Falls back to XNNPACK
-- Engine name shows "(ONNX-XNNPACK)"
+**期待される結果**:
+- コンソールに「DirectML requested but not directly supported」と表示される
+- XNNPACK にフォールバックする
+- エンジン名に「(ONNX-XNNPACK)」が表示される
 
-#### TC4: Performance Comparison
-**Steps**:
-1. Run performance check with CPU device (100 iterations)
-2. Note average latency (ms)
-3. Run performance check with XNNPACK device
-4. Note average latency (ms)
-5. Compare results
+#### TC4: パフォーマンス比較
+**手順**:
+1. CPU デバイスでパフォーマンスチェックを実行する（100回反復）
+2. 平均レイテンシ（ms）を記録する
+3. XNNPACK デバイスでパフォーマンスチェックを実行する
+4. 平均レイテンシ（ms）を記録する
+5. 結果を比較する
 
-**Expected Result**:
-- XNNPACK should be 2-3x faster than CPU
-- DirectML (when fully implemented) should be 5-10x faster
+**期待される結果**:
+- XNNPACK は CPU より2〜3倍高速であること
+- DirectML（完全実装時）は5〜10倍高速であること
 
-## Testing on Android
+## Android でのテスト
 
-### Prerequisites
-- Android device with GPU
-- Android 8.0+ for NNAPI support
+### 前提条件
+- GPU 搭載の Android デバイス
+- NNAPI サポートには Android 8.0 以上が必要
 
-### Test Cases
+### テストケース
 
-#### TC5: TFLite GPU Availability
-**Steps**:
-1. Launch app on Android device
-2. Check console for GPU capabilities
+#### TC5: TFLite GPU 利用可否
+**手順**:
+1. Android デバイスでアプリを起動する
+2. コンソールで GPU 機能を確認する
 
-**Expected Output**:
+**期待される出力**:
 ```
 === GPU Capabilities ===
 Platform: android
@@ -90,53 +90,53 @@ ONNX devices: CPU, XNNPACK, NNAPI
 =======================
 ```
 
-#### TC6: TFLite GPU Delegate
-**Steps**:
-1. Select "TFLite (CPU/GPU)" engine
-2. Select "GPU" device
-3. Run performance check
+#### TC6: TFLite GPU デリゲート
+**手順**:
+1. 「TFLite (CPU/GPU)」エンジンを選択する
+2. 「GPU」デバイスを選択する
+3. パフォーマンスチェックを実行する
 
-**Expected Result**:
-- Engine name shows "ModelName (TFLite-GPU)"
-- GPU inference 3-5x faster than CPU
-- No errors during inference
+**期待される結果**:
+- エンジン名に「ModelName (TFLite-GPU)」が表示される
+- GPU 推論が CPU より3〜5倍高速であること
+- 推論中にエラーが発生しないこと
 
 #### TC7: ONNX NNAPI
-**Steps**:
-1. Select "ONNX Runtime" engine
-2. Select "NNAPI" device
-3. Run performance check
+**手順**:
+1. 「ONNX Runtime」エンジンを選択する
+2. 「NNAPI」デバイスを選択する
+3. パフォーマンスチェックを実行する
 
-**Expected Result**:
-- Engine name shows "ModelName (ONNX-NNAPI)"
-- Inference completes successfully
-- Performance similar to or better than CPU
+**期待される結果**:
+- エンジン名に「ModelName (ONNX-NNAPI)」が表示される
+- 推論が正常に完了する
+- パフォーマンスが CPU と同等またはそれ以上であること
 
-#### TC8: GPU Fallback on Android
-**Steps**:
-1. Run on Android emulator (no GPU support)
-2. Select TFLite with GPU device
-3. Run performance check
+#### TC8: Android での GPU フォールバック
+**手順**:
+1. Android エミュレーター（GPU サポートなし）で実行する
+2. TFLite で GPU デバイスを選択する
+3. パフォーマンスチェックを実行する
 
-**Expected Result**:
-- Console shows "GPU delegate failed, falling back to CPU"
-- Engine name shows "(TFLite-CPU)"
-- Inference completes successfully
+**期待される結果**:
+- コンソールに「GPU delegate failed, falling back to CPU」と表示される
+- エンジン名に「(TFLite-CPU)」が表示される
+- 推論が正常に完了する
 
-## Testing on iOS/macOS
+## iOS/macOS でのテスト
 
-### Prerequisites
-- macOS with Apple Silicon or Intel GPU
-- iOS device with A-series chip
+### 前提条件
+- Apple Silicon または Intel GPU 搭載の macOS
+- A シリーズチップ搭載の iOS デバイス
 
-### Test Cases
+### テストケース
 
-#### TC9: CoreML Availability
-**Steps**:
-1. Launch app
-2. Check console for capabilities
+#### TC9: CoreML 利用可否
+**手順**:
+1. アプリを起動する
+2. コンソールで機能を確認する
 
-**Expected Output**:
+**期待される出力**:
 ```
 === GPU Capabilities ===
 Platform: macos (or ios)
@@ -148,105 +148,105 @@ CoreML: true
 ```
 
 #### TC10: ONNX CoreML
-**Steps**:
-1. Select "ONNX Runtime" engine
-2. Select "CoreML" device
-3. Run performance check
+**手順**:
+1. 「ONNX Runtime」エンジンを選択する
+2. 「CoreML」デバイスを選択する
+3. パフォーマンスチェックを実行する
 
-**Expected Result**:
-- Engine name shows "(ONNX-CoreML)"
-- Inference uses Apple Neural Engine
-- Best performance on Apple devices
+**期待される結果**:
+- エンジン名に「(ONNX-CoreML)」が表示される
+- 推論が Apple Neural Engine を使用する
+- Apple デバイスで最高のパフォーマンスが得られる
 
-## Cross-Platform Test Cases
+## クロスプラットフォームテストケース
 
-#### TC11: Device Selection Persistence
-**Steps**:
-1. Select TFLite engine with GPU device
-2. Switch to ONNX engine
-3. Device should reset to available device for ONNX
-4. Switch back to TFLite
-5. Device selection should be retained if available
+#### TC11: デバイス選択の保持
+**手順**:
+1. TFLite エンジンで GPU デバイスを選択する
+2. ONNX エンジンに切り替える
+3. ONNX で利用可能なデバイスにリセットされることを確認する
+4. TFLite に戻す
+5. 利用可能であれば、デバイス選択が保持されていることを確認する
 
-**Expected Result**:
-- Device selection updates when changing engines
-- No crashes or invalid device selections
+**期待される結果**:
+- エンジン変更時にデバイス選択が更新される
+- クラッシュや無効なデバイス選択が発生しないこと
 
-#### TC12: Error Handling
-**Steps**:
-1. Select an engine with GPU device
-2. Remove model files
-3. Try to initialize engine
+#### TC12: エラーハンドリング
+**手順**:
+1. GPU デバイスでエンジンを選択する
+2. モデルファイルを削除する
+3. エンジンの初期化を試みる
 
-**Expected Result**:
-- Clear error message shown
-- App doesn't crash
-- Can recover by downloading model
+**期待される結果**:
+- 明確なエラーメッセージが表示される
+- アプリがクラッシュしないこと
+- モデルをダウンロードすることで回復できること
 
-#### TC13: Benchmark with Different Devices
-**Steps**:
-1. Load a test set
-2. Run benchmark with CPU device
-3. Note accuracy and performance
-4. Run benchmark with GPU device
-5. Compare results
+#### TC13: 異なるデバイスでのベンチマーク
+**手順**:
+1. テストセットを読み込む
+2. CPU デバイスでベンチマークを実行する
+3. 精度とパフォーマンスを記録する
+4. GPU デバイスでベンチマークを実行する
+5. 結果を比較する
 
-**Expected Result**:
-- Accuracy should be identical (±0.001)
-- GPU should be significantly faster
-- Both complete successfully
+**期待される結果**:
+- 精度は同一であること（±0.001）
+- GPU の方が大幅に高速であること
+- 両方とも正常に完了すること
 
-## Resource Management Tests
+## リソース管理テスト
 
-#### TC14: Multiple Engine Initialization
-**Steps**:
-1. Initialize TFLite engine
-2. Run performance check
-3. Go back and select ONNX engine
-4. Initialize and run performance check
-5. Repeat 3-4 times
+#### TC14: 複数エンジンの初期化
+**手順**:
+1. TFLite エンジンを初期化する
+2. パフォーマンスチェックを実行する
+3. 戻って ONNX エンジンを選択する
+4. 初期化してパフォーマンスチェックを実行する
+5. 手順3〜4を繰り返す
 
-**Expected Result**:
-- No memory leaks
-- Each initialization succeeds
-- No "resource already released" errors
+**期待される結果**:
+- メモリリークがないこと
+- 各初期化が成功すること
+- 「resource already released」エラーが発生しないこと
 
-#### TC15: Rapid Engine Switching
-**Steps**:
-1. Quickly switch between engines multiple times
-2. Initialize each engine
-3. Dispose and create new ones
+#### TC15: エンジンの高速切り替え
+**手順**:
+1. エンジンを複数回素早く切り替える
+2. 各エンジンを初期化する
+3. 破棄して新しいエンジンを作成する
 
-**Expected Result**:
-- No crashes
-- Proper resource cleanup
-- No OrtEnv singleton errors
+**期待される結果**:
+- クラッシュしないこと
+- リソースが適切にクリーンアップされること
+- OrtEnv シングルトンエラーが発生しないこと
 
-## Performance Benchmarks
+## パフォーマンスベンチマーク
 
-### Expected Performance Ranges
+### 期待されるパフォーマンス範囲
 
-#### Mobile Devices
-| Device | Model | CPU (ms) | GPU (ms) | Speedup |
-|--------|-------|----------|----------|---------|
+#### モバイルデバイス
+| デバイス | モデル | CPU (ms) | GPU (ms) | 高速化率 |
+|----------|--------|----------|----------|----------|
 | Pixel 6 | MobileNetV2 | ~50 | ~15 | 3.3x |
 | iPhone 13 | MobileNetV2 | ~40 | ~10 | 4.0x |
 | Galaxy S21 | MobileNetV2 | ~45 | ~12 | 3.7x |
 
-#### Desktop
-| Device | Model | CPU (ms) | XNNPACK (ms) | DirectML (ms) |
-|--------|-------|----------|--------------|---------------|
+#### デスクトップ
+| デバイス | モデル | CPU (ms) | XNNPACK (ms) | DirectML (ms) |
+|----------|--------|----------|--------------|---------------|
 | i7 + RTX 3060 | MobileNetV2 | ~30 | ~15 | ~5* |
 | Ryzen 5 + RX 580 | MobileNetV2 | ~35 | ~18 | ~7* |
 
-*Note: DirectML performance pending full implementation
+*注: DirectML のパフォーマンスは完全実装待ちです
 
-## Automated Testing
+## 自動テスト
 
-### Unit Tests (Future Implementation)
+### ユニットテスト（将来の実装予定）
 
 ```dart
-// Example test structure
+// テスト構造の例
 void main() {
   group('GpuCapabilityChecker', () {
     test('detects platform correctly', () {
@@ -262,44 +262,44 @@ void main() {
         modelPath: 'invalid',
         device: 'GPU',
       );
-      // Should not throw, should fallback
+      // スローせず、フォールバックすること
       await expectLater(engine.initialize(), completes);
     });
   });
 }
 ```
 
-## Reporting Issues
+## 問題の報告
 
-When reporting issues, please include:
+問題を報告する際は、以下の情報を含めてください：
 
-1. **Platform Info**
-   - OS version (Windows 11, Android 12, etc.)
-   - Device model
-   - GPU model
+1. **プラットフォーム情報**
+   - OS バージョン（Windows 11、Android 12 など）
+   - デバイスモデル
+   - GPU モデル
 
-2. **Console Logs**
-   - Full GPU capabilities log
-   - Any error messages
-   - Engine initialization logs
+2. **コンソールログ**
+   - 完全な GPU 機能ログ
+   - エラーメッセージ
+   - エンジン初期化ログ
 
-3. **Reproduction Steps**
-   - Exact steps to reproduce
-   - Selected engine and device
-   - Expected vs actual behavior
+3. **再現手順**
+   - 再現するための正確な手順
+   - 選択したエンジンとデバイス
+   - 期待される動作と実際の動作
 
-4. **Performance Data**
-   - Latency numbers from performance check
-   - Comparison with CPU baseline
-   - Screenshot of results
+4. **パフォーマンスデータ**
+   - パフォーマンスチェックのレイテンシ数値
+   - CPU ベースラインとの比較
+   - 結果のスクリーンショット
 
-## Success Criteria
+## 成功基準
 
-The implementation is considered successful when:
+以下の条件を満たした場合、実装は成功と見なされます：
 
-✅ All platforms detect available GPU capabilities correctly
-✅ Device selection UI shows only available devices
-✅ GPU initialization succeeds or falls back gracefully
-✅ Performance improvements are measurable on GPU
-✅ No resource leaks or crashes during normal use
-✅ Error messages are clear and actionable
+✅ すべてのプラットフォームで利用可能な GPU 機能が正しく検出されること
+✅ デバイス選択 UI に利用可能なデバイスのみが表示されること
+✅ GPU の初期化が成功するか、適切にフォールバックすること
+✅ GPU でのパフォーマンス向上が測定可能であること
+✅ 通常使用時にリソースリークやクラッシュが発生しないこと
+✅ エラーメッセージが明確で対処可能であること

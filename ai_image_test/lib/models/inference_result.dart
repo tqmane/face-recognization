@@ -7,7 +7,7 @@ class InferenceResult {
   final bool actualMatch;
   final bool predictedMatch;
   final double similarityScore;
-  final int inferenceTimeMs;
+  final double inferenceTimeMs;
 
   const InferenceResult({
     required this.questionId,
