@@ -18,6 +18,7 @@ class AppLocalizations {
     Locale('ja'), // 日本語
     Locale('en'), // 英語
     Locale('ko'), // 韓国語
+    Locale('zh'), // 中国語
     Locale('ru'), // ロシア語
   ];
 
@@ -487,6 +488,122 @@ class AppLocalizations {
       'networkError': 'Ошибка сети',
       'ok': 'ОК',
     },
+    'zh': {
+      // 应用名称
+      'appName': '判别测验',
+      
+      // 主页
+      'home': '首页',
+      'selectTestSet': '选择测试集',
+      'noTestSets': '没有可用的测试集',
+      'downloadTestSets': '请下载测试集',
+      'questionCount': '题目数',
+      'questions': '题',
+      'start': '开始',
+      
+      // 测试集
+      'testSets': '测试集',
+      'downloadTestSet': '下载测试集',
+      'downloading': '下载中...',
+      'downloaded': '已下载',
+      'download': '下载',
+      'delete': '删除',
+      'deleteConfirm': '确定要删除吗？',
+      'cancel': '取消',
+      
+      // 测验页面
+      'quiz': '测验',
+      'score': '得分',
+      'same': '相同',
+      'different': '不同',
+      'correct': '正确！',
+      'incorrect': '错误',
+      'imageA': '图片 A',
+      'imageB': '图片 B',
+      
+      // 中断
+      'quitQuiz': '退出测验',
+      'quitQuizMessage': '确定要退出吗？\n进度将不会被保存。',
+      'quit': '退出',
+      'continue_': '继续',
+      
+      // 结果页面
+      'result': '结果',
+      'excellent': '太棒了！',
+      'good': '做得好！',
+      'average': '还不错',
+      'tryAgain': '再试一次！',
+      'correctAnswers': '题正确',
+      'accuracy': '正确率',
+      'time': '时间',
+      'genre': '类别',
+      'questionResults': '各题结果',
+      'backToHome': '返回首页',
+      'correctAnswer': '正确答案',
+      'yourAnswer': '你的答案',
+      
+      // 历史记录
+      'history': '历史记录',
+      'noHistory': '没有历史记录',
+      'playQuizFirst': '请先进行测验',
+      'deleteHistory': '删除记录',
+      'deleteHistoryConfirm': '确定删除此记录吗？',
+      'deleteAllHistory': '删除全部记录',
+      'deleteAllHistoryConfirm': '确定删除全部记录吗？',
+      
+      // 设置页面
+      'settings': '设置',
+      'cloudSync': '云同步',
+      'signIn': '登录',
+      'signOut': '退出登录',
+      'signedInAs': '已登录',
+      'notSignedIn': '未登录',
+      'admin': '管理员面板',
+      
+      // 同步页面
+      'syncTitle': '云同步',
+      'syncDescription': '使用Google账号登录以同步历史记录',
+      'signInWithGoogle': '使用Google登录',
+      'syncNow': '立即同步',
+      'lastSync': '上次同步',
+      'never': '从未',
+      
+      // 管理员面板
+      'adminPanel': '管理员面板',
+      'users': '用户',
+      'totalPlays': '总游戏次数',
+      'totalQuestions': '总题目数',
+      'refresh': '刷新',
+      'noPermission': '无访问权限',
+      'notLoggedIn': '未登录',
+      'noData': '暂无数据',
+      'uidOverallAverage': 'UID总体平均',
+      'genreStats': '分类统计',
+      'responderStats': '回答者统计',
+      'recentPlays': '最近游戏',
+      'plays': '次数',
+      'avgPoints': '平均分',
+      'avgTime': '时间',
+      'allResponderAvg': '全部回答者平均',
+      'yourUid': '你的UID',
+      'copyUid': '复制',
+      'uidCopied': 'UID已复制',
+      'close': '关闭',
+      
+      // 回答者名称
+      'responderName': '你的名字',
+      'responderNameHint': '选填',
+      'selectFromHistory': '从历史记录选择',
+      'selectResponder': '选择回答者',
+      'back': '返回',
+      'unset': '(未设置)',
+      
+      // 错误
+      'error': '错误',
+      'loadError': '加载失败',
+      'networkError': '网络错误',
+      'ok': '确定',
+    },
   };
 
   String get(String key) {
@@ -595,7 +712,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) {
-    return ['ja', 'en', 'ko', 'ru'].contains(locale.languageCode);
+    return ['ja', 'en', 'ko', 'zh', 'ru'].contains(locale.languageCode);
   }
 
   @override

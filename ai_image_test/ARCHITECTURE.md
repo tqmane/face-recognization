@@ -1,13 +1,13 @@
-# GPU Inference Architecture
+# GPU 推論アーキテクチャ
 
-## Component Diagram
+## コンポーネント図
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         HomeScreen (UI)                          │
-│  • Engine Selection (Histogram, TFLite, ONNX, DirectML, Server) │
-│  • Device Selection (CPU, GPU, DirectML, NNAPI, CoreML, etc.)   │
-│  • Test Set Loading                                              │
+│  • エンジン選択 (Histogram, TFLite, ONNX, DirectML, Server)     │
+│  • デバイス選択 (CPU, GPU, DirectML, NNAPI, CoreML など)        │
+│  • テストセットの読み込み                                        │
 └─────────────────┬───────────────────────────────────────────────┘
                   │
                   ├──────────────────────────────────────────────┐
@@ -15,7 +15,7 @@
                   ▼                                              ▼
 ┌─────────────────────────────────┐      ┌────────────────────────────────┐
 │   GpuCapabilityChecker          │      │     ModelManager               │
-│  (Platform Detection)           │      │   (Model Download/Path)        │
+│  (プラットフォーム検出)         │      │   (モデルのダウンロード/パス)  │
 │                                 │      │                                │
 │  • detectPlatform()             │      │  • getModelPath()              │
 │  • availableTfliteDevices       │      │  • downloadModel()             │
@@ -27,7 +27,7 @@
                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      InferenceEngine                             │
-│                    (Abstract Interface)                          │
+│                    (抽象インターフェース)                        │
 │                                                                  │
 │  • initialize()                                                  │
 │  • compareImages(path1, path2) -> double                        │
@@ -45,75 +45,75 @@
                   ▼              ▼                 ▼
          ┌──────────────┐ ┌─────────────┐ ┌──────────────┐
          │GPU Delegate  │ │NNAPI/CoreML │ │DirectML FFI  │
-         │   (Mobile)   │ │  Provider   │ │   Bindings   │
+         │ (モバイル)   │ │  Provider   │ │  バインディング│
          └──────────────┘ └─────────────┘ └──────────────┘
 ```
 
-## Data Flow
+## データフロー
 
-### Engine Initialization Flow
+### エンジン初期化フロー
 
 ```
-User Selects Engine & Device
+ユーザーがエンジンとデバイスを選択
          │
          ▼
   GpuCapabilityChecker
-  checks availability
+  利用可能性を確認
          │
          ▼
-  Engine Constructor
+  エンジンコンストラクタ
   (modelPath, device)
          │
          ▼
    engine.initialize()
          │
-         ├──> Try GPU/Accelerator
+         ├──> GPU/アクセラレータを試行
          │    │
-         │    ├──> Success ─────┐
+         │    ├──> 成功 ────────┐
          │    │                 │
-         │    └──> Fail ────────┤
+         │    └──> 失敗 ────────┤
          │                      │
-         └──> Fallback to CPU ──┘
+         └──> CPU にフォールバック┘
                       │
                       ▼
-            Track actualDevice
+            actualDevice を記録
                       │
                       ▼
-        Display "Model (Engine-Device)"
+        "Model (Engine-Device)" を表示
 ```
 
-### Inference Flow
+### 推論フロー
 
 ```
-User Runs Benchmark
+ユーザーがベンチマークを実行
          │
          ▼
-  Load Test Pairs
+  テストペアを読み込み
          │
          ▼
-For Each Image Pair:
+各画像ペアについて:
          │
-         ├──> Load Image 1 ──> Preprocess ──> Embed ──┐
-         │                                            │
-         └──> Load Image 2 ──> Preprocess ──> Embed ──┤
-                                                      │
-                                                      ▼
-                                              Cosine Similarity
-                                                      │
-                                                      ▼
-                                            Compare to Threshold
-                                                      │
-                                                      ▼
-                                            Record Result (TP/TN/FP/FN)
-                                                      │
-                                                      ▼
-                                              Aggregate Stats
-                                                      │
-                                                      ▼
-                                        Export to JSON/CSV
+         ├──> 画像1を読み込み ──> 前処理 ──> 埋め込み ──┐
+         │                                              │
+         └──> 画像2を読み込み ──> 前処理 ──> 埋め込み ──┤
+                                                        │
+                                                        ▼
+                                                コサイン類似度
+                                                        │
+                                                        ▼
+                                              閾値との比較
+                                                        │
+                                                        ▼
+                                              結果を記録 (TP/TN/FP/FN)
+                                                        │
+                                                        ▼
+                                                統計を集計
+                                                        │
+                                                        ▼
+                                          JSON/CSV にエクスポート
 ```
 
-## Platform-Specific Implementations
+## プラットフォーム固有の実装
 
 ### Windows
 ```
@@ -121,15 +121,15 @@ OnnxDirectMLEngine
        │
        ├──> OnnxDirectMLFFI.initialize()
        │    │
-       │    ├──> Try load DirectML DLL
+       │    ├──> DirectML DLL の読み込みを試行
        │    │    │
-       │    │    ├──> Found ──> Use DirectML provider
+       │    │    ├──> 見つかった ──> DirectML プロバイダーを使用
        │    │    │
-       │    │    └──> Not Found ──> Log warning
+       │    │    └──> 見つからない ──> 警告をログ出力
        │    │
-       │    └──> Fallback to XNNPACK
+       │    └──> XNNPACK にフォールバック
        │
-       ├──> Create OrtSession with provider
+       ├──> プロバイダー付きで OrtSession を作成
        │
        └──> actualDevice = "DirectML" | "XNNPACK" | "CPU"
 ```
@@ -138,65 +138,65 @@ OnnxDirectMLEngine
 ```
 TfliteEngine (device="GPU")
        │
-       ├──> Create GpuDelegateV2
+       ├──> GpuDelegateV2 を作成
        │    │
-       │    ├──> Success ──> Add to InterpreterOptions
+       │    ├──> 成功 ──> InterpreterOptions に追加
        │    │
-       │    └──> Fail ──> Log error, remove delegate
+       │    └──> 失敗 ──> エラーをログ出力、デリゲートを削除
        │
-       ├──> Create Interpreter with options
+       ├──> オプション付きで Interpreter を作成
        │    │
-       │    ├──> Success ──> actualDevice = "GPU"
+       │    ├──> 成功 ──> actualDevice = "GPU"
        │    │
-       │    └──> Fail ──> Retry without delegate, actualDevice = "CPU"
+       │    └──> 失敗 ──> デリゲートなしで再試行、actualDevice = "CPU"
        │
-       └──> Return initialized engine
+       └──> 初期化済みエンジンを返す
 
 OnnxEngine (device="NNAPI")
        │
-       ├──> Create OrtSessionOptions
+       ├──> OrtSessionOptions を作成
        │
        ├──> appendNnapiProvider()
        │    │
-       │    ├──> Success ──> actualDevice = "NNAPI"
+       │    ├──> 成功 ──> actualDevice = "NNAPI"
        │    │
-       │    └──> Fail ──> appendCPUProvider(), actualDevice = "CPU"
+       │    └──> 失敗 ──> appendCPUProvider(), actualDevice = "CPU"
        │
-       └──> Create OrtSession with options
+       └──> オプション付きで OrtSession を作成
 ```
 
 ### iOS/macOS
 ```
 TfliteEngine (device="GPU")
        │
-       ├──> Create GpuDelegate (Metal)
+       ├──> GpuDelegate (Metal) を作成
        │    │
-       │    └──> Add to InterpreterOptions
+       │    └──> InterpreterOptions に追加
        │
        └──> actualDevice = "GPU" | "CPU"
 
 OnnxEngine (device="CoreML")
        │
-       ├──> Create OrtSessionOptions
+       ├──> OrtSessionOptions を作成
        │
        ├──> appendCoreMLProvider()
        │    │
-       │    └──> Use Apple Neural Engine/GPU
+       │    └──> Apple Neural Engine/GPU を使用
        │
        └──> actualDevice = "CoreML" | "CPU"
 ```
 
-## Resource Management
+## リソース管理
 
-### Singleton Pattern (OrtEnv)
+### シングルトンパターン (OrtEnv)
 ```
 ┌─────────────────────────────────┐
 │         OrtEnv.instance         │
-│      (Singleton, App-wide)      │
+│    (シングルトン、アプリ全体)   │
 │                                 │
-│  • init() - Called once         │
-│  • release() - Never called by  │
-│              individual engines │
+│  • init() - 一度だけ呼び出し   │
+│  • release() - 個別のエンジン   │
+│         からは呼び出さない      │
 └────┬───────────────────┬────────┘
      │                   │
      ▼                   ▼
@@ -213,120 +213,120 @@ OnnxEngine (device="CoreML")
 └──────────┘      └──────────┘
 ```
 
-### Per-Engine Resources
+### エンジンごとのリソース
 ```
 TfliteEngine
        │
        ├──> _interp (Interpreter)
-       │    └──> close() on dispose
+       │    └──> dispose 時に close()
        │
-       └──> _gpuDelegate (if used)
-            └──> delete() on dispose
+       └──> _gpuDelegate (使用時)
+            └──> dispose 時に delete()
 
 OnnxEngine / DirectMLEngine
        │
        ├──> _session (OrtSession)
-       │    └──> release() on dispose
+       │    └──> dispose 時に release()
        │
        ├──> _opts (OrtSessionOptions)
-       │    └──> release() on dispose
+       │    └──> dispose 時に release()
        │
        └──> OrtEnv.instance
-            └──> NOT released (singleton)
+            └──> 解放しない (シングルトン)
 ```
 
-## Error Handling
+## エラーハンドリング
 
-### GPU Initialization Errors
+### GPU 初期化エラー
 ```
-Try Initialize GPU
+GPU の初期化を試行
        │
-       ├──> Success
-       │    └──> actualDevice = requested device
+       ├──> 成功
+       │    └──> actualDevice = 要求されたデバイス
        │
-       └──> Fail
+       └──> 失敗
             │
-            ├──> Log error with details
+            ├──> 詳細付きでエラーをログ出力
             │
-            ├──> Fallback to CPU
+            ├──> CPU にフォールバック
             │    └──> actualDevice = "CPU"
             │
-            └──> Continue execution (no crash)
+            └──> 実行を継続 (クラッシュなし)
 ```
 
-### Model Loading Errors
+### モデル読み込みエラー
 ```
-Load Model
+モデルを読み込み
        │
-       ├──> File exists
-       │    └──> Load bytes
+       ├──> ファイルが存在する
+       │    └──> バイトを読み込み
        │
-       └──> File missing
+       └──> ファイルが見つからない
             │
-            └──> Throw exception with message:
+            └──> 例外をスローしメッセージを表示:
                  "モデルがダウンロードされていません"
-                 User shown error in UI
-                 Can navigate to Model Management screen
+                 UI にエラーを表示
+                 モデル管理画面に遷移可能
 ```
 
-## Performance Monitoring
+## パフォーマンス監視
 
 ```
 runSyntheticBenchmark(runs=100)
        │
-       ├──> Warmup (30 iterations)
-       │    └──> Discard results
+       ├──> ウォームアップ (30 回)
+       │    └──> 結果を破棄
        │
-       ├──> Benchmark runs
+       ├──> ベンチマーク実行
        │    │
-       │    └──> For each run:
-       │         ├──> Start timer
-       │         ├──> Run inference
-       │         ├──> Stop timer
-       │         └──> Record latency
+       │    └──> 各実行ごとに:
+       │         ├──> タイマー開始
+       │         ├──> 推論を実行
+       │         ├──> タイマー停止
+       │         └──> レイテンシを記録
        │
-       ├──> Sort latencies
+       ├──> レイテンシをソート
        │
-       └──> Calculate stats:
-            ├──> Mean
-            ├──> P50 (median)
+       └──> 統計を算出:
+            ├──> 平均
+            ├──> P50 (中央値)
             ├──> P90
-            ├──> Min
-            ├──> Max
+            ├──> 最小
+            ├──> 最大
             └──> FPS = 1000 / mean_ms
 ```
 
-## UI State Management
+## UI ステート管理
 
 ```
 HomeScreen State
        │
        ├──> _selectedEngine: String
-       │    └──> Controls which engine to create
+       │    └──> 作成するエンジンを制御
        │
        ├──> _selectedDevice: String
-       │    └──> Passed to engine constructor
+       │    └──> エンジンコンストラクタに渡される
        │
        ├──> _updateAvailableDevice()
        │    │
-       │    └──> When engine changes:
-       │         ├──> Get available devices for engine
-       │         └──> Update _selectedDevice if invalid
+       │    └──> エンジン変更時:
+       │         ├──> エンジンの利用可能デバイスを取得
+       │         └──> 無効な場合 _selectedDevice を更新
        │
        └──> _createEngine()
             │
-            └──> Switch on _selectedEngine:
+            └──> _selectedEngine で分岐:
                  ├──> "tflite" ──> TfliteEngine(device: _selectedDevice)
                  ├──> "onnx" ──> OnnxEngine(device: _selectedDevice)
                  ├──> "onnx_directml" ──> DirectMLEngine(device: _selectedDevice)
-                 └──> etc.
+                 └──> その他
 ```
 
-## Key Design Decisions
+## 主要な設計判断
 
-1. **Singleton OrtEnv**: Prevents crashes from multiple init/release calls
-2. **Fallback Pattern**: Ensures app always works, even without GPU
-3. **Actual Device Tracking**: Shows user what's really being used, not what was requested
-4. **Platform Abstraction**: GpuCapabilityChecker centralizes platform detection
-5. **Minimal Changes**: Enhanced existing engines rather than complete rewrite
-6. **Error Resilience**: Try-catch with fallback at every GPU initialization point
+1. **シングルトン OrtEnv**: 複数回の init/release 呼び出しによるクラッシュを防止
+2. **フォールバックパターン**: GPU がなくてもアプリが常に動作することを保証
+3. **実際のデバイス追跡**: 要求されたものではなく、実際に使用されているデバイスをユーザーに表示
+4. **プラットフォーム抽象化**: GpuCapabilityChecker がプラットフォーム検出を一元化
+5. **最小限の変更**: 完全な書き直しではなく、既存エンジンの拡張
+6. **エラー耐性**: すべての GPU 初期化ポイントで try-catch とフォールバックを実施
