@@ -81,7 +81,7 @@ class TestSetLoader {
 
     final genre = manifest?['genre'] as String? ?? p.basename(dirPath);
     final types = typeDirs.keys.toList();
-    final rng = Random(42); // deterministic for reproducibility
+    final rng = Random(); // use non-deterministic seed for randomness each run
     final pairs = <TestImagePair>[];
     int id = 1;
 

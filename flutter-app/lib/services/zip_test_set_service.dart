@@ -163,7 +163,7 @@ class ZipTestSetService {
       id: 'dogs',
       displayName: '犬種',
       description: '柴犬・秋田犬・ハスキーなど似ている犬種',
-      zipUrl: '$_baseUrl/dogs.zip',
+      zipUrl: '$_baseUrl/dogs_.zip',
     ),
     ZipTestSetInfo(
       id: 'small_cats',
@@ -171,54 +171,55 @@ class ZipTestSetService {
       description: 'ペルシャ・スコフォ・メインクーンなど',
       zipUrl: '$_baseUrl/small_cats.zip',
     ),
-    ZipTestSetInfo(
-      id: 'wild_dogs',
-      displayName: '犬と野生動物',
-      description: 'オオカミ・キツネ・コヨーテなど',
-      zipUrl: '$_baseUrl/wild_dogs.zip',
-    ),
-    ZipTestSetInfo(
-      id: 'raccoons',
-      displayName: 'アライグマ系',
-      description: 'アライグマ・タヌキ・レッサーパンダなど',
-      zipUrl: '$_baseUrl/raccoons.zip',
-    ),
+    // 以下のテストセットはsets_pics/にまだ画像が準備されていないためコメントアウト
+    // ZipTestSetInfo(
+    //   id: 'wild_dogs',
+    //   displayName: '犬と野生動物',
+    //   description: 'オオカミ・キツネ・コヨーテなど',
+    //   zipUrl: '$_baseUrl/wild_dogs.zip',
+    // ),
+    // ZipTestSetInfo(
+    //   id: 'raccoons',
+    //   displayName: 'アライグマ系',
+    //   description: 'アライグマ・タヌキ・レッサーパンダなど',
+    //   zipUrl: '$_baseUrl/raccoons.zip',
+    // ),
     ZipTestSetInfo(
       id: 'birds',
       displayName: '鳥類',
       description: 'カラス・ワタリガラス・鷹・鷲など',
       zipUrl: '$_baseUrl/birds.zip',
     ),
-    ZipTestSetInfo(
-      id: 'marine',
-      displayName: '海洋動物',
-      description: 'アシカ・アザラシ・イルカ・シャチなど',
-      zipUrl: '$_baseUrl/marine.zip',
-    ),
-    ZipTestSetInfo(
-      id: 'reptiles',
-      displayName: '爬虫類',
-      description: 'ワニ・クロコダイル・イグアナなど',
-      zipUrl: '$_baseUrl/reptiles.zip',
-    ),
+    // ZipTestSetInfo(
+    //   id: 'marine',
+    //   displayName: '海洋動物',
+    //   description: 'アシカ・アザラシ・イルカ・シャチなど',
+    //   zipUrl: '$_baseUrl/marine.zip',
+    // ),
+    // ZipTestSetInfo(
+    //   id: 'reptiles',
+    //   displayName: '爬虫類',
+    //   description: 'ワニ・クロコダイル・イグアナなど',
+    //   zipUrl: '$_baseUrl/reptiles.zip',
+    // ),
     ZipTestSetInfo(
       id: 'bears',
       displayName: 'クマ科',
       description: 'ヒグマ・ホッキョクグマ・パンダなど',
       zipUrl: '$_baseUrl/bears.zip',
     ),
-    ZipTestSetInfo(
-      id: 'primates',
-      displayName: '霊長類',
-      description: 'チンパンジー・ゴリラ・オランウータンなど',
-      zipUrl: '$_baseUrl/primates.zip',
-    ),
-    ZipTestSetInfo(
-      id: 'insects',
-      displayName: '昆虫',
-      description: 'ミツバチ・スズメバチ・蝶・蛾など',
-      zipUrl: '$_baseUrl/insects.zip',
-    ),
+    // ZipTestSetInfo(
+    //   id: 'primates',
+    //   displayName: '霊長類',
+    //   description: 'チンパンジー・ゴリラ・オランウータンなど',
+    //   zipUrl: '$_baseUrl/primates.zip',
+    // ),
+    // ZipTestSetInfo(
+    //   id: 'insects',
+    //   displayName: '昆虫',
+    //   description: 'ミツバチ・スズメバチ・蝶・蛾など',
+    //   zipUrl: '$_baseUrl/insects.zip',
+    // ),
   ];
   
   final Random _random = Random();
