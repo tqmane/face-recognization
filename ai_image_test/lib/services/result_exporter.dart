@@ -117,7 +117,7 @@ class ResultExporter {
         r.predictedMatch,
         r.similarityScore.toStringAsFixed(6),
         r.isCorrect,
-        r.inferenceTimeMs,
+        r.inferenceTimeMs.toStringAsFixed(2),
       ]);
     }
 

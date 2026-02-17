@@ -66,6 +66,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           pair.imagePath2,
         );
         sw.stop();
+        final elapsedMs = sw.elapsedMicroseconds / 1000.0;
 
         final predicted = similarity >= widget.threshold;
         _results.add(InferenceResult(
@@ -76,7 +77,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           actualMatch: pair.isSame,
           predictedMatch: predicted,
           similarityScore: similarity,
-          inferenceTimeMs: sw.elapsedMilliseconds,
+          inferenceTimeMs: elapsedMs,
         ));
       } catch (e) {
         _results.add(InferenceResult(
@@ -87,7 +88,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           actualMatch: pair.isSame,
           predictedMatch: false,
           similarityScore: -1.0,
-          inferenceTimeMs: -1,
+          inferenceTimeMs: 0,
         ));
       }
 
@@ -263,7 +264,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
                 title: Text('Q${r.questionId} – ${r.genre}'),
                 subtitle: Text(
                   '類似度 ${r.similarityScore.toStringAsFixed(3)} '
-                  '(${r.inferenceTimeMs}ms) '
+                  '(${r.inferenceTimeMs.toStringAsFixed(1)}ms) '
                   '実際: ${r.actualMatch ? "同種" : "異種"} → '
                   '予測: ${r.predictedMatch ? "同種" : "異種"}',
                 ),
