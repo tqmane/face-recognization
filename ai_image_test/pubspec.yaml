@@ -35,6 +35,12 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   tflite_flutter: ^0.12.1
+  # NOTE: Windows DirectML (GPU) support requires the DirectML-enabled ONNX
+  # Runtime DLL.  The standard `onnxruntime` package bundles onnxruntime.dll
+  # WITHOUT DirectML.  To enable GPU acceleration on Windows, place
+  # `onnxruntime-directml.dll` (from the Microsoft.ML.OnnxRuntime.DirectML
+  # NuGet package) next to the app executable.  A future `onnxruntime_directml`
+  # pub.dev package may provide a drop-in replacement when available.
   onnxruntime: ^1.4.1
   image: ^4.7.2
   file_picker: ^10.3.10

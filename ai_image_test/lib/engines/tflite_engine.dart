@@ -119,12 +119,17 @@ class TfliteEngine implements InferenceEngine {
         }
         return _runInferenceQuantized(data);
       } else {
-        // float32 モデル: 0.0-1.0 正規化入力
+        // float32 モデル: (pixel - 127.5) / 127.5 正規化入力 → [-1.0, 1.0]
+        // MobileFaceNet等の顔認証モデルの標準的な前処理
         final data = <double>[];
         for (int y = 0; y < inputSize; y++) {
           for (int x = 0; x < inputSize; x++) {
             final px = resized.getPixel(x, y);
-            data.addAll([px.r / 255.0, px.g / 255.0, px.b / 255.0]);
+            data.addAll([
+              (px.r - 127.5) / 127.5,
+              (px.g - 127.5) / 127.5,
+              (px.b - 127.5) / 127.5,
+            ]);
           }
         }
         return _runInference(data);
