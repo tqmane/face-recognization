@@ -136,12 +136,14 @@ class OnnxEngine implements InferenceEngine {
       if (image == null) return null;
       final resized = img.copyResize(image, width: inputSize, height: inputSize);
       final data = <double>[];
-      // NCHW format
+      // NCHW format: (pixel - 127.5) / 127.5 正規化 → [-1.0, 1.0]
+      // MobileFaceNet等の顔認証モデルの標準的な前処理
       for (int c = 0; c < 3; c++) {
         for (int y = 0; y < inputSize; y++) {
           for (int x = 0; x < inputSize; x++) {
             final px = resized.getPixel(x, y);
-            data.add((c == 0 ? px.r : c == 1 ? px.g : px.b) / 255.0);
+            final raw = c == 0 ? px.r : c == 1 ? px.g : px.b;
+            data.add((raw - 127.5) / 127.5);
           }
         }
       }
