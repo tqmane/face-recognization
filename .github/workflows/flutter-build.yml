@@ -291,6 +291,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Firebase設定ファイルをSecretsから復元
+      env:
+        GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+      run: |
+        echo "$GOOGLE_SERVICE_INFO_PLIST" > flutter-app/ios/Runner/GoogleService-Info.plist
+        echo "$FIREBASE_OPTIONS_DART" > flutter-app/lib/firebase_options.dart
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -385,6 +393,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Firebase設定ファイルをSecretsから復元
+      env:
+        GOOGLE_SERVICES_JSON_FLUTTER: ${{ secrets.GOOGLE_SERVICES_JSON_FLUTTER }}
+        FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+      run: |
+        echo "$GOOGLE_SERVICES_JSON_FLUTTER" > flutter-app/android/app/google-services.json
+        echo "$FIREBASE_OPTIONS_DART" > flutter-app/lib/firebase_options.dart
 
     - name: Setup Java
       uses: actions/setup-java@v4
