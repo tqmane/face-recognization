@@ -60,22 +60,46 @@ class OnnxDirectMLEngine implements InferenceEngine {
 
     bool gpuInitialized = false;
 
-    // Try to initialize DirectML on Windows
+    // Try to initialize DirectML on Windows.
+    //
+    // NOTE: The high-level `onnxruntime` Dart package (v1.4.x) does NOT
+    // expose an `appendExecutionProvider_DML` method on OrtSessionOptions.
+    // True DirectML GPU acceleration therefore requires:
+    //   1. `onnxruntime-directml.dll` (from Microsoft.ML.OnnxRuntime.DirectML)
+    //      placed next to the app executable, AND
+    //   2. Calling OrtSessionOptions_AppendExecutionProvider_DML via the raw
+    //      C API (see OnnxRuntimeDirectML in onnx_directml_ffi.dart).
+    //
+    // Because the Dart package manages the OrtSessionOptions* pointer
+    // internally and does not expose it, we cannot inject the DirectML
+    // provider into the high-level session options object at this time.
+    // Instead, XNNPACK is used as the best CPU-accelerated fallback.
+    // Replace the lines below with a proper DirectML injection once the
+    // package exposes the raw options pointer or a dedicated pub package
+    // (e.g. `onnxruntime_directml`) becomes available.
     if (device == 'DirectML' && Platform.isWindows) {
       try {
         _directML = OnnxRuntimeDirectML();
         if (_directML!.initialize()) {
-          // Note: The current onnxruntime Dart package doesn't expose DirectML provider
-          // We'll attempt to use it through the standard provider mechanism
-          // For now, log that DirectML is requested but we'll use CPU/XNNPACK
-          debugPrint('DirectML requested but not directly supported by onnxruntime package');
-          debugPrint('Using XNNPACK as alternative GPU-optimized backend');
+          if (_directML!.isDirectMLFunctionAvailable) {
+            // DirectML DLL is present and the provider function is resolved.
+            // Ideally we would call:
+            //   _directML!.appendExecutionProviderDML(optionsPtr, 0)
+            // but the OrtSessionOptions* pointer is not accessible from
+            // the Dart package's public API.
+            // Falling back to XNNPACK as the next-best option.
+            debugPrint('OnnxDirectMLEngine: DirectML DLL found but cannot inject '
+                'provider via Dart package API; using XNNPACK');
+          } else {
+            debugPrint('OnnxDirectMLEngine: onnxruntime-directml.dll not found; '
+                'using XNNPACK (install DirectML DLL for GPU acceleration)');
+          }
           _opts!.appendXnnpackProvider();
           _actualDevice = 'XNNPACK';
           gpuInitialized = true;
         }
       } catch (e) {
-        debugPrint('DirectML initialization failed: $e');
+        debugPrint('OnnxDirectMLEngine: DirectML initialization failed: $e');
       }
     }
 
@@ -149,12 +173,14 @@ class OnnxDirectMLEngine implements InferenceEngine {
       if (image == null) return null;
       final resized = img.copyResize(image, width: inputSize, height: inputSize);
       final data = <double>[];
-      // NCHW format
+      // NCHW format: (pixel - 127.5) / 127.5 正規化 → [-1.0, 1.0]
+      // MobileFaceNet等の顔認証モデルの標準的な前処理
       for (int c = 0; c < 3; c++) {
         for (int y = 0; y < inputSize; y++) {
           for (int x = 0; x < inputSize; x++) {
             final px = resized.getPixel(x, y);
-            data.add((c == 0 ? px.r : c == 1 ? px.g : px.b) / 255.0);
+            final raw = c == 0 ? px.r : c == 1 ? px.g : px.b;
+            data.add((raw - 127.5) / 127.5);
           }
         }
       }
